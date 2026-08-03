@@ -147,6 +147,12 @@ impl Scanner {
             ')' => self.add_token(TT::RIGHT_PAREN),
             '{' => self.add_token(TT::LEFT_BRACE),
             '}' => self.add_token(TT::RIGHT_BRACE),
+            ',' => self.add_token(TT::COMMA),
+            '.' => self.add_token(TT::DOT),
+            '-' => self.add_token(TT::MINUS),
+            '+' => self.add_token(TT::PLUS),
+            ';' => self.add_token(TT::SEMICOLON),
+            '*' => self.add_token(TT::STAR),
             _ => todo!("Unknown token"),
         }
     }
