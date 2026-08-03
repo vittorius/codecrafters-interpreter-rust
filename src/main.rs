@@ -2,6 +2,10 @@
 use std::env;
 use std::fs;
 
+use crate::scanner::Scanner;
+
+mod scanner;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -22,16 +26,11 @@ fn main() {
                 String::new()
             });
 
-            if !file_contents.is_empty() {
-                for ch in file_contents.chars() {
-                    match ch {
-                        '(' => println!("LEFT_PAREN ( null"),
-                        ')' => println!("RIGHT_PAREN ) null"),
-                        _ => unreachable!(),
-                    }
-                }
+            let mut scanner = Scanner::new(file_contents);
+
+            for token in scanner.scan_tokens() {
+                println!("{token}");
             }
-            println!("EOF  null");
         }
         _ => {
             eprintln!("Unknown command: {}", command);
