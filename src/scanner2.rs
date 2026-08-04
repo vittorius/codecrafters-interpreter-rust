@@ -164,8 +164,7 @@ impl<'a> Scanner<'a> {
             '\n' => self.line += 1,
             '"' => self.add_string(),
             _ => {
-                lox::error(self.line, &format!("Unexpected character: {c}"));
-                self.has_error = true;
+                self.error(&format!("Unexpected character: {c}"));
             }
         }
     }
@@ -178,6 +177,10 @@ impl<'a> Scanner<'a> {
             .expect("Character iterator must not be at the source end");
         self.lexeme_cur.push(c);
         c
+    }
+
+    fn peek(&mut self) -> Option<&char> {
+        self.chars.peek()
     }
 
     fn add_token(&mut self, token_type: TokenType) {
@@ -195,10 +198,11 @@ impl<'a> Scanner<'a> {
 
     /// IMPORTANT: accumulates the self.lexeme_cur
     fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
-        if let Some(ch_next) = self.chars.peek()
+        if let Some(ch_next) = self.peek()
             && *ch_next == expected
         {
-            self.lexeme_cur.push(*ch_next); // the 1st char of the lexeme was pushed to the buffer in `advance`
+            let ch_clone = *ch_next;
+            self.lexeme_cur.push(ch_clone); // the 1st char of the lexeme was pushed to the buffer in `advance`
             self.chars.next();
             self.add_token(left);
         } else {
@@ -207,10 +211,10 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_comment_or_slash(&mut self) {
-        if let Some(ch_next) = self.chars.peek()
+        if let Some(ch_next) = self.peek()
             && *ch_next == '/'
         {
-            while let Some(ch) = self.chars.peek()
+            while let Some(ch) = self.peek()
                 && *ch != '\n'
             {
                 self.advance();
@@ -221,7 +225,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_string(&mut self) {
-        while let Some(ch) = self.chars.peek()
+        while let Some(ch) = self.peek()
             && *ch != '"'
         {
             if *ch == '\n' {
@@ -230,8 +234,8 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        if self.chars.peek().is_none() {
-            lox::error(self.line, "Unterminated string.");
+        if self.peek().is_none() {
+            self.error("Unterminated string.");
             return;
         }
 
@@ -244,8 +248,13 @@ impl<'a> Scanner<'a> {
             )),
         );
     }
-    
+
     fn is_at_end(&mut self) -> bool {
-        self.chars.peek().is_none()
+        self.peek().is_none()
+    }
+
+    fn error(&mut self, message: &str) {
+        lox::error(self.line, message);
+        self.has_error = true;
     }
 }
