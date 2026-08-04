@@ -151,7 +151,7 @@ impl<'a> Scanner<'a> {
         Self {
             chars: source.chars().peekable(),
             tokens: vec![],
-            lexeme_cur: String::with_capacity(2),
+            lexeme_cur: String::new(),
             line: 1,
             has_error: false,
         }
