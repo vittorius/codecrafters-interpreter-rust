@@ -6,6 +6,7 @@ use std::process::ExitCode;
 use crate::scanner::Scanner;
 
 mod scanner;
+mod lox;
 
 #[repr(u8)]
 enum ExitValue {

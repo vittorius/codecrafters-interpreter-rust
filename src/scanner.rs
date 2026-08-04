@@ -1,6 +1,9 @@
 use std::fmt::Display;
 
-use crate::scanner::Literal::{Ident, Num, Str};
+use crate::{
+    lox,
+    scanner::Literal::{Ident, Num, Str},
+};
 
 #[allow(non_camel_case_types)]
 #[derive(Debug)]
@@ -157,8 +160,12 @@ impl Scanner {
             '+' => self.add_token(TT::PLUS),
             ';' => self.add_token(TT::SEMICOLON),
             '*' => self.add_token(TT::STAR),
+            '!' => self.add_token_if('=', TT::BANG_EQUAL, TT::BANG),
+            '=' => self.add_token_if('=', TT::EQUAL_EQUAL, TT::EQUAL),
+            '<' => self.add_token_if('=', TT::LESS_EQUAL, TT::LESS),
+            '>' => self.add_token_if('=', TT::GREATER_EQUAL, TT::GREATER),
             _ => {
-                eprintln!("[line {}] Error: Unexpected character: {c}", self.line);
+                lox::error(self.line, &format!("Unexpected character: {c}"));
                 self.has_error = true;
             }
         }
@@ -171,6 +178,21 @@ impl Scanner {
             .expect("Character cursor must not be at the source end");
         self.current += c.len_utf8();
         c
+    }
+
+    fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
+        if self.is_at_end()
+            || self.source[self.current..]
+                .chars()
+                .nth(0)
+                .expect("Char must not be beyond the end of the source")
+                != expected
+        {
+            self.add_token(right);
+        } else {
+            self.current += expected.len_utf8();
+            self.add_token(left);
+        }
     }
 
     fn add_token(&mut self, token_type: TokenType) {
