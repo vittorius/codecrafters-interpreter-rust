@@ -3,12 +3,10 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-// use crate::scanner::Scanner;
-use crate::scanner2::Scanner;
+use crate::scanner::Scanner;
 
-// mod scanner;
 mod lox;
-mod scanner2;
+mod scanner;
 
 #[repr(u8)]
 enum ExitValue {
