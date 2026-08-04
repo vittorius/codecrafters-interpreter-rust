@@ -159,6 +159,7 @@ impl<'a> Scanner<'a> {
             '=' => self.add_token_if('=', TT::EQUAL_EQUAL, TT::EQUAL),
             '<' => self.add_token_if('=', TT::LESS_EQUAL, TT::LESS),
             '>' => self.add_token_if('=', TT::GREATER_EQUAL, TT::GREATER),
+            '/' => self.add_comment_or_slash(),
             _ => {
                 lox::error(self.line, &format!("Unexpected character: {c}"));
                 self.has_error = true;
@@ -175,6 +176,19 @@ impl<'a> Scanner<'a> {
         c
     }
 
+    fn add_token(&mut self, token_type: TokenType) {
+        self.add_token_with_literal(token_type, None);
+    }
+
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal>) {
+        self.tokens.push(Token::new(
+            token_type,
+            self.lexeme_cur.clone(),
+            literal,
+            self.line,
+        ));
+    }
+
     fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
         if let Some(ch_next) = self.chars.peek()
             && *ch_next == expected
@@ -187,17 +201,18 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn add_token(&mut self, token_type: TokenType) {
-        self.add_token_with_literal(token_type, None);
-    }
-
-    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal>) {
-        self.tokens.push(Token::new(
-            token_type,
-            self.lexeme_cur.clone(),
-            literal,
-            self.line,
-        ));
+    fn add_comment_or_slash(&mut self) {
+        if let Some(ch_next) = self.chars.peek()
+            && *ch_next == '/'
+        {
+            while let Some(ch) = self.chars.peek()
+                && *ch != '\n'
+            {
+                self.advance();
+            }
+        } else {
+            self.add_token(TokenType::SLASH);
+        }
     }
 
     fn is_at_end(&mut self) -> bool {
