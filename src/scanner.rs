@@ -112,6 +112,7 @@ pub struct Scanner {
     start: usize,   // in bytes
     current: usize, // in bytes
     line: usize,
+    pub has_error: bool,
 }
 
 impl Scanner {
@@ -122,10 +123,11 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            has_error: false,
         }
     }
 
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(&mut self) {
         while !self.is_at_end() {
             self.start = self.current;
 
@@ -134,7 +136,9 @@ impl Scanner {
 
         self.tokens
             .push(Token::new(TokenType::EOF, "".to_owned(), None, self.line));
+    }
 
+    pub fn tokens(&self) -> &Vec<Token> {
         &self.tokens
     }
 
@@ -153,7 +157,10 @@ impl Scanner {
             '+' => self.add_token(TT::PLUS),
             ';' => self.add_token(TT::SEMICOLON),
             '*' => self.add_token(TT::STAR),
-            _ => todo!("Unknown token"),
+            _ => {
+                eprintln!("[line {}] Error: Unexpected character: {c}", self.line);
+                self.has_error = true;
+            }
         }
     }
 
