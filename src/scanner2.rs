@@ -221,19 +221,18 @@ impl<'a> Scanner<'a> {
     }
 
     fn add_string(&mut self) {
-        // let mut buf = String::new();
         while let Some(ch) = self.chars.peek()
             && *ch != '"'
         {
             if *ch == '\n' {
                 self.line += 1;
             }
-            // buf.push(*ch);
             self.advance();
         }
 
         if self.chars.peek().is_none() {
             lox::error(self.line, "Unterminated string.");
+            return;
         }
 
         self.advance(); // the closing "
