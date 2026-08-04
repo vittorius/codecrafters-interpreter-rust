@@ -160,6 +160,8 @@ impl<'a> Scanner<'a> {
             '<' => self.add_token_if('=', TT::LESS_EQUAL, TT::LESS),
             '>' => self.add_token_if('=', TT::GREATER_EQUAL, TT::GREATER),
             '/' => self.add_comment_or_slash(),
+            ' ' | '\r' | '\t' => (),
+            '\n' => self.line += 1,
             _ => {
                 lox::error(self.line, &format!("Unexpected character: {c}"));
                 self.has_error = true;
