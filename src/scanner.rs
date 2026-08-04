@@ -340,7 +340,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn is_alphanumeric(c: &char) -> bool {
-        Self::is_alpha(c) && c.is_ascii_digit()
+        Self::is_alpha(c) || c.is_ascii_digit()
     }
 
     fn add_identifier(&mut self) {
