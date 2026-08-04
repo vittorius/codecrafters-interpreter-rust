@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, iter::Peekable, str::Chars};
 
 use crate::lox;
 
@@ -106,23 +106,20 @@ impl Display for Token {
     }
 }
 
-// TODO: redo this scanner to use Chars<'a> iterator
-pub struct Scanner {
-    source: String, // TODO: try making this a &str
+pub struct Scanner<'a> {
+    chars: Peekable<Chars<'a>>,
     tokens: Vec<Token>,
-    start: usize,   // in bytes
-    current: usize, // in bytes
+    lexeme_cur: String,
     line: usize,
     pub has_error: bool,
 }
 
-impl Scanner {
-    pub fn new(source: String) -> Self {
+impl<'a> Scanner<'a> {
+    pub fn new(source: &'a str) -> Self {
         Self {
-            source,
+            chars: source.chars().peekable(),
             tokens: vec![],
-            start: 0,
-            current: 0,
+            lexeme_cur: String::with_capacity(2),
             line: 1,
             has_error: false,
         }
@@ -130,7 +127,7 @@ impl Scanner {
 
     pub fn scan_tokens(&mut self) {
         while !self.is_at_end() {
-            self.start = self.current;
+            self.lexeme_cur.clear();
 
             self.scan_token();
         }
@@ -170,26 +167,23 @@ impl Scanner {
     }
 
     fn advance(&mut self) -> char {
-        let c = self.source[self.current..]
-            .chars()
+        let c = self
+            .chars
             .next()
-            .expect("Character cursor must not be at the source end");
-        self.current += c.len_utf8();
+            .expect("Character iterator must not be at the source end");
+        self.lexeme_cur.push(c);
         c
     }
 
     fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
-        if self.is_at_end()
-            || self.source[self.current..]
-                .chars()
-                .nth(0)
-                .expect("Char must not be beyond the end of the source")
-                != expected
+        if let Some(ch_next) = self.chars.peek()
+            && *ch_next == expected
         {
-            self.add_token(right);
-        } else {
-            self.current += expected.len_utf8();
+            self.lexeme_cur.push(*ch_next); // the 1st char of the lexeme was pushed to the buffer in `advance`
+            self.chars.next();
             self.add_token(left);
+        } else {
+            self.add_token(right);
         }
     }
 
@@ -200,13 +194,13 @@ impl Scanner {
     fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal>) {
         self.tokens.push(Token::new(
             token_type,
-            self.source[self.start..self.current].to_owned(),
+            self.lexeme_cur.clone(),
             literal,
             self.line,
         ));
     }
 
-    fn is_at_end(&self) -> bool {
-        self.current >= self.source.len()
+    fn is_at_end(&mut self) -> bool {
+        self.chars.peek().is_none()
     }
 }

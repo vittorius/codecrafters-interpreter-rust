@@ -3,10 +3,12 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-use crate::scanner::Scanner;
+// use crate::scanner::Scanner;
+use crate::scanner2::Scanner;
 
-mod scanner;
+// mod scanner;
 mod lox;
+mod scanner2;
 
 #[repr(u8)]
 enum ExitValue {
@@ -41,9 +43,9 @@ fn main() -> ExitCode {
                 String::new()
             });
 
-            let mut scanner = Scanner::new(file_contents);
+            let mut scanner = Scanner::new(&file_contents);
             scanner.scan_tokens();
-            
+
             for token in scanner.tokens() {
                 println!("{token}");
             }
