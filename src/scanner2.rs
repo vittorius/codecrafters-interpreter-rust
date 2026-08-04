@@ -162,6 +162,7 @@ impl<'a> Scanner<'a> {
             '/' => self.add_comment_or_slash(),
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
+            '"' => self.add_string(),
             _ => {
                 lox::error(self.line, &format!("Unexpected character: {c}"));
                 self.has_error = true;
@@ -169,6 +170,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    /// IMPORTANT: accumulates the self.lexeme_cur
     fn advance(&mut self) -> char {
         let c = self
             .chars
@@ -191,6 +193,7 @@ impl<'a> Scanner<'a> {
         ));
     }
 
+    /// IMPORTANT: accumulates the self.lexeme_cur
     fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
         if let Some(ch_next) = self.chars.peek()
             && *ch_next == expected
@@ -217,6 +220,32 @@ impl<'a> Scanner<'a> {
         }
     }
 
+    fn add_string(&mut self) {
+        // let mut buf = String::new();
+        while let Some(ch) = self.chars.peek()
+            && *ch != '"'
+        {
+            if *ch == '\n' {
+                self.line += 1;
+            }
+            // buf.push(*ch);
+            self.advance();
+        }
+
+        if self.chars.peek().is_none() {
+            lox::error(self.line, "Unterminated string.");
+        }
+
+        self.advance(); // the closing "
+
+        self.add_token_with_literal(
+            TokenType::STRING,
+            Some(Literal::Str(
+                self.lexeme_cur[1..self.lexeme_cur.len() - 1].to_owned(),
+            )),
+        );
+    }
+    
     fn is_at_end(&mut self) -> bool {
         self.chars.peek().is_none()
     }
