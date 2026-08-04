@@ -1,9 +1,11 @@
-use std::{fmt::Display, iter::Peekable, str::Chars};
+use std::{
+    cell::LazyCell, collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock,
+};
 
 use crate::lox;
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 enum TokenType {
     // Single-character tokens.
     LEFT_PAREN,
@@ -53,6 +55,30 @@ enum TokenType {
 
     EOF,
 }
+
+// TODO: refactor using phf crate
+static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
+    use TokenType as TT;
+
+    HashMap::from([
+        ("and", TT::AND),
+        ("class", TT::CLASS),
+        ("else", TT::ELSE),
+        ("false", TT::FALSE),
+        ("for", TT::FOR),
+        ("fun", TT::FUN),
+        ("if", TT::IF),
+        ("nil", TT::NIL),
+        ("or", TT::OR),
+        ("print", TT::PRINT),
+        ("return", TT::RETURN),
+        ("super", TT::SUPER),
+        ("this", TT::THIS),
+        ("true", TT::TRUE),
+        ("var", TT::VAR),
+        ("while", TT::WHILE),
+    ])
+});
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -172,6 +198,8 @@ impl<'a> Scanner<'a> {
             _ => {
                 if c.is_ascii_digit() {
                     self.add_number();
+                } else if Self::is_alpha(&c) {
+                    self.add_identifier();
                 } else {
                     self.error(&format!("Unexpected character: {c}"));
                 }
@@ -305,5 +333,29 @@ impl<'a> Scanner<'a> {
                 "Number value validity must be guaranteed by number tokenizing",
             ))),
         );
+    }
+
+    fn is_alpha(c: &char) -> bool {
+        c.is_ascii_alphabetic() || *c == '_'
+    }
+
+    fn is_alphanumeric(c: &char) -> bool {
+        Self::is_alpha(c) && c.is_ascii_digit()
+    }
+
+    fn add_identifier(&mut self) {
+        while let Some(ch) = self.peek()
+            && Self::is_alphanumeric(ch)
+        {
+            self.advance();
+        }
+
+        let token_type = if let Some(keyword_tt) = KEYWORDS.get(self.lexeme_cur.as_str()) {
+            *keyword_tt
+        } else {
+            TokenType::IDENTIFIER
+        };
+
+        self.add_token(token_type);
     }
 }
