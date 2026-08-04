@@ -1,4 +1,8 @@
-use std::{fmt::Display, iter::Peekable, str::Chars};
+use std::{
+    fmt::Display,
+    iter::Peekable,
+    str::Chars,
+};
 
 use crate::lox;
 
@@ -164,7 +168,11 @@ impl<'a> Scanner<'a> {
             '\n' => self.line += 1,
             '"' => self.add_string(),
             _ => {
-                self.error(&format!("Unexpected character: {c}"));
+                if c.is_ascii_digit() {
+                    self.add_number();
+                } else {
+                    self.error(&format!("Unexpected character: {c}"));
+                }
             }
         }
     }
@@ -181,6 +189,15 @@ impl<'a> Scanner<'a> {
 
     fn peek(&mut self) -> Option<&char> {
         self.chars.peek()
+    }
+
+    fn is_at_end(&mut self) -> bool {
+        self.peek().is_none()
+    }
+
+    fn error(&mut self, message: &str) {
+        lox::error(self.line, message);
+        self.has_error = true;
     }
 
     fn add_token(&mut self, token_type: TokenType) {
@@ -201,8 +218,8 @@ impl<'a> Scanner<'a> {
         if let Some(ch_next) = self.peek()
             && *ch_next == expected
         {
-            let ch_clone = *ch_next;
-            self.lexeme_cur.push(ch_clone); // the 1st char of the lexeme was pushed to the buffer in `advance`
+            let ch_expected = *ch_next;
+            self.lexeme_cur.push(ch_expected); // the 1st char of the lexeme was pushed to the buffer in `advance`
             self.chars.next();
             self.add_token(left);
         } else {
@@ -249,12 +266,40 @@ impl<'a> Scanner<'a> {
         );
     }
 
-    fn is_at_end(&mut self) -> bool {
-        self.peek().is_none()
-    }
+    fn add_number(&mut self) {
+        while let Some(ch) = self.peek()
+            && (*ch).is_ascii_digit()
+        {
+            self.advance();
+        }
 
-    fn error(&mut self, message: &str) {
-        lox::error(self.line, message);
-        self.has_error = true;
+        if let Some(ch) = self.peek()
+            && *ch == '.'
+        {
+            let chars_starting_with_dot = self.chars.clone();
+            self.advance(); // consume the "."
+
+            if let Some(ch) = self.peek()
+                && ch.is_ascii_digit()
+            {
+                // found fractional part
+                while let Some(ch) = self.peek()
+                    && ch.is_ascii_digit()
+                {
+                    self.advance();
+                }
+            } else {
+                // un-consume the '.'
+                self.chars = chars_starting_with_dot;
+                self.lexeme_cur.pop();
+            }
+
+            self.add_token_with_literal(
+                TokenType::NUMBER,
+                Some(Literal::Num(self.lexeme_cur.parse().expect(
+                    "Number value validity must be guaranteed by number tokenizing",
+                ))),
+            );
+        }
     }
 }
