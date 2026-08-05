@@ -1,10 +1,8 @@
-use std::{
-    cell::LazyCell, collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock,
-};
+use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock};
 
 use crate::lox;
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone)]
 enum TokenType {
     // Single-character tokens.
@@ -191,15 +189,15 @@ impl<'a> Scanner<'a> {
             '=' => self.add_token_if('=', TT::EQUAL_EQUAL, TT::EQUAL),
             '<' => self.add_token_if('=', TT::LESS_EQUAL, TT::LESS),
             '>' => self.add_token_if('=', TT::GREATER_EQUAL, TT::GREATER),
-            '/' => self.add_comment_or_slash(),
+            '/' => self.comment_or_slash(),
             ' ' | '\r' | '\t' => (),
             '\n' => self.line += 1,
-            '"' => self.add_string(),
+            '"' => self.string(),
             _ => {
                 if c.is_ascii_digit() {
-                    self.add_number();
+                    self.number();
                 } else if Self::is_alpha(&c) {
-                    self.add_identifier();
+                    self.identifier();
                 } else {
                     self.error(&format!("Unexpected character: {c}"));
                 }
@@ -245,10 +243,10 @@ impl<'a> Scanner<'a> {
 
     /// IMPORTANT: accumulates the self.lexeme_cur
     fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
-        if let Some(ch_next) = self.peek()
-            && *ch_next == expected
+        if let Some(ch) = self.peek()
+            && *ch == expected
         {
-            let ch_expected = *ch_next;
+            let ch_expected = *ch;
             self.lexeme_cur.push(ch_expected); // the 1st char of the lexeme was pushed to the buffer in `advance`
             self.chars.next();
             self.add_token(left);
@@ -257,21 +255,31 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    fn add_comment_or_slash(&mut self) {
-        if let Some(ch_next) = self.peek()
-            && *ch_next == '/'
-        {
-            while let Some(ch) = self.peek()
-                && *ch != '\n'
-            {
-                self.advance();
+    fn comment_or_slash(&mut self) {
+        if let Some(ch) = self.peek() {
+            if *ch == '/' {
+                // single line comment
+                while let Some(ch) = self.peek()
+                    && *ch != '\n'
+                {
+                    self.advance();
+                }
+            } else if *ch == '*' {
+                // multiline comment
+                self.advance(); // consume "*"
+
+                while let Some(ch) = self.peek() {
+                    if *ch == '\n' {
+                        self.line += 1;
+                    }
+                }
             }
         } else {
             self.add_token(TokenType::SLASH);
         }
     }
 
-    fn add_string(&mut self) {
+    fn string(&mut self) {
         while let Some(ch) = self.peek()
             && *ch != '"'
         {
@@ -296,7 +304,7 @@ impl<'a> Scanner<'a> {
         );
     }
 
-    fn add_number(&mut self) {
+    fn number(&mut self) {
         while let Some(ch) = self.peek()
             && (*ch).is_ascii_digit()
         {
@@ -343,7 +351,7 @@ impl<'a> Scanner<'a> {
         Self::is_alpha(c) || c.is_ascii_digit()
     }
 
-    fn add_identifier(&mut self) {
+    fn identifier(&mut self) {
         while let Some(ch) = self.peek()
             && Self::is_alphanumeric(ch)
         {
