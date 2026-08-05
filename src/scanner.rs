@@ -237,11 +237,19 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    /// IMPORTANT: accumulates the self.lexeme_cur
+    // IMPORTANT: accumulates the self.lexeme_cur
+    // WARNING: will panic if cursor is at the end of the source
     fn advance(&mut self) -> char {
         let c = self.cursor.advance();
         self.lexeme_cur.push(c);
         c
+    }
+
+    // IMPORTANT: accumulates the self.lexeme_cur
+    // WARNING: will panic if cursor is at the end of the source
+    fn advance_twice(&mut self) -> (char, char) {
+        let c = self.advance();
+        (c, self.advance())
     }
 
     fn peek(&mut self) -> char {
@@ -292,43 +300,41 @@ impl<'a> Scanner<'a> {
                 self.advance();
             }
         } else if ch == '*' {
-            // TODO: multiline comment
+            // multiline comment
             self.advance(); // consume "*"
 
             let mut depth = 1;
 
-            // while self.peek() != '*' && self.peek() != '/' {
             let mut c: char;
             loop {
                 c = self.peek();
-                
-                if c == '*' || c == '/' {
+                let c_next = self.peek_next();
+
+                match (c, c_next) {
+                    ('\n', _) => {
+                        self.line += 1;
+                        self.advance();
+                    }
+                    ('*', '/') => {
+                        depth -= 1;
+                        self.advance_twice();
+                    }
+                    ('/', '*') => {
+                        depth += 1;
+                        self.advance_twice();
+                    }
+                    (EOF_CHAR, _) | (_, EOF_CHAR) => {
+                        self.error("Unterminated multiline comment");
+                        return;
+                    }
+                    _ => {
+                        self.advance();
+                    }
+                }
+
+                if depth == 0 {
                     break;
                 }
-
-                if c == '\n' {
-                    self.line += 1;
-                }
-                
-                self.advance();
-
-                if self.is_at_end() {
-                    self.error("Unterminated multiline comment");
-                    return;
-                }
-            }
-
-            // if c == '*' && self.peek_next() == '/' {
-            //     depth -= 1;
-            // } else if c == '/' && self.peek_next() == 
-
-            // FIXME: convenient but non-performant because of busy cloning the iterators
-            match (self.peek(), self.peek_next()) {
-                ('\n', _) => (),
-                ('*', '/') => (),
-                ('/', '*') => (),
-                (EOF_CHAR, _) | (_, EOF_CHAR) => (),
-                _ => (),
             }
         } else {
             self.add_token(TokenType::SLASH);
