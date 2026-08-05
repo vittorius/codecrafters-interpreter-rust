@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, str::Chars, sync::LazyLock};
+use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock};
 
 use crate::lox;
 
@@ -137,7 +137,7 @@ impl Display for Token {
 }
 
 pub struct Cursor<'a> {
-    chars: Chars<'a>,
+    chars: Peekable<Chars<'a>>,
 }
 
 const EOF_CHAR: char = '\0';
@@ -150,8 +150,9 @@ impl<'a> Cursor<'a> {
     }
 
     fn peek(&mut self) -> char {
-        let mut chars = self.chars.clone();
-        chars.next().unwrap_or(EOF_CHAR)
+        // let mut chars = self.chars.clone();
+        // chars.next().unwrap_or(EOF_CHAR)
+        *self.chars.peek().unwrap_or(&EOF_CHAR)
     }
 
     fn peek_next(&mut self) -> char {
@@ -177,7 +178,7 @@ impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             cursor: Cursor {
-                chars: source.chars(),
+                chars: source.chars().peekable(),
             },
             tokens: vec![],
             lexeme_cur: String::new(),
@@ -290,9 +291,22 @@ impl<'a> Scanner<'a> {
             while self.peek() != '\n' && !self.is_at_end() {
                 self.advance();
             }
-        // } else if *ch == '*' {
-        //     // TODO: multiline comment
-        //     self.advance(); // consume "*"
+        } else if ch == '*' {
+            // TODO: multiline comment
+            self.advance(); // consume "*"
+
+            let mut depth = 1;
+
+            // while self.peek()
+
+            // FIXME: convenient but non-performant because of busy cloning the iterators
+            match (self.peek(), self.peek_next()) {
+                ('\n', _) => (),
+                ('*', '/') => (),
+                ('/', '*') => (),
+                (EOF_CHAR, _) | (_, EOF_CHAR) => (),
+                _ => (),
+            }
         } else {
             self.add_token(TokenType::SLASH);
         }
