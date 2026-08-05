@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock};
+use std::{collections::HashMap, fmt::Display, str::Chars, sync::LazyLock};
 
 use crate::lox;
 
@@ -136,8 +136,37 @@ impl Display for Token {
     }
 }
 
+pub struct Cursor<'a> {
+    chars: Chars<'a>,
+}
+
+const EOF_CHAR: char = '\0';
+
+impl<'a> Cursor<'a> {
+    fn advance(&mut self) -> char {
+        self.chars
+            .next()
+            .expect("Character iterator must not be at the source end")
+    }
+
+    fn peek(&mut self) -> char {
+        let mut chars = self.chars.clone();
+        chars.next().unwrap_or(EOF_CHAR)
+    }
+
+    fn peek_next(&mut self) -> char {
+        let mut chars = self.chars.clone();
+        chars.next();
+        chars.next().unwrap_or(EOF_CHAR)
+    }
+
+    fn is_at_end(&mut self) -> bool {
+        self.peek() == EOF_CHAR
+    }
+}
+
 pub struct Scanner<'a> {
-    chars: Peekable<Chars<'a>>,
+    cursor: Cursor<'a>,
     tokens: Vec<Token>,
     lexeme_cur: String,
     line: usize,
@@ -147,7 +176,9 @@ pub struct Scanner<'a> {
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
-            chars: source.chars().peekable(),
+            cursor: Cursor {
+                chars: source.chars(),
+            },
             tokens: vec![],
             lexeme_cur: String::new(),
             line: 1,
@@ -207,20 +238,21 @@ impl<'a> Scanner<'a> {
 
     /// IMPORTANT: accumulates the self.lexeme_cur
     fn advance(&mut self) -> char {
-        let c = self
-            .chars
-            .next()
-            .expect("Character iterator must not be at the source end");
+        let c = self.cursor.advance();
         self.lexeme_cur.push(c);
         c
     }
 
-    fn peek(&mut self) -> Option<&char> {
-        self.chars.peek()
+    fn peek(&mut self) -> char {
+        self.cursor.peek()
+    }
+
+    fn peek_next(&mut self) -> char {
+        self.cursor.peek_next()
     }
 
     fn is_at_end(&mut self) -> bool {
-        self.peek().is_none()
+        self.cursor.is_at_end()
     }
 
     fn error(&mut self, message: &str) {
@@ -242,13 +274,9 @@ impl<'a> Scanner<'a> {
     }
 
     /// IMPORTANT: accumulates the self.lexeme_cur
-    fn add_token_if(&mut self, expected: char, left: TokenType, right: TokenType) {
-        if let Some(ch) = self.peek()
-            && *ch == expected
-        {
-            let ch_expected = *ch;
-            self.lexeme_cur.push(ch_expected); // the 1st char of the lexeme was pushed to the buffer in `advance`
-            self.chars.next();
+    fn add_token_if(&mut self, expected_next: char, left: TokenType, right: TokenType) {
+        if self.cursor.peek() == expected_next {
+            self.advance(); // consume next
             self.add_token(left);
         } else {
             self.add_token(right);
@@ -256,40 +284,29 @@ impl<'a> Scanner<'a> {
     }
 
     fn comment_or_slash(&mut self) {
-        if let Some(ch) = self.peek() {
-            if *ch == '/' {
-                // single line comment
-                while let Some(ch) = self.peek()
-                    && *ch != '\n'
-                {
-                    self.advance();
-                }
-            } else if *ch == '*' {
-                // multiline comment
-                self.advance(); // consume "*"
-
-                while let Some(ch) = self.peek() {
-                    if *ch == '\n' {
-                        self.line += 1;
-                    }
-                }
+        let ch = self.peek();
+        if ch == '/' {
+            // single line comment
+            while self.peek() != '\n' && !self.is_at_end() {
+                self.advance();
             }
+        // } else if *ch == '*' {
+        //     // TODO: multiline comment
+        //     self.advance(); // consume "*"
         } else {
             self.add_token(TokenType::SLASH);
         }
     }
 
     fn string(&mut self) {
-        while let Some(ch) = self.peek()
-            && *ch != '"'
-        {
-            if *ch == '\n' {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
                 self.line += 1;
             }
             self.advance();
         }
 
-        if self.peek().is_none() {
+        if self.is_at_end() {
             self.error("Unterminated string.");
             return;
         }
@@ -305,40 +322,24 @@ impl<'a> Scanner<'a> {
     }
 
     fn number(&mut self) {
-        while let Some(ch) = self.peek()
-            && (*ch).is_ascii_digit()
-        {
+        while self.peek().is_ascii_digit() {
             self.advance();
         }
 
-        eprintln!("Scanned: {}", self.lexeme_cur);
+        if self.peek() == '.' && self.peek_next().is_ascii_digit() {
+            // found fractional part
 
-        if let Some(ch) = self.peek()
-            && *ch == '.'
-        {
-            let chars_starting_with_dot = self.chars.clone();
-            self.advance(); // consume the "."
+            self.advance(); // consume "."
 
-            if let Some(ch) = self.peek()
-                && ch.is_ascii_digit()
-            {
-                // found fractional part
-                while let Some(ch) = self.peek()
-                    && ch.is_ascii_digit()
-                {
-                    self.advance();
-                }
-            } else {
-                // un-consume the '.'
-                self.chars = chars_starting_with_dot;
-                self.lexeme_cur.pop();
+            while self.peek().is_ascii_digit() {
+                self.advance();
             }
         }
 
         self.add_token_with_literal(
             TokenType::NUMBER,
             Some(Literal::Num(self.lexeme_cur.parse().expect(
-                "Number value validity must be guaranteed by number tokenizing",
+                "Number value validity must be guaranteed by tokenizing",
             ))),
         );
     }
@@ -352,9 +353,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn identifier(&mut self) {
-        while let Some(ch) = self.peek()
-            && Self::is_alphanumeric(ch)
-        {
+        while Self::is_alphanumeric(&self.peek()) {
             self.advance();
         }
 
