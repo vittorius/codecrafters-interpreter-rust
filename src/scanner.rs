@@ -297,7 +297,30 @@ impl<'a> Scanner<'a> {
 
             let mut depth = 1;
 
-            // while self.peek()
+            // while self.peek() != '*' && self.peek() != '/' {
+            let mut c: char;
+            loop {
+                c = self.peek();
+                
+                if c == '*' || c == '/' {
+                    break;
+                }
+
+                if c == '\n' {
+                    self.line += 1;
+                }
+                
+                self.advance();
+
+                if self.is_at_end() {
+                    self.error("Unterminated multiline comment");
+                    return;
+                }
+            }
+
+            // if c == '*' && self.peek_next() == '/' {
+            //     depth -= 1;
+            // } else if c == '/' && self.peek_next() == 
 
             // FIXME: convenient but non-performant because of busy cloning the iterators
             match (self.peek(), self.peek_next()) {
