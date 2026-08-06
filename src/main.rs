@@ -3,16 +3,22 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
+use crate::ast_printer::AstPrinter;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 
+mod expr;
 mod lox;
+mod parser;
 mod scanner;
+mod ast_printer;
 
 #[repr(u8)]
 enum ExitValue {
     Success = 0,
     Usage = 64,
-    LexicalError = 65,
+    SyntaxError = 65, // lexical or syntactical grammar error
+    RuntimeError = 70,
 }
 
 impl From<ExitValue> for ExitCode {
@@ -22,9 +28,11 @@ impl From<ExitValue> for ExitCode {
 }
 
 fn main() -> ExitCode {
+    // memo: print your logs using eprintln!
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} tokenize <filename>", args[0]);
+        eprintln!("Usage: {} (tokenize | parse) <filename>", args[0]);
         return ExitValue::Usage.into();
     }
 
@@ -32,31 +40,55 @@ fn main() -> ExitCode {
     let filename = &args[2];
 
     match command.as_str() {
-        "tokenize" => {
-            // You can use print statements as follows for debugging, they'll be visible when running tests.
-            // eprintln!("Logs from your program will appear here!");
-
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                eprintln!("Failed to read file {}", filename);
-                String::new()
-            });
-
-            let mut scanner = Scanner::new(&file_contents);
-            scanner.scan_tokens();
-
-            for token in scanner.tokens() {
-                println!("{token}");
-            }
-
-            if scanner.has_error {
-                ExitValue::LexicalError.into()
-            } else {
-                ExitValue::Success.into()
-            }
-        }
+        "tokenize" => tokenize(filename).into(),
+        "parse" => parse(filename).into(),
         _ => {
             eprintln!("Unknown command: {}", command);
             ExitValue::Usage.into()
         }
     }
+}
+
+fn tokenize(filename: &str) -> ExitValue {
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        eprintln!("Failed to read file {}", filename);
+        String::new()
+    });
+
+    let mut scanner = Scanner::new(&file_contents);
+    scanner.scan_tokens();
+
+    for token in scanner.tokens() {
+        println!("{token}");
+    }
+
+    if scanner.has_error {
+        ExitValue::SyntaxError
+    } else {
+        ExitValue::Success
+    }
+}
+
+fn parse(filename: &str) -> ExitValue {
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        eprintln!("Failed to read file {}", filename);
+        String::new()
+    });
+
+    let mut scanner = Scanner::new(&file_contents);
+    scanner.scan_tokens();
+    if scanner.has_error {
+        return ExitValue::SyntaxError;
+    }
+
+    let mut parser = Parser::new(&file_contents);
+    let expr = parser.parse();
+    if parser.has_error {
+        return ExitValue::SyntaxError;
+    }
+
+    let ast_printer = AstPrinter::new(&expr);
+    println!("{}", ast_printer.print());
+
+    ExitValue::Success
 }
