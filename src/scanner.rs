@@ -150,8 +150,6 @@ impl<'a> Cursor<'a> {
     }
 
     fn peek(&mut self) -> char {
-        // let mut chars = self.chars.clone();
-        // chars.next().unwrap_or(EOF_CHAR)
         *self.chars.peek().unwrap_or(&EOF_CHAR)
     }
 
