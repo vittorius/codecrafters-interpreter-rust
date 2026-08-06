@@ -57,18 +57,22 @@ mod tests {
         //     new Expr.Literal(45.67)));
 
         let expr = Expr::Binary {
-            left: Box::new(Expr::Unary {
+            left: Expr::Unary {
                 operator: Token::new(TokenType::MINUS, "-".to_owned(), None, 1),
-                right: Box::new(Expr::Literal {
+                right: Expr::Literal {
                     value: Some(Literal::Num(123.0)),
-                }),
-            }),
+                }
+                .boxed(),
+            }
+            .boxed(),
             operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
-            right: Box::new(Expr::Grouping {
-                expr: Box::new(Expr::Literal {
+            right: Expr::Grouping {
+                expr: Expr::Literal {
                     value: Some(Literal::Num(45.67)),
-                }),
-            }),
+                }
+                .boxed(),
+            }
+            .boxed(),
         };
 
         let ast_printer = AstPrinter::new(&expr);

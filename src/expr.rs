@@ -26,4 +26,8 @@ impl Expr {
     pub fn accept<R>(&self, visitor: &impl Visitor<R>) -> R {
         visitor.visit_expr(self)
     }
+
+    pub fn boxed(self) -> Box<Self> {
+        Box::new(self)
+    }
 }
