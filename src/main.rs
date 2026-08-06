@@ -12,6 +12,7 @@ mod lox;
 mod parser;
 mod scanner;
 mod ast_printer;
+mod rpn_ast_printer;
 
 #[repr(u8)]
 enum ExitValue {
