@@ -4,7 +4,7 @@ use crate::lox;
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone)]
-enum TokenType {
+pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN,
     RIGHT_PAREN,
@@ -85,7 +85,7 @@ impl Display for TokenType {
 }
 
 #[derive(Debug, Clone)]
-enum Literal {
+pub enum Literal {
     Ident(String),
     Str(String),
     Num(f64),
@@ -108,13 +108,13 @@ impl Display for Literal {
 
 pub struct Token {
     token_type: TokenType,
-    lexeme: String,
+    pub lexeme: String,
     literal: Option<Literal>,
     line: usize,
 }
 
 impl Token {
-    fn new(token_type: TokenType, lexeme: String, literal: Option<Literal>, line: usize) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, literal: Option<Literal>, line: usize) -> Self {
         Self {
             token_type,
             lexeme,
