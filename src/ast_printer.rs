@@ -1,7 +1,7 @@
 use crate::expr::{Expr, Visitor};
 
 pub struct AstPrinter<'a> {
-    expr: &'a Expr,
+    expr: &'a Expr<'a>,
 }
 
 impl<'a> AstPrinter<'a> {
@@ -58,14 +58,14 @@ mod tests {
 
         let expr = Expr::Binary {
             left: Expr::Unary {
-                operator: Token::new(TokenType::MINUS, "-".to_owned(), None, 1),
+                operator: Token::new(TokenType::MINUS, "-", None, 1),
                 right: Expr::Literal {
                     value: Some(Literal::Num(123.0)),
                 }
                 .boxed(),
             }
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
+            operator: Token::new(TokenType::STAR, "*", None, 1),
             right: Expr::Grouping {
                 expr: Expr::Literal {
                     value: Some(Literal::Num(45.67)),

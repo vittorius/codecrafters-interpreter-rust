@@ -84,17 +84,18 @@ impl Display for TokenType {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Literal {
-    Ident(String),
-    Str(String),
+#[derive(Debug, Copy, Clone)]
+pub enum Literal<'a> {
+    // Ident(&'a str),
+    Str(&'a str),
     Num(f64),
 }
 
-impl Display for Literal {
+impl<'a> Display for Literal<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::Ident(value) | Literal::Str(value) => write!(f, "{value}"),
+            // Literal::Ident(value) | Literal::Str(value) => write!(f, "{value}"),
+            Literal::Str(value) => write!(f, "{value}"),
             Literal::Num(value) => {
                 if value.fract() == 0.0 {
                     write!(f, "{value}.0")
@@ -106,15 +107,22 @@ impl Display for Literal {
     }
 }
 
-pub struct Token {
+#[derive(Clone)]
+pub struct Token<'a> {
     token_type: TokenType,
-    pub lexeme: String,
-    literal: Option<Literal>,
+    // pub lexeme: String,
+    pub lexeme: &'a str,
+    literal: Option<Literal<'a>>,
     line: usize,
 }
 
-impl Token {
-    pub fn new(token_type: TokenType, lexeme: String, literal: Option<Literal>, line: usize) -> Self {
+impl<'a> Token<'a> {
+    pub fn new(
+        token_type: TokenType,
+        lexeme: &'a str,
+        literal: Option<Literal<'a>>,
+        line: usize,
+    ) -> Self {
         Self {
             token_type,
             lexeme,
@@ -124,29 +132,41 @@ impl Token {
     }
 }
 
-impl Display for Token {
+impl<'a> Display for Token<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // TODO: deal with clones and allocations here
-        let literal = self
-            .literal
-            .clone()
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| "null".to_owned());
-        write!(f, "{} {} {}", self.token_type, self.lexeme, literal)
+        write!(
+            f,
+            "{} {} {}",
+            self.token_type,
+            self.lexeme,
+            self.literal
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "null".to_owned())
+        )
     }
 }
 
 pub struct Cursor<'a> {
+    source: &'a str,
     chars: Peekable<Chars<'a>>,
+    start_byte: usize,
+    cur_byte: usize,
 }
 
 const EOF_CHAR: char = '\0';
 
 impl<'a> Cursor<'a> {
     fn advance(&mut self) -> char {
-        self.chars
+        let c = self
+            .chars
             .next()
-            .expect("Character iterator must not be at the source end")
+            .expect("Character iterator must not be at the source end");
+        self.cur_byte += c.len_utf8();
+        c
+    }
+
+    fn catch_up(&mut self) {
+        self.start_byte = self.cur_byte;
     }
 
     fn peek(&mut self) -> char {
@@ -166,8 +186,8 @@ impl<'a> Cursor<'a> {
 
 pub struct Scanner<'a> {
     cursor: Cursor<'a>,
-    tokens: Vec<Token>,
-    lexeme_cur: String,
+    tokens: Vec<Token<'a>>,
+    // lexeme_cur: String,
     line: usize,
     pub has_error: bool,
 }
@@ -176,10 +196,12 @@ impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             cursor: Cursor {
+                source,
                 chars: source.chars().peekable(),
+                start_byte: 0,
+                cur_byte: 0,
             },
             tokens: vec![],
-            lexeme_cur: String::new(),
             line: 1,
             has_error: false,
         }
@@ -187,16 +209,16 @@ impl<'a> Scanner<'a> {
 
     pub fn scan_tokens(&mut self) {
         while !self.is_at_end() {
-            self.lexeme_cur.clear();
+            self.cursor.catch_up();
 
             self.scan_token();
         }
 
         self.tokens
-            .push(Token::new(TokenType::EOF, "".to_owned(), None, self.line));
+            .push(Token::new(TokenType::EOF, "", None, self.line));
     }
 
-    pub fn tokens(&self) -> &Vec<Token> {
+    pub fn tokens(&self) -> &Vec<Token<'a>> {
         &self.tokens
     }
 
@@ -238,9 +260,7 @@ impl<'a> Scanner<'a> {
     // IMPORTANT: accumulates the self.lexeme_cur
     // WARNING: will panic if cursor is at the end of the source
     fn advance(&mut self) -> char {
-        let c = self.cursor.advance();
-        self.lexeme_cur.push(c);
-        c
+        self.cursor.advance()
     }
 
     // IMPORTANT: accumulates the self.lexeme_cur
@@ -262,6 +282,10 @@ impl<'a> Scanner<'a> {
         self.cursor.is_at_end()
     }
 
+    fn cur_lexeme(&self) -> &'a str {
+        &self.cursor.source[self.cursor.start_byte..self.cursor.cur_byte]
+    }
+
     fn error(&mut self, message: &str) {
         lox::error(self.line, message);
         self.has_error = true;
@@ -271,10 +295,10 @@ impl<'a> Scanner<'a> {
         self.add_token_with_literal(token_type, None);
     }
 
-    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal>) {
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal<'a>>) {
         self.tokens.push(Token::new(
             token_type,
-            self.lexeme_cur.clone(),
+            self.cur_lexeme(),
             literal,
             self.line,
         ));
@@ -354,11 +378,10 @@ impl<'a> Scanner<'a> {
 
         self.advance(); // the closing "
 
+        let string = self.cur_lexeme();
         self.add_token_with_literal(
             TokenType::STRING,
-            Some(Literal::Str(
-                self.lexeme_cur[1..self.lexeme_cur.len() - 1].to_owned(),
-            )),
+            Some(Literal::Str(&string[1..string.len() - 1])), // everything between parens
         );
     }
 
@@ -379,7 +402,7 @@ impl<'a> Scanner<'a> {
 
         self.add_token_with_literal(
             TokenType::NUMBER,
-            Some(Literal::Num(self.lexeme_cur.parse().expect(
+            Some(Literal::Num(self.cur_lexeme().parse().expect(
                 "Number value validity must be guaranteed by tokenizing",
             ))),
         );
@@ -398,7 +421,7 @@ impl<'a> Scanner<'a> {
             self.advance();
         }
 
-        let token_type = if let Some(keyword_tt) = KEYWORDS.get(self.lexeme_cur.as_str()) {
+        let token_type = if let Some(keyword_tt) = KEYWORDS.get(self.cur_lexeme()) {
             *keyword_tt
         } else {
             TokenType::IDENTIFIER
