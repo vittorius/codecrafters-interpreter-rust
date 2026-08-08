@@ -24,7 +24,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Expr<'a> {
-        todo!()
+        match self.expression() {
+            Ok(expr) => expr,
+            Err(_) => {
+                self.has_error = true;
+                Expr::Literal(Literal::Nil)
+            }
+        }
     }
 
     fn peek(&self) -> &'a Token<'a> {

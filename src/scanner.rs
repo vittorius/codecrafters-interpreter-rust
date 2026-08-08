@@ -106,7 +106,7 @@ impl<'a> Display for Literal<'a> {
                 }
             },
             Literal::Bool(value) => write!(f, "{value}"),
-            Literal::Nil => write!(f, "null"),
+            Literal::Nil => write!(f, "nil"),
         }
     }
 }

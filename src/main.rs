@@ -20,7 +20,7 @@ enum ExitValue {
     Success = 0,
     Usage = 64,
     SyntaxError = 65, // lexical or syntactical grammar error
-    RuntimeError = 70,
+    ParseError = 70,
 }
 
 impl From<ExitValue> for ExitCode {
@@ -86,7 +86,7 @@ fn parse(filename: &str) -> ExitValue {
     let mut parser = Parser::new(scanner.tokens());
     let expr = parser.parse();
     if parser.has_error {
-        return ExitValue::SyntaxError;
+        return ExitValue::ParseError;
     }
 
     let ast_printer = AstPrinter::new(&expr);
