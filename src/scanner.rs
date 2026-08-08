@@ -381,7 +381,7 @@ impl<'a> Scanner<'a> {
         let string = self.cur_lexeme();
         self.add_token_with_literal(
             TokenType::STRING,
-            Some(Literal::Str(&string[1..string.len() - 1])), // everything between parens
+            Some(Literal::Str(&string[1..string.len() - 1])), // everything between quotes
         );
     }
 
