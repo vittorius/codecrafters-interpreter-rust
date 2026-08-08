@@ -109,8 +109,7 @@ impl<'a> Display for Literal<'a> {
 
 #[derive(Clone)]
 pub struct Token<'a> {
-    token_type: TokenType,
-    // pub lexeme: String,
+    pub token_type: TokenType,
     pub lexeme: &'a str,
     literal: Option<Literal<'a>>,
     line: usize,
@@ -187,7 +186,6 @@ impl<'a> Cursor<'a> {
 pub struct Scanner<'a> {
     cursor: Cursor<'a>,
     tokens: Vec<Token<'a>>,
-    // lexeme_cur: String,
     line: usize,
     pub has_error: bool,
 }
