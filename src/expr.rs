@@ -4,10 +4,7 @@ pub trait Visitor<R> {
     fn visit_expr(&self, expr: &Expr) -> R;
 }
 
-// pub trait VisitorRef<R> {
-//     fn visit_expr(&self, expr: &ExprRef) -> R;
-// }
-
+#[derive(Debug)]
 pub enum Expr<'a> {
     Binary {
         left: Box<Expr<'a>>,
@@ -35,27 +32,3 @@ impl<'a> Expr<'a> {
         Box::new(self)
     }
 }
-
-// pub enum ExprRef<'a> {
-//     Binary {
-//         left: &'a ExprRef<'a>,
-//         operator: &'a Token,
-//         right: &'a ExprRef<'a>,
-//     },
-//     Grouping {
-//         expr: &'a ExprRef<'a>,
-//     },
-//     Literal {
-//         value: Option<&'a scanner::Literal>,
-//     },
-//     Unary {
-//         operator: &'a Token,
-//         right: &'a ExprRef<'a>,
-//     },
-// }
-
-// impl<'a> ExprRef<'a> {
-//     pub fn accept<R>(&self, visitor: &impl VisitorRef<R>) -> R {
-//         visitor.visit_expr(self)
-//     }
-// }

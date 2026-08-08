@@ -3,18 +3,14 @@ use std::env;
 use std::fs;
 use std::process::ExitCode;
 
-// use crate::ast_printer::AstPrinter;
-// use crate::ast_printer_ref::AstPrinterRef;
-// use crate::parser::Parser;
-// use crate::parser_ref::ParserRef;
+use crate::ast_printer::AstPrinter;
+use crate::parser::Parser;
 use crate::scanner::Scanner;
 
-// mod ast_printer;
-// mod ast_printer_ref;
+mod ast_printer;
 mod expr;
 mod lox;
-// mod parser;
-// mod parser_ref;
+mod parser;
 mod scanner;
 
 #[repr(u8)]
@@ -85,23 +81,14 @@ fn parse(filename: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     }
 
-    // let mut parser = Parser::new(&scanner.tokens());
-    // let expr = parser.parse();
-    // if parser.has_error {
-    //     return ExitValue::SyntaxError;
-    // }
+    let mut parser = Parser::new(&scanner.tokens());
+    let expr = parser.parse();
+    if parser.has_error {
+        return ExitValue::SyntaxError;
+    }
 
-    // let ast_printer = AstPrinter::new(&expr);
-    // println!("{}", ast_printer.print());
-
-    // let mut parser = ParserRef::new(&scanner.tokens());
-    // let expr = parser.parse();
-    // if parser.has_error {
-    //     return ExitValue::SyntaxError;
-    // }
-
-    // let ast_printer = AstPrinterRef::new(&expr);
-    // println!("{}", ast_printer.print());
+    let ast_printer = AstPrinter::new(&expr);
+    println!("{}", ast_printer.print());
 
     ExitValue::Success
 }
