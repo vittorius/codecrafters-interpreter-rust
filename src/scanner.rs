@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::
 use crate::lox;
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN,
@@ -107,7 +107,7 @@ impl<'a> Display for Literal<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token<'a> {
     pub token_type: TokenType,
     pub lexeme: &'a str,
