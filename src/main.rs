@@ -1,4 +1,5 @@
-#![allow(unused_variables)]
+#![allow(dead_code, unused_variables)]
+
 use std::env;
 use std::fs;
 use std::process::ExitCode;
@@ -8,6 +9,7 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
+mod rpn_ast_printer;
 mod expr;
 mod lox;
 mod parser;
@@ -81,7 +83,7 @@ fn parse(filename: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     }
 
-    let mut parser = Parser::new(&scanner.tokens());
+    let mut parser = Parser::new(scanner.tokens());
     let expr = parser.parse();
     if parser.has_error {
         return ExitValue::SyntaxError;

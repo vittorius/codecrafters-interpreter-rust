@@ -29,13 +29,10 @@ impl<'a> Visitor<String> for AstPrinter<'a> {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(&operator.lexeme, left, right),
-            Expr::Grouping { expr } => self.parenthesize_unary("group", expr),
-            Expr::Literal { value } => match value {
-                Some(value) => value.to_string(),
-                None => "nil".to_owned(),
-            },
-            Expr::Unary { operator, right } => self.parenthesize_unary(&operator.lexeme, right),
+            } => self.parenthesize_binary(operator.lexeme, left, right),
+            Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
+            Expr::Literal(value) => value.to_string(),
+            Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right),
         }
     }
 }
@@ -59,20 +56,11 @@ mod tests {
         let expr = Expr::Binary {
             left: Expr::Unary {
                 operator: Token::new(TokenType::MINUS, "-", None, 1),
-                right: Expr::Literal {
-                    value: Some(Literal::Num(123.0)),
-                }
-                .boxed(),
+                right: Expr::Literal(Literal::Num(123.0)).boxed(),
             }
             .boxed(),
             operator: Token::new(TokenType::STAR, "*", None, 1),
-            right: Expr::Grouping {
-                expr: Expr::Literal {
-                    value: Some(Literal::Num(45.67)),
-                }
-                .boxed(),
-            }
-            .boxed(),
+            right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
         let ast_printer = AstPrinter::new(&expr);

@@ -1,7 +1,7 @@
 use crate::expr::{Expr, Visitor};
 
 pub struct RpnAstPrinter<'a> {
-    expr: &'a Expr,
+    expr: &'a Expr<'a>,
 }
 
 impl<'a> RpnAstPrinter<'a> {
@@ -29,13 +29,10 @@ impl<'a> Visitor<String> for RpnAstPrinter<'a> {
                 left,
                 operator,
                 right,
-            } => self.format_binary(&operator.lexeme, left, right),
-            Expr::Grouping { expr } => expr.accept(self),
-            Expr::Literal { value } => match value {
-                Some(value) => value.to_string(),
-                None => "nil".to_owned(),
-            },
-            Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right),
+            } => self.format_binary(operator.lexeme, left, right),
+            Expr::Grouping(expr) => expr.accept(self),
+            Expr::Literal(value) => value.to_string(),
+            Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),
         }
     }
 }
@@ -51,36 +48,24 @@ mod tests {
         // (1 + 2) * (4 - 3)
 
         let expr = Expr::Binary {
-            left: Expr::Grouping {
-                expr: Expr::Binary {
-                    left: Expr::Literal {
-                        value: Some(Literal::Num(1.0)),
-                    }
-                    .boxed(),
-                    operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
-                    right: Expr::Literal {
-                        value: Some(Literal::Num(2.0)),
-                    }
-                    .boxed(),
+            left: Expr::Grouping(
+                Expr::Binary {
+                    left: Expr::Literal(Literal::Num(1.0)).boxed(),
+                    operator: Token::new(TokenType::PLUS, "+", None, 1),
+                    right: Expr::Literal(Literal::Num(2.0)).boxed(),
                 }
                 .boxed(),
-            }
+            )
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
-            right: Expr::Grouping {
-                expr: Expr::Binary {
-                    left: Expr::Literal {
-                        value: Some(Literal::Num(4.0)),
-                    }
-                    .boxed(),
-                    operator: Token::new(TokenType::PLUS, "-".to_owned(), None, 1),
-                    right: Expr::Literal {
-                        value: Some(Literal::Num(3.0)),
-                    }
-                    .boxed(),
+            operator: Token::new(TokenType::STAR, "*", None, 1),
+            right: Expr::Grouping(
+                Expr::Binary {
+                    left: Expr::Literal(Literal::Num(4.0)).boxed(),
+                    operator: Token::new(TokenType::PLUS, "-", None, 1),
+                    right: Expr::Literal(Literal::Num(3.0)).boxed(),
                 }
                 .boxed(),
-            }
+            )
             .boxed(),
         };
         let ast_printer = RpnAstPrinter::new(&expr);

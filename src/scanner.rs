@@ -89,6 +89,8 @@ pub enum Literal<'a> {
     // Ident(&'a str),
     Str(&'a str),
     Num(f64),
+    Bool(bool),
+    Nil,
 }
 
 impl<'a> Display for Literal<'a> {
@@ -102,7 +104,9 @@ impl<'a> Display for Literal<'a> {
                 } else {
                     write!(f, "{value}")
                 }
-            }
+            },
+            Literal::Bool(value) => write!(f, "{value}"),
+            Literal::Nil => write!(f, "null"),
         }
     }
 }
@@ -111,8 +115,8 @@ impl<'a> Display for Literal<'a> {
 pub struct Token<'a> {
     pub token_type: TokenType,
     pub lexeme: &'a str,
-    literal: Option<Literal<'a>>,
-    line: usize,
+    pub literal: Option<Literal<'a>>, // TODO: try to encode in types that Literal is present for token_type = NUMBER | STRING
+    pub line: usize,
 }
 
 impl<'a> Token<'a> {

@@ -11,12 +11,8 @@ pub enum Expr<'a> {
         operator: Token<'a>,
         right: Box<Expr<'a>>,
     },
-    Grouping {
-        expr: Box<Expr<'a>>,
-    },
-    Literal {
-        value: Option<scanner::Literal<'a>>,
-    },
+    Grouping(Box<Expr<'a>>),
+    Literal(scanner::Literal<'a>),
     Unary {
         operator: Token<'a>,
         right: Box<Expr<'a>>,
