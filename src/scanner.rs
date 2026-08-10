@@ -191,7 +191,7 @@ pub struct Scanner<'a> {
     cursor: Cursor<'a>,
     tokens: Vec<Token<'a>>,
     line: usize,
-    pub has_error: bool,
+    pub has_error: bool, // TODO: remove this in favor of ErrorSink to collect all scanning errors
 }
 
 impl<'a> Scanner<'a> {
