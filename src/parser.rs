@@ -1,36 +1,71 @@
+use std::{error::Error, fmt::Display};
+
 use crate::{
     expr::Expr,
     lox,
     scanner::{Literal, Token, TokenType, TokenType as TT},
 };
 
-// We follow the jlox code structure, therefore we report errors through a "global" function
-// and don't return them as Err-s. Not very Rust-idiomatic but it's what it is.
-pub type PResult<'a> = Result<Expr<'a>, ()>;
+// #[derive(Debug)]
+// pub struct ErrorSink {
+//     errors: Vec<String>,
+// }
+
+// impl Error for ErrorSink {}
+
+// impl ErrorSink {
+//     pub fn new(msg: String) -> Self {
+//         Self { errors: vec![msg] }
+//     }
+
+//     pub fn append(&mut self, msg: &str) {
+//         self.errors.push(String::from(msg));
+//     }
+// }
+
+// impl Display for ErrorSink {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         for error_msg in &self.errors {
+//             write!(f, "{error_msg}\n")?;
+//         }
+
+//         Ok(())
+//     }
+// }
+
+#[derive(Debug)]
+pub struct ParseError(String);
+
+impl Error for ParseError {}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// We don't follow the jlox code structure here for the sake of writing idiomatic Rust.
+// Instead of reporting error immediately (actually, just printing it),
+// we accumulate them in the error sink. Also, instead of throwing an error,
+// we use Result returns values and don't panic.
+// pub type Result<'a> = std::result::Result<Expr<'a>, ErrorSink>;
+pub type Result<'a> = std::result::Result<Expr<'a>, ParseError>;
+
+// type TokenResult<'a> = std::result::Result<&'a Token<'a>, ErrorSink>;
+type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>;
 
 pub struct Parser<'a> {
     tokens: &'a [Token<'a>],
     current: usize,
-    pub has_error: bool,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token<'a>]) -> Self {
-        Parser {
-            tokens,
-            current: 0,
-            has_error: false,
-        }
+        Parser { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Expr<'a> {
-        match self.expression() {
-            Ok(expr) => expr,
-            Err(_) => {
-                self.has_error = true;
-                Expr::Literal(Literal::Nil)
-            }
-        }
+    pub fn parse(&mut self) -> Result<'a> {
+        self.expression()
     }
 
     fn peek(&self) -> &'a Token<'a> {
@@ -74,28 +109,54 @@ impl<'a> Parser<'a> {
         &self.tokens[self.current - 1]
     }
 
-    fn consume(&mut self, token_type: &TokenType, message: &str) -> Result<&'a Token<'a>, ()> {
+    fn consume(&mut self, token_type: &TokenType, message: &str) -> TokenResult<'a> {
         if self.check(token_type) {
             return Ok(self.advance());
         };
 
-        Self::error(self.peek(), message);
-        Err(())
+        Err(Self::mk_error(self.peek(), message))
     }
 
-    fn error(token: &Token, message: &str) {
-        if token.token_type == TT::EOF {
-            lox::error_at(token.line, " at end", message);
-        } else {
-            lox::error_at(token.line, &format!(" at '{}'", token.lexeme), message);
+    fn synchronize(&mut self) {
+        self.advance();
+
+        while !self.is_at_end() {
+            if self.previous().token_type == TT::SEMICOLON {
+                return;
+            }
+
+            match self.peek().token_type {
+                TT::CLASS
+                | TT::FUN
+                | TT::VAR
+                | TT::FOR
+                | TT::IF
+                | TT::WHILE
+                | TT::PRINT
+                | TT::RETURN => return,
+                _ => {
+                    self.advance();
+                }
+            }
         }
     }
 
-    fn expression(&mut self) -> PResult<'a> {
+    fn mk_error(token: &Token, message: &str) -> ParseError {
+        let msg = if token.token_type == TT::EOF {
+            lox::fmt_error_at(token.line, " at end", message)
+        } else {
+            lox::fmt_error_at(token.line, &format!(" at '{}'", token.lexeme), message)
+        };
+
+        // Err(ErrorSink::new(msg))
+        ParseError(msg)
+    }
+
+    fn expression(&mut self) -> Result<'a> {
         self.equality()
     }
 
-    fn equality(&mut self) -> PResult<'a> {
+    fn equality(&mut self) -> Result<'a> {
         let mut expr = self.comparison()?;
 
         while self.match_next(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
@@ -111,7 +172,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> PResult<'a> {
+    fn comparison(&mut self) -> Result<'a> {
         let mut expr = self.term()?;
 
         while self.match_next(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
@@ -127,7 +188,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn term(&mut self) -> PResult<'a> {
+    fn term(&mut self) -> Result<'a> {
         let mut expr = self.factor()?;
 
         while self.match_next(&[TT::MINUS, TT::PLUS]) {
@@ -143,7 +204,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> PResult<'a> {
+    fn factor(&mut self) -> Result<'a> {
         let mut expr = self.unary()?;
 
         while self.match_next(&[TT::SLASH, TT::STAR]) {
@@ -159,7 +220,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> PResult<'a> {
+    fn unary(&mut self) -> Result<'a> {
         if self.match_next(&[TT::BANG, TT::MINUS]) {
             let operator = *self.previous();
             let right = self.unary()?.boxed();
@@ -169,7 +230,7 @@ impl<'a> Parser<'a> {
         self.primary()
     }
 
-    fn primary(&mut self) -> PResult<'a> {
+    fn primary(&mut self) -> Result<'a> {
         if self.match_next(&[TT::FALSE]) {
             return Ok(Expr::Literal(Literal::Bool(false)));
         };
@@ -194,6 +255,6 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Grouping(expr.boxed()));
         }
 
-        unreachable!("No 'primary' rule tokens matched.")
+        Err(Self::mk_error(self.peek(), "Expect expression."))
     }
 }

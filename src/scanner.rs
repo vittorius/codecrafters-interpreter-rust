@@ -195,6 +195,7 @@ pub struct Scanner<'a> {
 }
 
 impl<'a> Scanner<'a> {
+    // TODO: accept ErrorReporter to avoid calling lox::error and properly return Err up through the callstack
     pub fn new(source: &'a str) -> Self {
         Self {
             cursor: Cursor {

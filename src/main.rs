@@ -9,10 +9,10 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
-mod rpn_ast_printer;
 mod expr;
 mod lox;
 mod parser;
+mod rpn_ast_printer;
 mod scanner;
 
 #[repr(u8)]
@@ -20,7 +20,7 @@ enum ExitValue {
     Success = 0,
     Usage = 64,
     SyntaxError = 65, // lexical or syntactical grammar error
-    ParseError = 70,
+    RuntimeError = 70,
 }
 
 impl From<ExitValue> for ExitCode {
@@ -84,10 +84,9 @@ fn parse(filename: &str) -> ExitValue {
     }
 
     let mut parser = Parser::new(scanner.tokens());
-    let expr = parser.parse();
-    if parser.has_error {
-        return ExitValue::ParseError;
-    }
+    let Ok(expr) = parser.parse() else {
+        return ExitValue::SyntaxError;
+    };
 
     let ast_printer = AstPrinter::new(&expr);
     println!("{}", ast_printer.print());
