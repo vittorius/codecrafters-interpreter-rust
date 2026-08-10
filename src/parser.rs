@@ -1,3 +1,15 @@
+//! Lox grammar:
+//!
+//! expression     → equality ;
+//! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+//! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+//! term           → factor ( ( "-" | "+" ) factor )* ;
+//! factor         → unary ( ( "/" | "*" ) unary )* ;
+//! unary          → ( "!" | "-" ) unary
+//!                | primary ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil"
+//!                | "(" expression ")" ;
+
 use std::{error::Error, fmt::Display};
 
 use crate::{
@@ -6,32 +18,6 @@ use crate::{
     scanner::{Literal, Token, TokenType, TokenType as TT},
 };
 
-// #[derive(Debug)]
-// pub struct ErrorSink {
-//     errors: Vec<String>,
-// }
-
-// impl Error for ErrorSink {}
-
-// impl ErrorSink {
-//     pub fn new(msg: String) -> Self {
-//         Self { errors: vec![msg] }
-//     }
-
-//     pub fn append(&mut self, msg: &str) {
-//         self.errors.push(String::from(msg));
-//     }
-// }
-
-// impl Display for ErrorSink {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         for error_msg in &self.errors {
-//             write!(f, "{error_msg}\n")?;
-//         }
-
-//         Ok(())
-//     }
-// }
 
 #[derive(Debug)]
 pub struct ParseError(String);
@@ -48,10 +34,8 @@ impl Display for ParseError {
 // Instead of reporting error immediately (actually, just printing it),
 // we accumulate them in the error sink. Also, instead of throwing an error,
 // we use Result returns values and don't panic.
-// pub type Result<'a> = std::result::Result<Expr<'a>, ErrorSink>;
 pub type Result<'a> = std::result::Result<Expr<'a>, ParseError>;
 
-// type TokenResult<'a> = std::result::Result<&'a Token<'a>, ErrorSink>;
 type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>;
 
 pub struct Parser<'a> {
@@ -148,7 +132,6 @@ impl<'a> Parser<'a> {
             lox::fmt_error_at(token.line, &format!(" at '{}'", token.lexeme), message)
         };
 
-        // Err(ErrorSink::new(msg))
         ParseError(msg)
     }
 
