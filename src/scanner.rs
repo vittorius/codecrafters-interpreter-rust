@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Display, iter::Peekable, str::Chars, sync::LazyLock};
 
-use crate::lox;
+use crate::{error::ErrorSink, lox::fmt_error};
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -104,7 +104,7 @@ impl<'a> Display for Literal<'a> {
                 } else {
                     write!(f, "{value}")
                 }
-            },
+            }
             Literal::Bool(value) => write!(f, "{value}"),
             Literal::Nil => write!(f, "nil"),
         }
@@ -187,9 +187,16 @@ impl<'a> Cursor<'a> {
     }
 }
 
+pub type Tokens<'a> = Vec<Token<'a>>;
+pub enum Result<'a> {
+    Ok(Tokens<'a>),
+    Err(ErrorSink, Tokens<'a>), // have to return both errors (printed first) and tokens (printed second) because of "tokenize" command requirements
+}
+
 pub struct Scanner<'a> {
     cursor: Cursor<'a>,
-    tokens: Vec<Token<'a>>,
+    tokens: Tokens<'a>,
+    errors: ErrorSink,
     line: usize,
     pub has_error: bool, // TODO: remove this in favor of ErrorSink to collect all scanning errors
 }
@@ -205,12 +212,13 @@ impl<'a> Scanner<'a> {
                 cur_byte: 0,
             },
             tokens: vec![],
+            errors: ErrorSink::new(),
             line: 1,
             has_error: false,
         }
     }
 
-    pub fn scan_tokens(&mut self) {
+    pub fn scan_tokens(mut self) -> Result<'a> {
         while !self.is_at_end() {
             self.cursor.catch_up();
 
@@ -219,10 +227,12 @@ impl<'a> Scanner<'a> {
 
         self.tokens
             .push(Token::new(TokenType::EOF, "", None, self.line));
-    }
 
-    pub fn tokens(&self) -> &Vec<Token<'a>> {
-        &self.tokens
+        if self.errors.is_empty() {
+            Result::Ok(self.tokens)
+        } else {
+            Result::Err(self.errors, self.tokens)
+        }
     }
 
     fn scan_token(&mut self) {
@@ -260,13 +270,11 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    // IMPORTANT: accumulates the self.lexeme_cur
     // WARNING: will panic if cursor is at the end of the source
     fn advance(&mut self) -> char {
         self.cursor.advance()
     }
 
-    // IMPORTANT: accumulates the self.lexeme_cur
     // WARNING: will panic if cursor is at the end of the source
     fn advance_twice(&mut self) -> (char, char) {
         let c = self.advance();
@@ -290,7 +298,7 @@ impl<'a> Scanner<'a> {
     }
 
     fn error(&mut self, message: &str) {
-        lox::error(self.line, message);
+        self.errors.append(&fmt_error(self.line, message));
         self.has_error = true;
     }
 
@@ -307,7 +315,6 @@ impl<'a> Scanner<'a> {
         ));
     }
 
-    /// IMPORTANT: accumulates the self.lexeme_cur
     fn add_token_if(&mut self, expected_next: char, left: TokenType, right: TokenType) {
         if self.cursor.peek() == expected_next {
             self.advance(); // consume next

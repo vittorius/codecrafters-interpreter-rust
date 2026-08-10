@@ -9,6 +9,7 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
+mod error;
 mod expr;
 mod lox;
 mod parser;
@@ -57,17 +58,25 @@ fn tokenize(filename: &str) -> ExitValue {
         String::new()
     });
 
-    let mut scanner = Scanner::new(&file_contents);
-    scanner.scan_tokens();
+    let scanner = Scanner::new(&file_contents);
+    match scanner.scan_tokens() {
+        scanner::Result::Ok(tokens) => {
+            for token in tokens {
+                println!("{token}");
+            }
 
-    for token in scanner.tokens() {
-        println!("{token}");
-    }
+            ExitValue::Success
+        }
+        scanner::Result::Err(error_sink, tokens) => {
+            for err in error_sink.errors() {
+                eprintln!("{err}");
+            }
+            for token in tokens {
+                println!("{token}");
+            }
 
-    if scanner.has_error {
-        ExitValue::SyntaxError
-    } else {
-        ExitValue::Success
+            ExitValue::SyntaxError
+        }
     }
 }
 
@@ -77,13 +86,12 @@ fn parse(filename: &str) -> ExitValue {
         String::new()
     });
 
-    let mut scanner = Scanner::new(&file_contents);
-    scanner.scan_tokens();
-    if scanner.has_error {
+    let scanner = Scanner::new(&file_contents);
+    let scanner::Result::Ok(tokens) = scanner.scan_tokens() else {
         return ExitValue::SyntaxError;
-    }
+    };
 
-    let mut parser = Parser::new(scanner.tokens());
+    let mut parser = Parser::new(&tokens);
     let Ok(expr) = parser.parse() else {
         return ExitValue::SyntaxError;
     };
