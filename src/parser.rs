@@ -1,14 +1,13 @@
 //! Lox grammar:
 //!
-//! expression     → equality ;
+//! expression     → compound ;
+//! compound       → equality ("," equality)* ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
 //! factor         → unary ( ( "/" | "*" ) unary )* ;
-//! unary          → ( "!" | "-" ) unary
-//!                | primary ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil"
-//!                | "(" expression ")" ;
+//! unary          → ( "!" | "-" ) unary | primary ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
 
 use std::{error::Error, fmt::Display};
 
@@ -17,7 +16,6 @@ use crate::{
     lox,
     scanner::{Literal, Token, TokenType, TokenType as TT},
 };
-
 
 #[derive(Debug)]
 pub struct ParseError(String);
@@ -56,7 +54,7 @@ impl<'a> Parser<'a> {
         &self.tokens[self.current]
     }
 
-    // TODO: try to turn this token into a token eater/emitter
+    // TODO: try to turn this into a token eater/emitter
     // and offload the matching to the Rust `match` in rule functions
     fn match_next(&mut self, token_types: &[TokenType]) -> bool {
         for tt in token_types {
@@ -136,7 +134,19 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Result<'a> {
-        self.equality()
+        let mut expr = self.equality()?;
+        
+        while self.match_next(&[TT::COMMA]) {
+            let operator = *self.previous();
+            let right = self.equality()?.boxed();
+            expr = Expr::Binary {
+                left: expr.boxed(),
+                operator,
+                right,
+            };
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<'a> {

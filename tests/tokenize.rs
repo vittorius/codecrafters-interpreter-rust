@@ -1,44 +1,12 @@
-use std::env;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::path::Path;
+use std::process::Output;
 
-/// Deletes the backing file on drop, so a panicking assertion doesn't leak
-/// temp files.
-struct TempLoxFile {
-    path: PathBuf,
-}
+mod common;
 
-impl TempLoxFile {
-    fn new(contents: &str) -> Self {
-        static COUNTER: AtomicUsize = AtomicUsize::new(0);
-        let unique = COUNTER.fetch_add(1, Ordering::Relaxed);
-
-        let mut path = env::temp_dir();
-        path.push(format!(
-            "codecrafters-interpreter-test-{}-{unique}.lox",
-            std::process::id()
-        ));
-
-        fs::write(&path, contents).expect("failed to write temp .lox file");
-
-        Self { path }
-    }
-}
-
-impl Drop for TempLoxFile {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
-    }
-}
+use common::{run_binary, TempLoxFile};
 
 fn run_tokenize(path: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_codecrafters-interpreter"))
-        .arg("tokenize")
-        .arg(path)
-        .output()
-        .expect("failed to run codecrafters-interpreter binary")
+    run_binary("tokenize", path)
 }
 
 fn assert_tokenize_success(source: &str, expected_stdout: &str) {
