@@ -70,3 +70,67 @@ fn test_comma_trailing_operator_is_syntax_error() {
     // After consuming the `,`, `equality()` fails to find a right operand.
     assert_parse_syntax_error("1,");
 }
+
+#[test]
+fn test_ternary_basic() {
+    assert_parse_success("true ? 1 : 2", "(?: true 1.0 2.0)\n");
+}
+
+#[test]
+fn test_ternary_is_right_associative() {
+    // `ternary`'s else-branch recurses into `ternary()` itself, so chained
+    // `?:` without parens nests to the right: `a ? b : c ? d : e ? f : g`
+    // parses as `a ? b : (c ? d : (e ? f : g))`.
+    assert_parse_success(
+        "true ? 1 : false ? 2 : true ? 3 : 4",
+        "(?: true 1.0 (?: false 2.0 (?: true 3.0 4.0)))\n",
+    );
+}
+
+#[test]
+fn test_ternary_nested_in_then_branch_via_grouping() {
+    // Unlike the else-branch, the then-branch is parsed via `equality()`,
+    // not `ternary()`, so a nested ternary there needs explicit parens.
+    assert_parse_success(
+        "true ? (false ? 1 : 2) : 3",
+        "(?: true (group (?: false 1.0 2.0)) 3.0)\n",
+    );
+}
+
+#[test]
+fn test_ternary_then_branch_without_grouping_is_syntax_error() {
+    // Without parens, the then-branch's `equality()` stops before the `?`,
+    // leaving `? 1 : 2 : 3`'s `?` where `ternary()` expects a `:`.
+    assert_parse_syntax_error("true ? false ? 1 : 2 : 3");
+}
+
+#[test]
+fn test_ternary_nested_in_else_branch_via_grouping() {
+    // Same source shape as the right-associativity test, but explicit
+    // grouping produces a `Grouping` node instead of a bare nested ternary.
+    assert_parse_success(
+        "true ? 1 : (false ? 2 : 3)",
+        "(?: true 1.0 (group (?: false 2.0 3.0)))\n",
+    );
+}
+
+#[test]
+fn test_ternary_has_lower_precedence_than_equality() {
+    // `ternary`'s cond operand is an `equality` expression, so `==` binds
+    // tighter than `?:`.
+    assert_parse_success("1 == 1 ? 2 : 3", "(?: (== 1.0 1.0) 2.0 3.0)\n");
+}
+
+#[test]
+fn test_ternary_has_higher_precedence_than_comma() {
+    // `compound`'s operands are `ternary` expressions, so `?:` binds
+    // tighter than `,`.
+    assert_parse_success("true ? 1 : 2, 3", "(, (?: true 1.0 2.0) 3.0)\n");
+}
+
+#[test]
+fn test_ternary_missing_colon_is_syntax_error() {
+    // No `:` follows the then-branch, so `ternary()` reports "Unterminated
+    // ternary expression".
+    assert_parse_syntax_error("true ? 1");
+}

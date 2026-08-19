@@ -1,7 +1,8 @@
 //! Lox grammar:
 //!
 //! expression     → compound ;
-//! compound       → equality ("," equality)* ;
+//! compound       → ternary ("," ternary)* ;
+//! ternary        → equality ("?" equality ":" equality)* ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
@@ -134,11 +135,11 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Result<'a> {
-        let mut expr = self.equality()?;
-        
+        let mut expr = self.ternary()?;
+
         while self.match_next(&[TT::COMMA]) {
             let operator = *self.previous();
-            let right = self.equality()?.boxed();
+            let right = self.ternary()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -147,6 +148,31 @@ impl<'a> Parser<'a> {
         }
 
         Ok(expr)
+    }
+
+    fn ternary(&mut self) -> Result<'a> {
+        let cond = self.equality()?;
+
+        if self.match_next(&[TT::QUESTION]) {
+            let left = self.equality()?.boxed();
+
+            if self.match_next(&[TT::COLON]) {
+                let right = self.ternary()?.boxed();
+
+                Ok(Expr::Ternary {
+                    cond: cond.boxed(),
+                    left,
+                    right,
+                })
+            } else {
+                Err(Self::mk_error(
+                    self.peek(),
+                    "Unterminated ternary expression",
+                ))
+            }
+        } else {
+            Ok(cond)
+        }
     }
 
     fn equality(&mut self) -> Result<'a> {

@@ -20,6 +20,16 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_binary(&self, name: &str, expr1: &Expr, expr2: &Expr) -> String {
         format!("{} {} {}", expr1.accept(self), expr2.accept(self), name)
     }
+
+    fn format_ternary(&self, name: &str, expr1: &Expr, expr2: &Expr, expr3: &Expr) -> String {
+        format!(
+            "{} {} {} {}",
+            expr1.accept(self),
+            expr2.accept(self),
+            expr3.accept(self),
+            name,
+        )
+    }
 }
 
 impl<'a> Visitor<String> for RpnAstPrinter<'a> {
@@ -30,6 +40,7 @@ impl<'a> Visitor<String> for RpnAstPrinter<'a> {
                 operator,
                 right,
             } => self.format_binary(operator.lexeme, left, right),
+            Expr::Ternary { cond, left, right } => self.format_ternary("?:", cond, left, right),
             Expr::Grouping(expr) => expr.accept(self),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),

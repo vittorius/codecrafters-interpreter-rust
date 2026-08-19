@@ -20,6 +20,16 @@ impl<'a> AstPrinter<'a> {
     fn parenthesize_binary(&self, name: &str, expr1: &Expr, expr2: &Expr) -> String {
         format!("({} {} {})", name, expr1.accept(self), expr2.accept(self))
     }
+
+    fn parenthesize_ternary(&self, name: &str, expr1: &Expr, expr2: &Expr, expr3: &Expr) -> String {
+        format!(
+            "({} {} {} {})",
+            name,
+            expr1.accept(self),
+            expr2.accept(self),
+            expr3.accept(self)
+        )
+    }
 }
 
 impl<'a> Visitor<String> for AstPrinter<'a> {
@@ -30,6 +40,9 @@ impl<'a> Visitor<String> for AstPrinter<'a> {
                 operator,
                 right,
             } => self.parenthesize_binary(operator.lexeme, left, right),
+            Expr::Ternary { cond, left, right } => {
+                self.parenthesize_ternary("?:", cond, left, right)
+            }
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right),

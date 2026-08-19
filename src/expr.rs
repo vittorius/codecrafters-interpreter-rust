@@ -11,6 +11,11 @@ pub enum Expr<'a> {
         operator: Token<'a>,
         right: Box<Expr<'a>>,
     },
+    Ternary {
+        cond: Box<Expr<'a>>,
+        left: Box<Expr<'a>>,
+        right: Box<Expr<'a>>,
+    },
     Grouping(Box<Expr<'a>>),
     Literal(scanner::Literal<'a>),
     Unary {
