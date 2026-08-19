@@ -11,7 +11,7 @@ pub enum Expr<'a> {
         operator: Token<'a>,
         right: Box<Expr<'a>>,
     },
-    Ternary {
+    Conditional {
         cond: Box<Expr<'a>>,
         left: Box<Expr<'a>>,
         right: Box<Expr<'a>>,

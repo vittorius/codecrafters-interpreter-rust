@@ -40,7 +40,7 @@ impl<'a> Visitor<String> for RpnAstPrinter<'a> {
                 operator,
                 right,
             } => self.format_binary(operator.lexeme, left, right),
-            Expr::Ternary { cond, left, right } => self.format_ternary("?:", cond, left, right),
+            Expr::Conditional { cond, left, right } => self.format_ternary("?:", cond, left, right),
             Expr::Grouping(expr) => expr.accept(self),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),

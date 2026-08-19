@@ -1,8 +1,8 @@
 //! Lox grammar:
 //!
 //! expression     → compound ;
-//! compound       → ternary ("," ternary)* ;
-//! ternary        → equality ("?" equality ":" equality)* ;
+//! compound       → conditional ("," conditional)* ;
+//! conditional    → equality ("?" equality ":" conditional)? ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
@@ -135,11 +135,11 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> Result<'a> {
-        let mut expr = self.ternary()?;
+        let mut expr = self.conditional()?;
 
         while self.match_next(&[TT::COMMA]) {
             let operator = *self.previous();
-            let right = self.ternary()?.boxed();
+            let right = self.conditional()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -150,26 +150,22 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn ternary(&mut self) -> Result<'a> {
+    fn conditional(&mut self) -> Result<'a> {
         let cond = self.equality()?;
 
         if self.match_next(&[TT::QUESTION]) {
             let left = self.equality()?.boxed();
 
-            if self.match_next(&[TT::COLON]) {
-                let right = self.ternary()?.boxed();
-
-                Ok(Expr::Ternary {
-                    cond: cond.boxed(),
-                    left,
-                    right,
-                })
-            } else {
-                Err(Self::mk_error(
-                    self.peek(),
-                    "Unterminated ternary expression",
-                ))
-            }
+            self.consume(
+                &TT::COLON,
+                "Expect ':' after then branch of conditional expression.",
+            )?;
+            let right = self.conditional()?.boxed();
+            Ok(Expr::Conditional {
+                cond: cond.boxed(),
+                left,
+                right,
+            })
         } else {
             Ok(cond)
         }

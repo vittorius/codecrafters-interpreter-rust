@@ -40,7 +40,7 @@ impl<'a> Visitor<String> for AstPrinter<'a> {
                 operator,
                 right,
             } => self.parenthesize_binary(operator.lexeme, left, right),
-            Expr::Ternary { cond, left, right } => {
+            Expr::Conditional { cond, left, right } => {
                 self.parenthesize_ternary("?:", cond, left, right)
             }
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
