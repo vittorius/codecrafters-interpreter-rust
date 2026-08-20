@@ -1,7 +1,6 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
-    evaluate,
     expr::{Expr, Visitor},
     scanner::{self, Token, TokenType as TT},
 };
@@ -106,7 +105,7 @@ impl<'a> Visitor<'a, EvalResult<'a>> for Interpreter<'a> {
                 left,
                 operator,
                 right,
-            } => todo!(),
+            } => self.visit_binary(left, operator, right),
             Expr::Conditional { cond, left, right } => todo!(),
             Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(literal) => Self::visit_literal(literal),
