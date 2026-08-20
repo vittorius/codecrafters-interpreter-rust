@@ -5,12 +5,14 @@ use std::fs;
 use std::process::ExitCode;
 
 use crate::ast_printer::AstPrinter;
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
 mod error;
 mod expr;
+mod interpreter;
 mod lox;
 mod parser;
 mod rpn_ast_printer;
@@ -45,6 +47,7 @@ fn main() -> ExitCode {
     match command.as_str() {
         "tokenize" => tokenize(filename).into(),
         "parse" => parse(filename).into(),
+        "evaluate" => evaluate(filename).into(),
         _ => {
             eprintln!("Unknown command: {}", command);
             ExitValue::Usage.into()
@@ -98,6 +101,31 @@ fn parse(filename: &str) -> ExitValue {
 
     let ast_printer = AstPrinter::new(&expr);
     println!("{}", ast_printer.print());
+
+    ExitValue::Success
+}
+
+fn evaluate(filename: &str) -> ExitValue {
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        eprintln!("Failed to read file {}", filename);
+        String::new()
+    });
+
+    let scanner = Scanner::new(&file_contents);
+    let scanner::Result::Ok(tokens) = scanner.scan_tokens() else {
+        return ExitValue::SyntaxError;
+    };
+
+    let mut parser = Parser::new(&tokens);
+    let Ok(expr) = parser.parse() else {
+        return ExitValue::SyntaxError;
+    };
+
+    let interpreter = Interpreter::new();
+    let Ok(result) = interpreter.interpret(&expr) else {
+        return ExitValue::RuntimeError;
+    };
+    println!("{}", result);
 
     ExitValue::Success
 }

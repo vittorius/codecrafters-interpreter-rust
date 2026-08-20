@@ -32,7 +32,7 @@ impl<'a> RpnAstPrinter<'a> {
     }
 }
 
-impl<'a> Visitor<String> for RpnAstPrinter<'a> {
+impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
     fn visit_expr(&self, expr: &Expr) -> String {
         match expr {
             Expr::Binary {

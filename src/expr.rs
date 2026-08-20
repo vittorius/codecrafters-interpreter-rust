@@ -1,7 +1,7 @@
 use crate::scanner::{self, Token};
 
-pub trait Visitor<R> {
-    fn visit_expr(&self, expr: &Expr) -> R;
+pub trait Visitor<'e, R> {
+    fn visit_expr(&self, expr: &'e Expr) -> R;
 }
 
 #[derive(Debug)]
@@ -25,7 +25,7 @@ pub enum Expr<'a> {
 }
 
 impl<'a> Expr<'a> {
-    pub fn accept<R>(&self, visitor: &impl Visitor<R>) -> R {
+    pub fn accept<R>(&'a self, visitor: &impl Visitor<'a, R>) -> R {
         visitor.visit_expr(self)
     }
 
