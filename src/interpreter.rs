@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
     expr::{Expr, Visitor},
@@ -34,48 +34,54 @@ impl<'a> Display for Value<'a> {
     }
 }
 
-pub struct Interpreter {}
+pub struct Interpreter<'a> {
+    _phantom: PhantomData<&'a ()>,
+}
 
-impl Interpreter {
+impl<'a> Interpreter<'a> {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            _phantom: PhantomData,
+        }
     }
 
-    pub fn interpret<'a>(&self, expr: &'a Expr<'a>) -> Result<'a> {
+    pub fn interpret(&self, expr: &'a Expr<'a>) -> Result<'a> {
         self.evaluate(expr).map(|v| v.to_string())
     }
 
-    fn evaluate<'a>(&self, expr: &'a Expr<'a>) -> EvalResult<'a> {
+    fn evaluate(&self, expr: &'a Expr<'a>) -> EvalResult<'a> {
         expr.accept(self)
     }
 
-    fn visit_literal<'a>(&self, literal: &scanner::Literal<'a>) -> Value<'a> {
-        match literal {
+    fn is_truthy(val: &Value<'_>) -> bool {
+        match val {
+            Value::Bool(b) => *b,
+            Value::Nil => false,
+            _ => true,
+        }
+    }
+
+    fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult<'a> {
+        Ok(match literal {
             scanner::Literal::Str(s) => Value::Str(s),
             scanner::Literal::Num(n) => Value::Num(*n),
             scanner::Literal::Bool(b) => Value::Bool(*b),
             scanner::Literal::Nil => Value::Nil,
-        }
+        })
     }
 
-    fn visit_unary<'a>(&self, token: &Token<'a>, right: &'a Expr<'a>) -> EvalResult<'a> {
+    fn visit_unary(&self, token: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult<'a> {
+        let right = self.evaluate(expr)?;
+
         match (token.token_type, right) {
-            (TT::MINUS, Expr::Literal(scanner::Literal::Num(n))) => Ok(Value::Num(-n)),
-            (TT::BANG, Expr::Literal(lit)) => Ok(Value::Bool(!Self::is_truthy(lit))),
+            (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
+            (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
             _ => unreachable!(),
-        }
-    }
-
-    fn is_truthy(lit: &scanner::Literal) -> bool {
-        match lit {
-            scanner::Literal::Bool(b) => *b,
-            scanner::Literal::Nil => false,
-            _ => true,
         }
     }
 }
 
-impl<'a> Visitor<'a, EvalResult<'a>> for Interpreter {
+impl<'a> Visitor<'a, EvalResult<'a>> for Interpreter<'a> {
     fn visit_expr(&self, expr: &'a Expr) -> EvalResult<'a> {
         match expr {
             Expr::Binary {
@@ -85,8 +91,8 @@ impl<'a> Visitor<'a, EvalResult<'a>> for Interpreter {
             } => todo!(),
             Expr::Conditional { cond, left, right } => todo!(),
             Expr::Grouping(expr) => self.evaluate(expr),
-            Expr::Literal(literal) => Ok(self.visit_literal(literal)),
-            Expr::Unary { operator, right } => todo!(),
+            Expr::Literal(literal) => Self::visit_literal(literal),
+            Expr::Unary { operator, right } => self.visit_unary(operator, right),
         }
     }
 }
