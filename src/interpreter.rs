@@ -27,13 +27,7 @@ impl<'a> Display for Value<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Str(value) => write!(f, "{value}"),
-            Value::Num(value) => {
-                if value.fract() == 0.0 {
-                    write!(f, "{value}.0")
-                } else {
-                    write!(f, "{value}")
-                }
-            }
+            Value::Num(value) => write!(f, "{value}"),
             Value::Bool(value) => write!(f, "{value}"),
             Value::Nil => write!(f, "nil"),
         }
