@@ -111,6 +111,8 @@ impl<'a> Interpreter<'a> {
             (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
             (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),

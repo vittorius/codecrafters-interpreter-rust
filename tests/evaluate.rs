@@ -76,3 +76,23 @@ fn test_string_comparison_prefix_is_less_than_extended_string() {
     // A proper prefix sorts before the longer string it prefixes.
     assert_evaluate_success(r#""app" < "apple""#, "true\n");
 }
+
+#[test]
+fn test_concat_string_left_number_right() {
+    assert_evaluate_success(r#""value: " + 1"#, "value: 1\n");
+}
+
+#[test]
+fn test_concat_number_left_string_right() {
+    assert_evaluate_success(r#"1 + " item""#, "1 item\n");
+}
+
+#[test]
+fn test_concat_string_left_decimal_number_right() {
+    assert_evaluate_success(r#""pi is " + 3.14"#, "pi is 3.14\n");
+}
+
+#[test]
+fn test_concat_decimal_number_left_string_right() {
+    assert_evaluate_success(r#"3.14 + " is pi""#, "3.14 is pi\n");
+}
