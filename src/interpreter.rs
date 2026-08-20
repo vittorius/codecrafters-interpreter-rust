@@ -60,6 +60,17 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    fn is_equal(left: &Value, right: &Value) -> bool {
+        match (left, right) {
+            (Value::Nil, Value::Nil) => true,
+            (Value::Nil, _) => false,
+            (Value::Bool(l), Value::Bool(r)) => l == r,
+            (Value::Num(l), Value::Num(r)) => l == r,
+            (Value::Str(l), Value::Str(r)) => l == r,
+            _ => false,
+        }
+    }
+
     fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult<'a> {
         Ok(match literal {
             scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
@@ -94,6 +105,12 @@ impl<'a> Interpreter<'a> {
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
+            (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
+            (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
+            (TT::LESS_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l <= r)),
+            (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
+            (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
             _ => unreachable!(),
         }
     }
