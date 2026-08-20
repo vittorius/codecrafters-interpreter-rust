@@ -11,19 +11,18 @@ pub struct RuntimeError<'a> {
 }
 
 pub type Result<'a> = std::result::Result<String, RuntimeError<'a>>;
-type EvalResult<'a> = std::result::Result<Value<'a>, RuntimeError<'a>>;
+type EvalResult<'a> = std::result::Result<Value, RuntimeError<'a>>;
 
 // TODO: there could be an enum Object { Value, Ref }
 // and Ref can hold stings and class objects, others go into Value
-enum Value<'a> {
-    // Str(String),
-    Str(&'a str), // let's try references first
+enum Value {
+    Str(String),
     Num(f64),
     Bool(bool),
     Nil,
 }
 
-impl<'a> Display for Value<'a> {
+impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Str(value) => write!(f, "{value}"),
@@ -53,7 +52,7 @@ impl<'a> Interpreter<'a> {
         expr.accept(self)
     }
 
-    fn is_truthy(val: &Value<'_>) -> bool {
+    fn is_truthy(val: &Value) -> bool {
         match val {
             Value::Bool(b) => *b,
             Value::Nil => false,
@@ -63,7 +62,7 @@ impl<'a> Interpreter<'a> {
 
     fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult<'a> {
         Ok(match literal {
-            scanner::Literal::Str(s) => Value::Str(s),
+            scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
             scanner::Literal::Num(n) => Value::Num(*n),
             scanner::Literal::Bool(b) => Value::Bool(*b),
             scanner::Literal::Nil => Value::Nil,
@@ -93,6 +92,8 @@ impl<'a> Interpreter<'a> {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
             (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
+            (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
+            (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             _ => unreachable!(),
         }
     }
