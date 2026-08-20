@@ -69,8 +69,8 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn mk_error(token: &Token, message: &str) -> RuntimeError {
-        RuntimeError(lox::fmt_runtime_error(token.line, message))
+    fn error(token: &Token, message: &str) -> EvalResult {
+        Err(RuntimeError(lox::fmt_runtime_error(token.line, message)))
     }
 
     fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult {
@@ -87,7 +87,7 @@ impl<'a> Interpreter<'a> {
 
         match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
-            (TT::MINUS, _) => Err(Self::mk_error(operator, "Operand must be a number.")),
+            (TT::MINUS, _) => Self::error(operator, "Operand must be a number."),
             (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
             _ => unreachable!(),
         }
@@ -105,9 +105,9 @@ impl<'a> Interpreter<'a> {
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
             (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
-            (TT::SLASH, _, _) => Err(Self::mk_error(operator, "Operands must be numbers.")),
+            (TT::SLASH, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
-            (TT::STAR, _, _) => Err(Self::mk_error(operator, "Operands must be numbers.")),
+            (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
