@@ -1,6 +1,7 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
+    evaluate,
     expr::{Expr, Visitor},
     scanner::{self, Token, TokenType as TT},
 };
@@ -70,12 +71,29 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    fn visit_unary(&self, token: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult<'a> {
+    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult<'a> {
         let right = self.evaluate(expr)?;
 
-        match (token.token_type, right) {
+        match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
             (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
+            _ => unreachable!(),
+        }
+    }
+
+    fn visit_binary(
+        &self,
+        left: &'a Expr<'a>,
+        operator: &'a Token<'a>,
+        right: &'a Expr<'a>,
+    ) -> EvalResult<'a> {
+        let left = self.evaluate(left)?;
+        let right = self.evaluate(right)?;
+
+        match (operator.token_type, left, right) {
+            (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
+            (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
+            (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
             _ => unreachable!(),
         }
     }
