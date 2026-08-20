@@ -104,12 +104,14 @@ impl<'a> Interpreter<'a> {
 
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
+            (TT::MINUS, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
             (TT::SLASH, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
             (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),

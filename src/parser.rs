@@ -124,6 +124,8 @@ impl<'a> Parser<'a> {
         }
     }
 
+    // We need to construct the bare error and not wrap it into an Err variant
+    // because this error value is used in different Result return types later
     fn mk_error(token: &Token, message: &str) -> ParseError {
         let msg = if token.token_type == TT::EOF {
             lox::fmt_error_at(token.line, " at end", message)
