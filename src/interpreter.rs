@@ -111,17 +111,19 @@ impl<'a> Interpreter<'a> {
             (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            // implicit number-to-sting conversion on concatenation is commented for the sake of CodeCrafters test suite
+            // (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            // (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
             (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
             (TT::LESS_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l <= r)),
-            (TT::GREATER, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l > r)),
-            (TT::GREATER_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l >= r)),
-            (TT::LESS, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l < r)),
-            (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
+            // string comparison is commented for the sake of CodeCrafters test suite
+            // (TT::GREATER, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l > r)),
+            // (TT::GREATER_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l >= r)),
+            // (TT::LESS, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l < r)),
+            // (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
             (TT::GREATER | TT::GREATER_EQUAL | TT::LESS | TT::LESS_EQUAL, _, _) => {
                 Self::error(operator, "Operands must be numbers.")
             }
