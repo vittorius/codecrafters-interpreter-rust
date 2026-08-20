@@ -2,16 +2,14 @@ use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
     expr::{Expr, Visitor},
+    lox,
     scanner::{self, Token, TokenType as TT},
 };
 
-pub struct RuntimeError<'a> {
-    token: Token<'a>,
-    message: String,
-}
+pub struct RuntimeError(String);
 
-pub type Result<'a> = std::result::Result<String, RuntimeError<'a>>;
-type EvalResult<'a> = std::result::Result<Value, RuntimeError<'a>>;
+pub type Result = std::result::Result<String, RuntimeError>;
+type EvalResult = std::result::Result<Value, RuntimeError>;
 
 // TODO: there could be an enum Object { Value, Ref }
 // and Ref can hold stings and class objects, others go into Value
@@ -44,11 +42,11 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn interpret(&self, expr: &'a Expr<'a>) -> Result<'a> {
+    pub fn interpret(&self, expr: &'a Expr<'a>) -> Result {
         self.evaluate(expr).map(|v| v.to_string())
     }
 
-    fn evaluate(&self, expr: &'a Expr<'a>) -> EvalResult<'a> {
+    fn evaluate(&self, expr: &'a Expr<'a>) -> EvalResult {
         expr.accept(self)
     }
 
@@ -71,7 +69,11 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult<'a> {
+    fn mk_error(token: &Token, message: &str) -> RuntimeError {
+        RuntimeError(lox::fmt_runtime_error(token.line, message))
+    }
+
+    fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult {
         Ok(match literal {
             scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
             scanner::Literal::Num(n) => Value::Num(*n),
@@ -80,11 +82,12 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult<'a> {
+    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult {
         let right = self.evaluate(expr)?;
 
         match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
+            (TT::MINUS, _) => Err(Self::mk_error(operator, "Operand must be a number.")),
             (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
             _ => unreachable!(),
         }
@@ -95,7 +98,7 @@ impl<'a> Interpreter<'a> {
         left: &'a Expr<'a>,
         operator: &'a Token<'a>,
         right: &'a Expr<'a>,
-    ) -> EvalResult<'a> {
+    ) -> EvalResult {
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
 
@@ -116,8 +119,8 @@ impl<'a> Interpreter<'a> {
     }
 }
 
-impl<'a> Visitor<'a, EvalResult<'a>> for Interpreter<'a> {
-    fn visit_expr(&self, expr: &'a Expr) -> EvalResult<'a> {
+impl<'a> Visitor<'a, EvalResult> for Interpreter<'a> {
+    fn visit_expr(&self, expr: &'a Expr) -> EvalResult {
         match expr {
             Expr::Binary {
                 left,
