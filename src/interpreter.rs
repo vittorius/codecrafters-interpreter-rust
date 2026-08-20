@@ -116,6 +116,9 @@ impl<'a> Interpreter<'a> {
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
             (TT::LESS_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l <= r)),
+            (TT::GREATER | TT::GREATER_EQUAL | TT::LESS | TT::LESS_EQUAL, _, _) => {
+                Self::error(operator, "Operands must be numbers.")
+            }
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
             _ => unreachable!(),
