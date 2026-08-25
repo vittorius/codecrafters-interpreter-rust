@@ -1,15 +1,13 @@
 use std::{fmt::Display, marker::PhantomData};
 
 use crate::{
-    expr::{Expr, Visitor},
+    expr::{self, Expr},
     lox,
     scanner::{self, Token, TokenType as TT},
+    stmt::{self, Stmt},
 };
 
 pub struct RuntimeError(String);
-
-pub type Result = std::result::Result<String, RuntimeError>;
-type EvalResult = std::result::Result<Value, RuntimeError>;
 
 // TODO: there could be an enum Object { Value, Ref }
 // and Ref can hold stings and class objects, others go into Value
@@ -19,6 +17,9 @@ enum Value {
     Bool(bool),
     Nil,
 }
+
+type Void = (); // right now, trying to follow the book, maybe remove it later
+const VOID: Void = ();
 
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -31,6 +32,11 @@ impl Display for Value {
     }
 }
 
+pub type Result = std::result::Result<Void, RuntimeError>;
+pub type EvalResult = std::result::Result<String, RuntimeError>;
+type StmtResult = std::result::Result<Void, RuntimeError>;
+type ExprResult = std::result::Result<Value, RuntimeError>;
+
 pub struct Interpreter<'a> {
     _phantom: PhantomData<&'a ()>,
 }
@@ -42,11 +48,23 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    pub fn interpret(&self, expr: &'a Expr<'a>) -> Result {
+    pub fn interpret(&self, statements: impl Iterator<Item = &'a Stmt<'a>>) -> Result {
+        // self.evaluate(expr).map(|v| v.to_string())
+        for stmt in statements {
+            self.execute(stmt)?;
+        }
+        Ok(VOID)
+    }
+
+    pub fn interpret_expr(&self, expr: &'a Expr<'a>) -> EvalResult {
         self.evaluate(expr).map(|v| v.to_string())
     }
 
-    fn evaluate(&self, expr: &'a Expr<'a>) -> EvalResult {
+    fn execute(&self, stmt: &'a Stmt<'a>) -> StmtResult {
+        stmt.accept(self)
+    }
+
+    fn evaluate(&self, expr: &'a Expr<'a>) -> ExprResult {
         expr.accept(self)
     }
 
@@ -69,11 +87,11 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn error(token: &Token, message: &str) -> EvalResult {
+    fn error(token: &Token, message: &str) -> ExprResult {
         Err(RuntimeError(lox::fmt_runtime_error(token.line, message)))
     }
 
-    fn visit_literal(literal: &scanner::Literal<'a>) -> EvalResult {
+    fn visit_literal(literal: &scanner::Literal<'a>) -> ExprResult {
         Ok(match literal {
             scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
             scanner::Literal::Num(n) => Value::Num(*n),
@@ -82,7 +100,7 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> EvalResult {
+    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> ExprResult {
         let right = self.evaluate(expr)?;
 
         match (operator.token_type, right) {
@@ -98,7 +116,7 @@ impl<'a> Interpreter<'a> {
         left: &'a Expr<'a>,
         operator: &'a Token<'a>,
         right: &'a Expr<'a>,
-    ) -> EvalResult {
+    ) -> ExprResult {
         let left = self.evaluate(left)?;
         let right = self.evaluate(right)?;
 
@@ -134,8 +152,8 @@ impl<'a> Interpreter<'a> {
     }
 }
 
-impl<'a> Visitor<'a, EvalResult> for Interpreter<'a> {
-    fn visit_expr(&self, expr: &'a Expr) -> EvalResult {
+impl<'a> expr::Visitor<'a, ExprResult> for Interpreter<'a> {
+    fn visit_expr(&self, expr: &'a Expr) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
@@ -146,6 +164,18 @@ impl<'a> Visitor<'a, EvalResult> for Interpreter<'a> {
             Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(literal) => Self::visit_literal(literal),
             Expr::Unary { operator, right } => self.visit_unary(operator, right),
+        }
+    }
+}
+
+impl<'a> stmt::Visitor<'a, StmtResult> for Interpreter<'a> {
+    fn visit_stmt(&self, stmt: &'a Stmt) -> StmtResult {
+        match stmt {
+            Stmt::Expression(expr) => self.evaluate(expr).map(|_| ()),
+            Stmt::Print(expr) => {
+                println!("{}", self.evaluate(expr).map(|v| v.to_string())?);
+                Ok(VOID)
+            }
         }
     }
 }

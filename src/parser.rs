@@ -16,6 +16,7 @@ use crate::{
     expr::Expr,
     lox,
     scanner::{Literal, Token, TokenType, TokenType as TT},
+    stmt::Stmt,
 };
 
 #[derive(Debug)]
@@ -33,12 +34,14 @@ impl Display for ParseError {
 // Instead of reporting error immediately (actually, just printing it),
 // we accumulate them in the error sink. Also, instead of throwing an error,
 // we use Result returns values and don't panic.
-pub type Result<'a> = std::result::Result<Expr<'a>, ParseError>;
-
+pub type Result<'a> = std::result::Result<Vec<Stmt<'a>>, ParseError>;
+pub type ExprResult<'a> = std::result::Result<Expr<'a>, ParseError>;
+type StmtResult<'a> = std::result::Result<Stmt<'a>, ParseError>;
 type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>;
 
 pub struct Parser<'a> {
     tokens: &'a [Token<'a>],
+    // statements: &'a [Stmt<'a>],
     current: usize,
 }
 
@@ -48,6 +51,15 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<'a> {
+        let mut statements = Vec::<Stmt<'a>>::new();
+        while !self.is_at_end() {
+            statements.push(self.statement()?);
+        }
+
+        Ok(statements)
+    }
+
+    pub fn parse_expr(&mut self) -> ExprResult<'a> {
         self.expression()
     }
 
@@ -136,7 +148,27 @@ impl<'a> Parser<'a> {
         ParseError(msg)
     }
 
-    fn expression(&mut self) -> Result<'a> {
+    fn statement(&mut self) -> StmtResult<'a> {
+        if self.match_next(&[TT::PRINT]) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    fn print_statement(&mut self) -> StmtResult<'a> {
+        let value = self.expression()?;
+        self.consume(&TT::SEMICOLON, "Expect ';' after value.")?;
+        Ok(Stmt::Print(value))
+    }
+
+    fn expression_statement(&mut self) -> StmtResult<'a> {
+        let expr = self.expression()?;
+        self.consume(&TT::SEMICOLON, "Expect ';' after expression.")?;
+        Ok(Stmt::Expression(expr))
+    }
+
+    fn expression(&mut self) -> ExprResult<'a> {
         let mut expr = self.conditional()?;
 
         while self.match_next(&[TT::COMMA]) {
@@ -152,7 +184,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn conditional(&mut self) -> Result<'a> {
+    fn conditional(&mut self) -> ExprResult<'a> {
         let cond = self.equality()?;
 
         if self.match_next(&[TT::QUESTION]) {
@@ -173,7 +205,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn equality(&mut self) -> Result<'a> {
+    fn equality(&mut self) -> ExprResult<'a> {
         let mut expr = self.comparison()?;
 
         while self.match_next(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
@@ -189,7 +221,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> Result<'a> {
+    fn comparison(&mut self) -> ExprResult<'a> {
         let mut expr = self.term()?;
 
         while self.match_next(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
@@ -205,7 +237,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn term(&mut self) -> Result<'a> {
+    fn term(&mut self) -> ExprResult<'a> {
         let mut expr = self.factor()?;
 
         while self.match_next(&[TT::MINUS, TT::PLUS]) {
@@ -221,7 +253,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> Result<'a> {
+    fn factor(&mut self) -> ExprResult<'a> {
         let mut expr = self.unary()?;
 
         while self.match_next(&[TT::SLASH, TT::STAR]) {
@@ -237,7 +269,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> Result<'a> {
+    fn unary(&mut self) -> ExprResult<'a> {
         if self.match_next(&[TT::BANG, TT::MINUS]) {
             let operator = *self.previous();
             let right = self.unary()?.boxed();
@@ -247,7 +279,7 @@ impl<'a> Parser<'a> {
         self.primary()
     }
 
-    fn primary(&mut self) -> Result<'a> {
+    fn primary(&mut self) -> ExprResult<'a> {
         if self.match_next(&[TT::FALSE]) {
             return Ok(Expr::Literal(Literal::Bool(false)));
         };

@@ -17,6 +17,7 @@ mod lox;
 mod parser;
 mod rpn_ast_printer;
 mod scanner;
+mod stmt;
 
 #[repr(u8)]
 enum ExitValue {
@@ -44,10 +45,12 @@ fn main() -> ExitCode {
     let command = &args[1];
     let filename = &args[2];
 
+    // TODO: reduce or eliminate code duplication between different command implementations
     match command.as_str() {
         "tokenize" => tokenize(filename).into(),
         "parse" => parse(filename).into(),
         "evaluate" => evaluate(filename).into(),
+        "run" => run(filename).into(),
         _ => {
             eprintln!("Unknown command: {}", command);
             ExitValue::Usage.into()
@@ -95,7 +98,7 @@ fn parse(filename: &str) -> ExitValue {
     };
 
     let mut parser = Parser::new(&tokens);
-    let Ok(expr) = parser.parse() else {
+    let Ok(expr) = parser.parse_expr() else {
         return ExitValue::SyntaxError;
     };
 
@@ -117,15 +120,39 @@ fn evaluate(filename: &str) -> ExitValue {
     };
 
     let mut parser = Parser::new(&tokens);
-    let Ok(expr) = parser.parse() else {
+    let Ok(expr) = parser.parse_expr() else {
         return ExitValue::SyntaxError;
     };
 
     let interpreter = Interpreter::new();
-    let Ok(result) = interpreter.interpret(&expr) else {
+    let Ok(result) = interpreter.interpret_expr(&expr) else {
         return ExitValue::RuntimeError;
     };
     println!("{}", result);
+
+    ExitValue::Success
+}
+
+fn run(filename: &str) -> ExitValue {
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        eprintln!("Failed to read file {}", filename);
+        String::new()
+    });
+
+    let scanner = Scanner::new(&file_contents);
+    let scanner::Result::Ok(tokens) = scanner.scan_tokens() else {
+        return ExitValue::SyntaxError;
+    };
+
+    let mut parser = Parser::new(&tokens);
+    let Ok(statements) = parser.parse() else {
+        return ExitValue::SyntaxError;
+    };
+
+    let interpreter = Interpreter::new();
+    let Ok(result) = interpreter.interpret(statements.iter()) else {
+        return ExitValue::RuntimeError;
+    };
 
     ExitValue::Success
 }
