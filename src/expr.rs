@@ -1,7 +1,7 @@
 use crate::scanner::{self, Token};
 
-pub trait Visitor<'e, R> {
-    fn visit_expr(&self, expr: &'e Expr) -> R;
+pub trait VisitorMut<'e, R> {
+    fn visit_expr(&mut self, expr: &'e Expr) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -28,10 +28,14 @@ pub enum Expr<'a> {
         right: Box<Expr<'a>>,
     },
     Variable(Token<'a>), // token is the variable's name
+    Assign {
+        name: Token<'a>,
+        value: Box<Expr<'a>>,
+    },
 }
 
 impl<'a> Expr<'a> {
-    pub fn accept<R>(&'a self, visitor: &impl Visitor<'a, R>) -> R {
+    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>) -> R {
         visitor.visit_expr(self)
     }
 

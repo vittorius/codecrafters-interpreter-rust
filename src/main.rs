@@ -103,7 +103,7 @@ fn parse(filename: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let ast_printer = AstPrinter::new(&expr);
+    let mut ast_printer = AstPrinter::new(&expr);
     println!("{}", ast_printer.print());
 
     ExitValue::Success
@@ -125,7 +125,7 @@ fn evaluate(filename: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
     let Ok(result) = interpreter.interpret_expr(&expr) else {
         return ExitValue::RuntimeError;
     };

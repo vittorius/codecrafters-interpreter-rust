@@ -2,13 +2,11 @@ use std::fmt::Display;
 
 use crate::{
     environment::Environment,
+    error::RuntimeError,
     expr::{self, Expr},
-    lox,
     scanner::{self, Token, TokenType as TT},
     stmt::{self, Stmt},
 };
-
-pub struct RuntimeError(String);
 
 // TODO: worth extracting into a separate module or moving to `environment`
 // TODO: there could be an enum Object { Value, Ref }
@@ -66,7 +64,7 @@ impl<'a> Interpreter<'a> {
         Ok(VOID)
     }
 
-    pub fn interpret_expr(&self, expr: &'a Expr<'a>) -> EvalResult {
+    pub fn interpret_expr(&mut self, expr: &'a Expr<'a>) -> EvalResult {
         self.evaluate(expr).map(|v| v.to_string())
     }
 
@@ -74,7 +72,7 @@ impl<'a> Interpreter<'a> {
         stmt.accept(self)
     }
 
-    fn evaluate(&self, expr: &'a Expr<'a>) -> ExprResult {
+    fn evaluate(&mut self, expr: &'a Expr<'a>) -> ExprResult {
         expr.accept(self)
     }
 
@@ -98,7 +96,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn error(token: &Token, message: &str) -> ExprResult {
-        Err(RuntimeError(lox::fmt_runtime_error(token.line, message)))
+        Err(RuntimeError::new(token, message))
     }
 
     fn visit_literal(literal: &scanner::Literal<'a>) -> ExprResult {
@@ -110,7 +108,7 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    fn visit_unary(&self, operator: &Token<'a>, expr: &'a Expr<'a>) -> ExprResult {
+    fn visit_unary(&mut self, operator: &Token<'a>, expr: &'a Expr<'a>) -> ExprResult {
         let right = self.evaluate(expr)?;
 
         match (operator.token_type, right) {
@@ -122,7 +120,7 @@ impl<'a> Interpreter<'a> {
     }
 
     fn visit_binary(
-        &self,
+        &mut self,
         left: &'a Expr<'a>,
         operator: &'a Token<'a>,
         right: &'a Expr<'a>,
@@ -157,31 +155,41 @@ impl<'a> Interpreter<'a> {
             }
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
+            (TT::COMMA, _, r) => Ok(r), // discard left and return right
             _ => unreachable!(),
         }
     }
 
     fn visit_variable(&self, name: &'a Token) -> ExprResult {
         match self.env.get(name) {
-            Some(value) => Ok(value.clone()), // because Value::Str owns its String value (see comment on the Value enum) 
+            Some(value) => Ok(value.clone()), // because Value::Str owns its String value (see comment on the Value enum)
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
+
+    fn visit_assign(&mut self, name: &'a Token, value: Value) -> ExprResult {
+        // again, Environment owns Values, so we need to clone to let them participate in the evaluation further
+        self.env.assign(name, value).cloned()
+    }
 }
 
-impl<'a> expr::Visitor<'a, ExprResult> for Interpreter<'a> {
-    fn visit_expr(&self, expr: &'a Expr) -> ExprResult {
+impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
             } => self.visit_binary(left, operator, right),
-            Expr::Conditional { cond, left, right } => todo!(),
+            Expr::Conditional { cond, left, right } => todo!("Add implementation for conditionals when the entire interpreter is ready"),
             Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(literal) => Self::visit_literal(literal),
             Expr::Unary { operator, right } => self.visit_unary(operator, right),
             Expr::Variable(name) => self.visit_variable(name),
+            Expr::Assign { name, value } => {
+                let value = self.evaluate(value)?;
+                self.visit_assign(name, value)
+            }
         }
     }
 }

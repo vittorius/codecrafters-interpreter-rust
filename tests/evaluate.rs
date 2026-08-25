@@ -25,6 +25,16 @@ fn assert_evaluate_success(source: &str, expected_stdout: &str) {
 }
 
 #[test]
+fn test_comma_evaluates_left_discards_it_and_returns_right() {
+    assert_evaluate_success("1 + 2, 40 + 2", "42\n");
+
+    let file = TempLoxFile::new("undefined, 42");
+    let output = run_evaluate(&file.path);
+
+    assert_eq!(output.status.code(), Some(70));
+}
+
+#[test]
 #[ignore = "not supported by CodeCrafters test suite"]
 fn test_string_greater_than_true() {
     assert_evaluate_success(r#""banana" > "apple""#, "true\n");

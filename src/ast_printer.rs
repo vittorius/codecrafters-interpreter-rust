@@ -1,4 +1,4 @@
-use crate::expr::{Expr, Visitor};
+use crate::expr::{Expr, VisitorMut};
 
 pub struct AstPrinter<'a> {
     expr: &'a Expr<'a>,
@@ -9,19 +9,19 @@ impl<'a> AstPrinter<'a> {
         Self { expr }
     }
 
-    pub fn print(&self) -> String {
+    pub fn print(&mut self) -> String {
         self.visit_expr(self.expr)
     }
 
-    fn parenthesize_unary(&self, name: &str, expr: &Expr) -> String {
+    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr) -> String {
         format!("({} {})", name, expr.accept(self))
     }
 
-    fn parenthesize_binary(&self, name: &str, expr1: &Expr, expr2: &Expr) -> String {
+    fn parenthesize_binary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr) -> String {
         format!("({} {} {})", name, expr1.accept(self), expr2.accept(self))
     }
 
-    fn parenthesize_ternary(&self, name: &str, expr1: &Expr, expr2: &Expr, expr3: &Expr) -> String {
+    fn parenthesize_ternary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr, expr3: &'a Expr) -> String {
         format!(
             "({} {} {} {})",
             name,
@@ -30,10 +30,14 @@ impl<'a> AstPrinter<'a> {
             expr3.accept(self)
         )
     }
+
+    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr) -> String {
+        format!("(<- {} {})", name, value.accept(self))
+    }
 }
 
-impl<'a> Visitor<'a, String> for AstPrinter<'a> {
-    fn visit_expr(&self, expr: &Expr) -> String {
+impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) -> String {
         match expr {
             Expr::Binary {
                 left,
@@ -46,7 +50,8 @@ impl<'a> Visitor<'a, String> for AstPrinter<'a> {
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right),
-            Expr::Variable(name) => name.lexeme.to_owned()
+            Expr::Variable(name) => name.lexeme.to_owned(),
+            Expr::Assign { name, value } => self.parenthesize_assign(name.lexeme, value),
         }
     }
 }
@@ -77,8 +82,24 @@ mod tests {
             right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
-        let ast_printer = AstPrinter::new(&expr);
+        let mut ast_printer = AstPrinter::new(&expr);
 
         assert_eq!(ast_printer.print(), "(* (- 123.0) (group 45.67))");
+    }
+
+    #[test]
+    fn test_assignment_expression() {
+        let expr = Expr::Assign {
+            name: Token::new(TokenType::IDENTIFIER, "answer", None, 1),
+            value: Expr::Binary {
+                left: Expr::Literal(Literal::Num(40.0)).boxed(),
+                operator: Token::new(TokenType::PLUS, "+", None, 1),
+                right: Expr::Literal(Literal::Num(2.0)).boxed(),
+            }
+            .boxed(),
+        };
+        let mut ast_printer = AstPrinter::new(&expr);
+
+        assert_eq!(ast_printer.print(), "(<- answer (+ 40.0 2.0))");
     }
 }

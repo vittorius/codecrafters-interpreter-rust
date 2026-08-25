@@ -5,7 +5,8 @@
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 //! statement      → exprStmt | printStmt ;
 //! exprStmt       → expression ";"
-//! expression     → compound ;
+//! expression     → assignment ;
+//! assignment     → IDENTIFIER "=" assignment | compound ;
 //! compound       → conditional ("," conditional)* ;
 //! conditional    → equality ("?" equality ":" conditional)? ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -104,6 +105,7 @@ impl<'a> Parser<'a> {
         self.peek().token_type == TT::EOF
     }
 
+    // TODO: consider returning a Token copy
     fn previous(&self) -> &'a Token<'a> {
         &self.tokens[self.current - 1]
     }
@@ -153,6 +155,7 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> StmtResult<'a> {
+        // TODO: later, any declaration must be sychronizable but not statements
         if self.match_next(&[TT::VAR]) {
             let decl = self.var_declaration();
             if decl.is_err() {
@@ -204,6 +207,30 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> ExprResult<'a> {
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> ExprResult<'a> {
+        let expr = self.comma()?;
+
+        if self.match_next(&[TT::EQUAL]) {
+            let equals = *self.previous();
+            let value = self.assignment()?;
+
+            return if let Expr::Variable(name) = expr {
+                Ok(Expr::Assign {
+                    name,
+                    value: value.boxed(),
+                })
+            } else {
+                Err(Self::mk_error(&equals, "Invalid assignment target."))
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn comma(&mut self) -> ExprResult<'a> {
         let mut expr = self.conditional()?;
 
         while self.match_next(&[TT::COMMA]) {

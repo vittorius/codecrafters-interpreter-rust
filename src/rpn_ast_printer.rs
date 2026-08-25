@@ -1,4 +1,4 @@
-use crate::expr::{Expr, Visitor};
+use crate::expr::{Expr, VisitorMut};
 
 pub struct RpnAstPrinter<'a> {
     expr: &'a Expr<'a>,
@@ -9,19 +9,19 @@ impl<'a> RpnAstPrinter<'a> {
         Self { expr }
     }
 
-    pub fn print(&self) -> String {
+    pub fn print(&mut self) -> String {
         self.visit_expr(self.expr)
     }
 
-    fn format_unary(&self, name: &str, expr: &Expr) -> String {
+    fn format_unary(&mut self, name: &str, expr: &'a Expr) -> String {
         format!("{} {}", expr.accept(self), name)
     }
 
-    fn format_binary(&self, name: &str, expr1: &Expr, expr2: &Expr) -> String {
+    fn format_binary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr) -> String {
         format!("{} {} {}", expr1.accept(self), expr2.accept(self), name)
     }
 
-    fn format_ternary(&self, name: &str, expr1: &Expr, expr2: &Expr, expr3: &Expr) -> String {
+    fn format_ternary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr, expr3: &'a Expr) -> String {
         format!(
             "{} {} {} {}",
             expr1.accept(self),
@@ -30,10 +30,14 @@ impl<'a> RpnAstPrinter<'a> {
             name,
         )
     }
+
+    fn format_assign(&mut self, name: &str, value: &'a Expr) -> String {
+        format!("{} {} <-", name, value.accept(self))
+    }
 }
 
-impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
-    fn visit_expr(&self, expr: &Expr) -> String {
+impl<'a> VisitorMut<'a, String> for RpnAstPrinter<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr) -> String {
         match expr {
             Expr::Binary {
                 left,
@@ -44,7 +48,8 @@ impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
             Expr::Grouping(expr) => expr.accept(self),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),
-            Expr::Variable(name) => name.lexeme.to_owned()
+            Expr::Variable(name) => name.lexeme.to_owned(),
+            Expr::Assign { name, value } => self.format_assign(name.lexeme, value),
         }
     }
 }
@@ -80,8 +85,24 @@ mod tests {
             )
             .boxed(),
         };
-        let ast_printer = RpnAstPrinter::new(&expr);
+        let mut ast_printer = RpnAstPrinter::new(&expr);
 
         assert_eq!(ast_printer.print(), "1.0 2.0 + 4.0 3.0 - *");
+    }
+
+    #[test]
+    fn test_assignment_expression() {
+        let expr = Expr::Assign {
+            name: Token::new(TokenType::IDENTIFIER, "answer", None, 1),
+            value: Expr::Binary {
+                left: Expr::Literal(Literal::Num(40.0)).boxed(),
+                operator: Token::new(TokenType::PLUS, "+", None, 1),
+                right: Expr::Literal(Literal::Num(2.0)).boxed(),
+            }
+            .boxed(),
+        };
+        let mut ast_printer = RpnAstPrinter::new(&expr);
+
+        assert_eq!(ast_printer.print(), "answer 40.0 2.0 + <-");
     }
 }
