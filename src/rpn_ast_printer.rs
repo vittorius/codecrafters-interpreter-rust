@@ -44,6 +44,7 @@ impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
             Expr::Grouping(expr) => expr.accept(self),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),
+            Expr::Variable(name) => name.lexeme.to_owned()
         }
     }
 }

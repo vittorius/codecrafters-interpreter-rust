@@ -1,5 +1,10 @@
 //! Lox grammar:
 //!
+//! program        → declaration* EOF ;
+//! declaration    → varDecl | statement ;
+//! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+//! statement      → exprStmt | printStmt ;
+//! exprStmt       → expression ";"
 //! expression     → compound ;
 //! compound       → conditional ("," conditional)* ;
 //! conditional    → equality ("?" equality ":" conditional)? ;
@@ -8,7 +13,7 @@
 //! term           → factor ( ( "-" | "+" ) factor )* ;
 //! factor         → unary ( ( "/" | "*" ) unary )* ;
 //! unary          → ( "!" | "-" ) unary | primary ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
 use std::{error::Error, fmt::Display};
 
@@ -37,11 +42,10 @@ impl Display for ParseError {
 pub type Result<'a> = std::result::Result<Vec<Stmt<'a>>, ParseError>;
 pub type ExprResult<'a> = std::result::Result<Expr<'a>, ParseError>;
 type StmtResult<'a> = std::result::Result<Stmt<'a>, ParseError>;
-type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>;
+type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>; // TODO: maybe it's more practical to pass token by value in this result type
 
 pub struct Parser<'a> {
     tokens: &'a [Token<'a>],
-    // statements: &'a [Stmt<'a>],
     current: usize,
 }
 
@@ -53,7 +57,7 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<'a> {
         let mut statements = Vec::<Stmt<'a>>::new();
         while !self.is_at_end() {
-            statements.push(self.statement()?);
+            statements.push(self.declaration()?);
         }
 
         Ok(statements)
@@ -148,23 +152,36 @@ impl<'a> Parser<'a> {
         ParseError(msg)
     }
 
-    fn declaration(&mut self) -> StmtResult<'a>{
-
-        todo!()
+    fn declaration(&mut self) -> StmtResult<'a> {
+        if self.match_next(&[TT::VAR]) {
+            let decl = self.var_declaration();
+            if decl.is_err() {
+                self.synchronize();
+            }
+            decl
+        } else {
+            // we don't synchronize all statements
+            // because we need to track an error condition
+            // for "print" statement missing an expression, for example
+            self.statement()
+        }
     }
 
-   fn var_declaration(&mut self) -> StmtResult<'a> {
+    fn var_declaration(&mut self) -> StmtResult<'a> {
+        let name = self.consume(&TT::IDENTIFIER, "Expect variable name.")?;
 
-   let name = self.consume(&TT::IDENTIFIER, "Expect variable name.")?;
+        let mut initializer = None;
+        if self.match_next(&[TT::EQUAL]) {
+            initializer = Some(self.expression()?);
+        }
 
-       let mut initializer = Expr::Literal(scanner::Literal::Nil) ;
-       if self.match_next(&[ TT::EQUAL ]) {
-         initializer = self.expression()?;
-       }
+        self.consume(&TT::SEMICOLON, "Expect ';' after variable declaration.")?;
 
-       self.consume(SEMICOLON, "Expect ';' after variable declaration.");
-       return new Stmt.Var(name, initializer);
-   }
+        Ok(Stmt::Var {
+            token: *name,
+            initializer,
+        })
+    }
 
     fn statement(&mut self) -> StmtResult<'a> {
         if self.match_next(&[TT::PRINT]) {
@@ -314,6 +331,10 @@ impl<'a> Parser<'a> {
                     .literal
                     .expect("NUMBER or STRING must have literal assigned"),
             ));
+        }
+
+        if self.match_next(&[TT::IDENTIFIER]) {
+            return Ok(Expr::Variable(*self.previous()));
         }
 
         if self.match_next(&[TT::LEFT_PAREN]) {

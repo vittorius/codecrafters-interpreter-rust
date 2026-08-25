@@ -1,6 +1,7 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::fmt::Display;
 
 use crate::{
+    environment::Environment,
     expr::{self, Expr},
     lox,
     scanner::{self, Token, TokenType as TT},
@@ -9,9 +10,19 @@ use crate::{
 
 pub struct RuntimeError(String);
 
+// TODO: worth extracting into a separate module or moving to `environment`
 // TODO: there could be an enum Object { Value, Ref }
-// and Ref can hold stings and class objects, others go into Value
-enum Value {
+// and Ref can hold stings and class objects, others go into Value.
+//
+// We made Value cloneable because we need to be able to store values in the environment
+// and refer to variable in expressions. We construct a new Value in 2 cases: evaluating expressions
+// and defining variables. Therefore, we cannot maintain a single place where values are stored.
+// Actually, it's mostly because of String values, and we could have a dedicated string interner
+// to own strings. String values would be Value::Str(&'a str). But it seems to be an overkill, and we
+// just clone Strings (and Values) when we evaluate variables and get their values from the environment.
+// The environment owns Values.
+#[derive(Clone)]
+pub enum Value {
     Str(String),
     Num(f64),
     Bool(bool),
@@ -38,18 +49,17 @@ type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter<'a> {
-    _phantom: PhantomData<&'a ()>,
+    env: Environment<'a>,
 }
 
 impl<'a> Interpreter<'a> {
     pub fn new() -> Self {
         Self {
-            _phantom: PhantomData,
+            env: Environment::new(),
         }
     }
 
-    pub fn interpret(&self, statements: impl Iterator<Item = &'a Stmt<'a>>) -> Result {
-        // self.evaluate(expr).map(|v| v.to_string())
+    pub fn interpret(&mut self, statements: impl Iterator<Item = &'a Stmt<'a>>) -> Result {
         for stmt in statements {
             self.execute(stmt)?;
         }
@@ -60,7 +70,7 @@ impl<'a> Interpreter<'a> {
         self.evaluate(expr).map(|v| v.to_string())
     }
 
-    fn execute(&self, stmt: &'a Stmt<'a>) -> StmtResult {
+    fn execute(&mut self, stmt: &'a Stmt<'a>) -> StmtResult {
         stmt.accept(self)
     }
 
@@ -150,6 +160,13 @@ impl<'a> Interpreter<'a> {
             _ => unreachable!(),
         }
     }
+
+    fn visit_variable(&self, name: &'a Token) -> ExprResult {
+        match self.env.get(name) {
+            Some(value) => Ok(value.clone()), // because Value::Str owns its String value (see comment on the Value enum) 
+            None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
+        }
+    }
 }
 
 impl<'a> expr::Visitor<'a, ExprResult> for Interpreter<'a> {
@@ -164,16 +181,27 @@ impl<'a> expr::Visitor<'a, ExprResult> for Interpreter<'a> {
             Expr::Grouping(expr) => self.evaluate(expr),
             Expr::Literal(literal) => Self::visit_literal(literal),
             Expr::Unary { operator, right } => self.visit_unary(operator, right),
+            Expr::Variable(name) => self.visit_variable(name),
         }
     }
 }
 
-impl<'a> stmt::Visitor<'a, StmtResult> for Interpreter<'a> {
-    fn visit_stmt(&self, stmt: &'a Stmt) -> StmtResult {
+impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter<'a> {
+    fn visit_stmt(&mut self, stmt: &'a Stmt) -> StmtResult {
         match stmt {
-            Stmt::Expression(expr) => self.evaluate(expr).map(|_| ()),
+            Stmt::Expression(expr) => self.evaluate(expr).map(|_| VOID),
             Stmt::Print(expr) => {
                 println!("{}", self.evaluate(expr).map(|v| v.to_string())?);
+                Ok(VOID)
+            }
+            Stmt::Var { token, initializer } => {
+                let value = match initializer {
+                    Some(expr) => self.evaluate(expr)?,
+                    None => Value::Nil,
+                };
+
+                self.env.define(token, value);
+
                 Ok(VOID)
             }
         }

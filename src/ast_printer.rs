@@ -46,6 +46,7 @@ impl<'a> Visitor<'a, String> for AstPrinter<'a> {
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
             Expr::Literal(value) => value.to_string(),
             Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right),
+            Expr::Variable(name) => name.lexeme.to_owned()
         }
     }
 }

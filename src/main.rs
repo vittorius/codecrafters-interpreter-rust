@@ -10,6 +10,7 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
+mod environment;
 mod error;
 mod expr;
 mod interpreter;
@@ -149,7 +150,7 @@ fn run(filename: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
     let Ok(result) = interpreter.interpret(statements.iter()) else {
         return ExitValue::RuntimeError;
     };
