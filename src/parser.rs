@@ -148,6 +148,24 @@ impl<'a> Parser<'a> {
         ParseError(msg)
     }
 
+    fn declaration(&mut self) -> StmtResult<'a>{
+
+        todo!()
+    }
+
+   fn var_declaration(&mut self) -> StmtResult<'a> {
+
+   let name = self.consume(&TT::IDENTIFIER, "Expect variable name.")?;
+
+       let mut initializer = Expr::Literal(scanner::Literal::Nil) ;
+       if self.match_next(&[ TT::EQUAL ]) {
+         initializer = self.expression()?;
+       }
+
+       self.consume(SEMICOLON, "Expect ';' after variable declaration.");
+       return new Stmt.Var(name, initializer);
+   }
+
     fn statement(&mut self) -> StmtResult<'a> {
         if self.match_next(&[TT::PRINT]) {
             self.print_statement()
