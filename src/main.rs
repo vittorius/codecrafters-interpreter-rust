@@ -146,14 +146,21 @@ fn run(filename: &str) -> ExitValue {
     };
 
     let mut parser = Parser::new(&tokens);
-    let Ok(statements) = parser.parse() else {
-        return ExitValue::SyntaxError;
+
+    let statements = match parser.parse() {
+        Ok(res) => res,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            return ExitValue::SyntaxError;
+        }
     };
 
     let mut interpreter = Interpreter::new();
-    let Ok(result) = interpreter.interpret(statements.iter()) else {
-        return ExitValue::RuntimeError;
-    };
-
-    ExitValue::Success
+    match interpreter.interpret(statements.iter()) {
+        Ok(_) => ExitValue::Success,
+        Err(err) => {
+            eprintln!("{:?}", err);
+            ExitValue::RuntimeError
+        }
+    }
 }

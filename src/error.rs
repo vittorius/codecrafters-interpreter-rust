@@ -1,5 +1,6 @@
 use crate::{lox, scanner::Token};
 
+#[derive(Debug)]
 pub struct RuntimeError(String);
 
 impl RuntimeError {
