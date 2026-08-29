@@ -53,10 +53,6 @@ impl<'a> BareEnv<'a> {
     pub fn assign(&mut self, name: &'a Token<'a>, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 
-        if let Some(enclosing) = &mut self.enclosing {
-            return enclosing.borrow_mut().assign(name, value);
-        }
-
         match self.values.entry(name.lexeme) {
             Entry::Occupied(mut occupied_entry) => {
                 occupied_entry.insert(value);
@@ -66,10 +62,16 @@ impl<'a> BareEnv<'a> {
                     .expect("A value for this key must be just inserted")
                     .clone()) // we treat Values as true "value objects" (see comment on the Value enum)
             }
-            Entry::Vacant(vacant_entry) => Err(RuntimeError::new(
-                name,
-                &format!("Undefined variable \"{}\"", name.lexeme),
-            )),
+            Entry::Vacant(vacant_entry) => {
+                if let Some(enclosing) = &mut self.enclosing {
+                    enclosing.borrow_mut().assign(name, value)
+                } else {
+                    Err(RuntimeError::new(
+                        name,
+                        &format!("Undefined variable \"{}\"", name.lexeme),
+                    ))
+                }
+            }
         }
     }
 }
