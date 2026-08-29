@@ -1,12 +1,7 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-};
-
-use crate::{environment::BareEnv, expr::Expr, scanner::Token};
+use crate::{environment::Env, expr::Expr, scanner::Token};
 
 pub trait VisitorMut<'a, R> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> R;
+    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -26,15 +21,7 @@ pub enum Stmt<'a> {
 }
 
 impl<'a> Stmt<'a> {
-    pub fn accept<R>(
-        &'a self,
-        visitor: &mut impl VisitorMut<'a, R>,
-        env: Rc<RefCell<BareEnv<'a>>>,
-    ) -> R {
+    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>, env: Env<'a>) -> R {
         visitor.visit_stmt(self, env)
     }
-
-    // pub fn boxed(self) -> Box<Self> {
-    //     Box::new(self)
-    // }
 }

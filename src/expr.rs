@@ -1,12 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::{
-    environment::BareEnv,
+    environment::Env,
     scanner::{self, Token},
 };
 
 pub trait VisitorMut<'a, R> {
-    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> R;
+    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env<'a>) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -40,11 +38,7 @@ pub enum Expr<'e> {
 }
 
 impl<'e> Expr<'e> {
-    pub fn accept<R>(
-        &'e self,
-        visitor: &mut impl VisitorMut<'e, R>,
-        env: Rc<RefCell<BareEnv<'e>>>,
-    ) -> R {
+    pub fn accept<R>(&'e self, visitor: &mut impl VisitorMut<'e, R>, env: Env<'e>) -> R {
         visitor.visit_expr(self, env)
     }
 

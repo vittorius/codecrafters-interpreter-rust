@@ -12,11 +12,7 @@ pub fn clone_env<'a>(env: &Env<'a>) -> Env<'a> {
 #[derive(Debug)]
 pub struct BareEnv<'a> {
     values: HashMap<&'a str, Value>,
-    // values: HashMap<&'a str, Rc<Value>>,
-    // enclosing: Option<&'a mut Environment<'a>>,
-    // enclosing: Option<&'a mut Environment<'a>>,
-    enclosing: Option<Rc<RefCell<BareEnv<'a>>>>,
-    // enclosing: Option<Rc<Environment<'a>>>,
+    enclosing: Option<Env<'a>>,
 }
 
 impl<'a> BareEnv<'a> {
@@ -27,16 +23,14 @@ impl<'a> BareEnv<'a> {
         }
     }
 
-    // pub fn with_enclosing(enclosing: &'a mut Environment<'a>) -> Self {
-    pub fn with_enclosing(enclosing: Rc<RefCell<BareEnv<'a>>>) -> Self {
-        // pub fn with_enclosing(enclosing: Rc<Environment<'a>>) -> Self {
+    pub fn with_enclosing(enclosing: Env<'a>) -> Self {
         Self {
             enclosing: Some(enclosing),
             ..Self::new()
         }
     }
 
-    pub fn wrapped(self) -> Rc<RefCell<BareEnv<'a>>> {
+    pub fn wrapped(self) -> Env<'a> {
         Rc::new(RefCell::new(self))
     }
 

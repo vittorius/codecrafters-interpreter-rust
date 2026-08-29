@@ -1,7 +1,11 @@
 use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use crate::{
-    environment::{BareEnv, clone_env}, error::RuntimeError, expr::{self, Expr}, scanner::{self, Token, TokenType as TT}, stmt::{self, Stmt},
+    environment::{BareEnv, Env, clone_env},
+    error::RuntimeError,
+    expr::{self, Expr},
+    scanner::{self, Token, TokenType as TT},
+    stmt::{self, Stmt},
 };
 
 // TODO: worth extracting into a separate module or moving to `environment`
@@ -41,152 +45,42 @@ pub type Result = std::result::Result<Void, RuntimeError>;
 pub type EvalResult = std::result::Result<String, RuntimeError>;
 type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
-type Env<'a> = Rc<RefCell<BareEnv<'a>>>; // TODO: use if this approach works
 
-// pub struct Interpreter<'i> {
-pub struct Interpreter {
-    // env: Environment<'i>,
-    // env: Rc<RefCell<Environment<'i>>>,
-}
+pub struct Interpreter;
 
-// struct EnvScopingGuard<'v> {
-//     int: &'v mut Interpreter<'v>,
-//     prev_env: Rc<RefCell<Environment<'v>>>,
-// }
-
-// impl<'v> EnvScopingGuard<'v> {
-//     fn new(int: &'v mut Interpreter<'v>, new_env: Rc<RefCell<Environment<'v>>>) -> Self {
-//         let prev_env = mem::replace(&mut int.env, new_env);
-//         Self { int, prev_env }
-//     }
-// }
-
-// impl<'v> Drop for EnvScopingGuard<'v> {
-//     fn drop(&mut self) {
-//         mem::replace(&mut self.int.env, Rc::clone(&self.prev_env));
-//     }
-// }
-
-// struct EnvScopingGuard<'g> {
-//     // int: &'v mut Interpreter<'v>,
-//     // int: &'g Interpreter<'g>,
-//     // int: Rc<Interpreter<'g>>,
-//     int: RefCell<Interpreter<'g>>,
-//     // prev_env: Rc<RefCell<Environment<'g>>>,
-//     prev_env: Option<Environment<'g>>,
-// }
-
-// impl<'g> EnvScopingGuard<'g> {
-//     // WARNING: mutably borrows the interpreter's env in runtime
-//     fn new(int: &'g Interpreter<'g>, new_env: Environment<'g>) -> Self {
-//         let prev_env = int.env.replace(new_env);
-//         Self {
-//             int,
-//             prev_env: Some(prev_env),
-//         }
-//     }
-// }
-
-// impl<'g> Drop for EnvScopingGuard<'g> {
-//     // WARNING: mutably borrows the interpreter's env in runtime
-//     fn drop(&mut self) {
-//         // mem::replace(&mut self.int.env, Rc::clone(&self.prev_env));
-//         self.int.env.replace(
-//             self.prev_env
-//                 .take()
-//                 .expect("Previous env must be stored in the constructor function"),
-//         );
-//     }
-// }
-
-// impl<'i> Interpreter<'i> {
 impl Interpreter {
     pub fn new() -> Self {
-        Self {
-            // env: Rc::new(RefCell::new(Environment::new())),
-            // env: Environment::new(),
-        }
+        Self
     }
 
-    // pub fn interpret<'s>(&mut self, statements: impl Iterator<Item = &'s Stmt<'s>>) -> Result {
     pub fn interpret(&mut self, statements: &[Stmt<'_>]) -> Result {
-        // let mut env = std::mem::replace(&mut self.env, Environment::new());
-        // let mut env = Environment::new();
-        // let ref_cell = RefCell::new(env);
-        let env = Rc::new(RefCell::new(BareEnv::new()));
+        let env = BareEnv::new().wrapped();
 
-        // let result = (|| {
         for stmt in statements {
-            // self.execute(stmt, &mut env)?;
-            // let ref_mut = ref_cell.borrow_mut();
-            // self.execute(stmt, &ref_mut)?;
-            // self.execute(stmt, &ref_mut)?;
-            self.execute(stmt, Rc::clone(&env))?;
+            self.execute(stmt, clone_env(&env))?;
         }
-        Ok(VOID)
-        // })();
 
-        // self.env = env;
-        // result
+        Ok(VOID)
     }
 
-    // pub fn interpret_expr(&mut self, expr: &'i Expr<'i>) -> EvalResult {
     pub fn interpret_expr(&mut self, expr: &Expr<'_>) -> EvalResult {
-        let env = Rc::new(RefCell::new(BareEnv::new()));
+        let env = BareEnv::new().wrapped();
         self.evaluate(expr, env).map(|v| v.to_string())
     }
 
-    fn execute<'a>(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> StmtResult {
-        // fn execute(&mut self, stmt: &Stmt<'_>) -> StmtResult {
+    fn execute<'a>(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> StmtResult {
         stmt.accept(self, env)
     }
 
-    // fn execute_block(
-    //     &mut self,
-    //     statements: &[Stmt<'_>],
-    //     enclosing: &mut Environment<'_>,
-    //     // mut enclosing: Environment<'s>,
-    // ) -> StmtResult {
-    //     // let mut local = Environment::with_enclosing(enclosing);
-
-    //     // let r: &'s mut Environment<'s> = &mut enclosing;
-
-    //     for stmt in statements {
-    //         // self.execute(stmt, &mut local)?;
-    //         // self.execute(stmt, &mut enclosing)?;
-    //         // self.execute(stmt, r)?;
-    //         self.execute(stmt, enclosing)?;
-    //     }
-
-    //     Ok(VOID)
-    // }
-
-    fn execute_block<'a>(
-        &mut self,
-        statements: &'a [Stmt<'_>],
-        // statements: impl Iterator<Item = &'i Stmt<'i>>,
-        // env: Environment<'_>,
-        // env: &'i mut Environment<'i>,
-        env: Rc<RefCell<BareEnv<'a>>>,
-    ) -> StmtResult {
-        // let _guard = EnvScopingGuard::new(self, env);
-
+    fn execute_block<'a>(&mut self, statements: &'a [Stmt<'_>], env: Env<'a>) -> StmtResult {
         for stmt in statements {
-            // let stmt = &statements[0];
-            eprintln!("{:?}", clone_env(&env));
-            self.execute(stmt, Rc::clone(&env))?;
+            self.execute(stmt, clone_env(&env))?;
         }
 
         Ok(VOID)
     }
 
-    // fn execute_block_2(&'v mut self, statements: &Vec<Stmt<'v>>) -> StmtResult {
-    //     let new_env = Environment::with_enclosing(&mut self.env);
-    //     let prev_env = mem::replace(&mut self.env, new_env);
-    //     todo!()
-    // }
-
-    fn evaluate<'a>(&mut self, expr: &'a Expr<'_>, env: Rc<RefCell<BareEnv<'a>>>) -> ExprResult {
+    fn evaluate<'a>(&mut self, expr: &'a Expr<'_>, env: Env<'a>) -> ExprResult {
         expr.accept(self, env)
     }
 
@@ -226,7 +120,7 @@ impl Interpreter {
         &mut self,
         operator: &Token<'a>,
         expr: &'a Expr<'a>,
-        env: Rc<RefCell<BareEnv<'a>>>,
+        env: Env<'a>,
     ) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
@@ -243,10 +137,10 @@ impl Interpreter {
         left: &'a Expr<'a>,
         operator: &'a Token<'a>,
         right: &'a Expr<'a>,
-        env: Rc<RefCell<BareEnv<'a>>>,
+        env: Env<'a>,
     ) -> ExprResult {
-        let left = self.evaluate(left, Rc::clone(&env))?;
-        let right = self.evaluate(right, Rc::clone(&env))?;
+        let left = self.evaluate(left, clone_env(&env))?;
+        let right = self.evaluate(right, clone_env(&env))?;
 
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
@@ -282,7 +176,6 @@ impl Interpreter {
 
     fn visit_variable<'t>(&self, name: &'t Token<'_>, env: Rc<RefCell<BareEnv<'t>>>) -> ExprResult {
         eprintln!("visit_variable: {:?}", clone_env(&env));
-        // match self.env.get(name) {
         match env.borrow().get(name) {
             Some(value) => Ok(value),
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
@@ -295,14 +188,12 @@ impl Interpreter {
         value: Value,
         env: Rc<RefCell<BareEnv<'t>>>,
     ) -> ExprResult {
-        // self.env.borrow_mut().assign(name, value)
-        // env.assign(name, value)
         env.borrow_mut().assign(name, value)
     }
 }
 
 impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
-    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> ExprResult {
+    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env<'a>) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
@@ -317,7 +208,7 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
             Expr::Variable(name) => self.visit_variable(name, env),
             Expr::Assign { name, value } => {
-                let value = self.evaluate(value, Rc::clone(&env))?;
+                let value = self.evaluate(value, clone_env(&env))?;
                 self.visit_assign(name, value, env)
             }
         }
@@ -325,17 +216,16 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
 }
 
 impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter {
-    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> StmtResult {
+    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
             Stmt::Print(expr) => {
-                eprintln!("{:?}", env);
                 println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
                 Ok(VOID)
             }
             Stmt::Var { token, initializer } => {
                 let value = match initializer {
-                    Some(expr) => self.evaluate(expr, Rc::clone(&env))?,
+                    Some(expr) => self.evaluate(expr, clone_env(&env))?,
                     None => Value::Nil,
                 };
 
@@ -344,10 +234,9 @@ impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter {
                 Ok(VOID)
             }
             Stmt::Block(statements) => {
-                eprintln!("{:?}", statements);
                 self.execute_block(
                     statements,
-                    BareEnv::with_enclosing(Rc::clone(&env)).wrapped(),
+                    BareEnv::with_enclosing(clone_env(&env)).wrapped(),
                 )?;
 
                 Ok(VOID)
