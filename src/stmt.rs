@@ -1,7 +1,12 @@
-use crate::{expr::Expr, scanner::Token};
+use std::{
+    cell::{RefCell, RefMut},
+    rc::Rc,
+};
 
-pub trait VisitorMut<'s, R> {
-    fn visit_stmt(&mut self, stmt: &'s Stmt) -> R;
+use crate::{environment::Environment, expr::Expr, scanner::Token};
+
+pub trait VisitorMut<R> {
+    fn visit_stmt(&mut self, stmt: &Stmt<'_>, env: Rc<RefCell<Environment<'_>>>) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -10,18 +15,23 @@ pub trait VisitorMut<'s, R> {
 // because otherwise they would have to be references to
 // temporary values that are dropped right after they are built.
 #[derive(Debug)]
-pub enum Stmt<'a> {
-    Expression(Expr<'a>),
-    Print(Expr<'a>),
+pub enum Stmt<'s> {
+    Expression(Expr<'s>),
+    Print(Expr<'s>),
     Var {
-        token: Token<'a>,
-        initializer: Option<Expr<'a>>,
+        token: Token<'s>,
+        initializer: Option<Expr<'s>>,
     },
+    Block(Vec<Stmt<'s>>),
 }
 
-impl<'a> Stmt<'a> {
-    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>) -> R {
-        visitor.visit_stmt(self)
+impl<'s> Stmt<'s> {
+    pub fn accept<R>(
+        &self,
+        visitor: &mut impl VisitorMut<R>,
+        env: Rc<RefCell<Environment<'_>>>,
+    ) -> R {
+        visitor.visit_stmt(self, env)
     }
 
     // pub fn boxed(self) -> Box<Self> {
