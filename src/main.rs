@@ -47,6 +47,7 @@ fn main() -> ExitCode {
     let filename = &args[2];
 
     // TODO: reduce or eliminate code duplication between different command implementations
+    // TODO: implement interactive interpreter when no command is supplied (for challenges in ch. 8); support history saving and navigation with up/down arrows
     match command.as_str() {
         "tokenize" => tokenize(filename).into(),
         "parse" => parse(filename).into(),
@@ -156,7 +157,7 @@ fn run(filename: &str) -> ExitValue {
     };
 
     let mut interpreter = Interpreter::new();
-    match interpreter.interpret(statements.iter()) {
+    match interpreter.interpret(&statements){
         Ok(_) => ExitValue::Success,
         Err(err) => {
             eprintln!("{:?}", err);

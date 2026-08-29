@@ -1,4 +1,9 @@
-use std::fmt::Display;
+use std::{
+    cell::{RefCell, RefMut},
+    fmt::Display,
+    mem,
+    rc::Rc,
+};
 
 use crate::{
     environment::Environment,
@@ -16,7 +21,7 @@ use crate::{
 // and refer to variable in expressions. We construct a new Value in 2 cases: evaluating expressions
 // and defining variables. Therefore, we cannot maintain a single place where values are stored.
 // Actually, it's mostly because of String values, and we could have a dedicated string interner
-// to own strings. String values would be Value::Str(&'a str). But it seems to be an overkill, and we
+// to own strings. String values would be Value::Str(&'v str). But it seems to be an overkill, and we
 // just clone Strings (and Values) when we evaluate variables and get their values from the environment.
 // The environment owns Values.
 #[derive(Clone)]
@@ -45,35 +50,152 @@ pub type Result = std::result::Result<Void, RuntimeError>;
 pub type EvalResult = std::result::Result<String, RuntimeError>;
 type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
+type Env<'a> = Rc<RefCell<Environment<'a>>>; // TODO: use if this approach works
 
-pub struct Interpreter<'a> {
-    env: Environment<'a>,
+// pub struct Interpreter<'i> {
+pub struct Interpreter {
+    // env: Environment<'i>,
+    // env: Rc<RefCell<Environment<'i>>>,
 }
 
-impl<'a> Interpreter<'a> {
+// struct EnvScopingGuard<'v> {
+//     int: &'v mut Interpreter<'v>,
+//     prev_env: Rc<RefCell<Environment<'v>>>,
+// }
+
+// impl<'v> EnvScopingGuard<'v> {
+//     fn new(int: &'v mut Interpreter<'v>, new_env: Rc<RefCell<Environment<'v>>>) -> Self {
+//         let prev_env = mem::replace(&mut int.env, new_env);
+//         Self { int, prev_env }
+//     }
+// }
+
+// impl<'v> Drop for EnvScopingGuard<'v> {
+//     fn drop(&mut self) {
+//         mem::replace(&mut self.int.env, Rc::clone(&self.prev_env));
+//     }
+// }
+
+// struct EnvScopingGuard<'g> {
+//     // int: &'v mut Interpreter<'v>,
+//     // int: &'g Interpreter<'g>,
+//     // int: Rc<Interpreter<'g>>,
+//     int: RefCell<Interpreter<'g>>,
+//     // prev_env: Rc<RefCell<Environment<'g>>>,
+//     prev_env: Option<Environment<'g>>,
+// }
+
+// impl<'g> EnvScopingGuard<'g> {
+//     // WARNING: mutably borrows the interpreter's env in runtime
+//     fn new(int: &'g Interpreter<'g>, new_env: Environment<'g>) -> Self {
+//         let prev_env = int.env.replace(new_env);
+//         Self {
+//             int,
+//             prev_env: Some(prev_env),
+//         }
+//     }
+// }
+
+// impl<'g> Drop for EnvScopingGuard<'g> {
+//     // WARNING: mutably borrows the interpreter's env in runtime
+//     fn drop(&mut self) {
+//         // mem::replace(&mut self.int.env, Rc::clone(&self.prev_env));
+//         self.int.env.replace(
+//             self.prev_env
+//                 .take()
+//                 .expect("Previous env must be stored in the constructor function"),
+//         );
+//     }
+// }
+
+// impl<'i> Interpreter<'i> {
+impl Interpreter {
     pub fn new() -> Self {
         Self {
-            env: Environment::new(),
+            // env: Rc::new(RefCell::new(Environment::new())),
+            // env: Environment::new(),
         }
     }
 
-    pub fn interpret(&mut self, statements: impl Iterator<Item = &'a Stmt<'a>>) -> Result {
+    // pub fn interpret<'s>(&mut self, statements: impl Iterator<Item = &'s Stmt<'s>>) -> Result {
+    pub fn interpret(&mut self, statements: &[Stmt<'_>]) -> Result {
+        // let mut env = std::mem::replace(&mut self.env, Environment::new());
+        // let mut env = Environment::new();
+        // let ref_cell = RefCell::new(env);
+        let env = Rc::new(RefCell::new(Environment::new()));
+
+        // let result = (|| {
         for stmt in statements {
-            self.execute(stmt)?;
+            // self.execute(stmt, &mut env)?;
+            // let ref_mut = ref_cell.borrow_mut();
+            // self.execute(stmt, &ref_mut)?;
+            // self.execute(stmt, &ref_mut)?;
+            self.execute(stmt, Rc::clone(&env))?;
         }
+        Ok(VOID)
+        // })();
+
+        // self.env = env;
+        // result
+    }
+
+    // pub fn interpret_expr(&mut self, expr: &'i Expr<'i>) -> EvalResult {
+    pub fn interpret_expr(&mut self, expr: &Expr<'_>) -> EvalResult {
+        let env = Rc::new(RefCell::new(Environment::new()));
+        self.evaluate(expr, env).map(|v| v.to_string())
+    }
+
+    fn execute<'a>(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<Environment<'a>>>) -> StmtResult {
+        // fn execute(&mut self, stmt: &Stmt<'_>) -> StmtResult {
+        stmt.accept(self, env)
+    }
+
+    // fn execute_block(
+    //     &mut self,
+    //     statements: &[Stmt<'_>],
+    //     enclosing: &mut Environment<'_>,
+    //     // mut enclosing: Environment<'s>,
+    // ) -> StmtResult {
+    //     // let mut local = Environment::with_enclosing(enclosing);
+
+    //     // let r: &'s mut Environment<'s> = &mut enclosing;
+
+    //     for stmt in statements {
+    //         // self.execute(stmt, &mut local)?;
+    //         // self.execute(stmt, &mut enclosing)?;
+    //         // self.execute(stmt, r)?;
+    //         self.execute(stmt, enclosing)?;
+    //     }
+
+    //     Ok(VOID)
+    // }
+
+    fn execute_block<'a>(
+        &mut self,
+        statements: &'a [Stmt<'_>],
+        // statements: impl Iterator<Item = &'i Stmt<'i>>,
+        // env: Environment<'_>,
+        // env: &'i mut Environment<'i>,
+        env: Rc<RefCell<Environment<'a>>>,
+    ) -> StmtResult {
+        // let _guard = EnvScopingGuard::new(self, env);
+
+        for stmt in statements {
+            // let stmt = &statements[0];
+            self.execute(stmt, Rc::clone(&env))?;
+        }
+
         Ok(VOID)
     }
 
-    pub fn interpret_expr(&mut self, expr: &'a Expr<'a>) -> EvalResult {
-        self.evaluate(expr).map(|v| v.to_string())
-    }
+    // fn execute_block_2(&'v mut self, statements: &Vec<Stmt<'v>>) -> StmtResult {
+    //     let new_env = Environment::with_enclosing(&mut self.env);
+    //     let prev_env = mem::replace(&mut self.env, new_env);
+    //     todo!()
+    // }
 
-    fn execute(&mut self, stmt: &'a Stmt<'a>) -> StmtResult {
-        stmt.accept(self)
-    }
-
-    fn evaluate(&mut self, expr: &'a Expr<'a>) -> ExprResult {
-        expr.accept(self)
+    fn evaluate(&mut self, expr: &Expr<'_>, env: Rc<RefCell<Environment<'_>>>) -> ExprResult {
+        expr.accept(self, env)
     }
 
     fn is_truthy(val: &Value) -> bool {
@@ -95,11 +217,11 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn error(token: &Token, message: &str) -> ExprResult {
+    fn error(token: &Token<'_>, message: &str) -> ExprResult {
         Err(RuntimeError::new(token, message))
     }
 
-    fn visit_literal(literal: &scanner::Literal<'a>) -> ExprResult {
+    fn visit_literal<'l>(literal: &scanner::Literal<'l>) -> ExprResult {
         Ok(match literal {
             scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
             scanner::Literal::Num(n) => Value::Num(*n),
@@ -108,8 +230,13 @@ impl<'a> Interpreter<'a> {
         })
     }
 
-    fn visit_unary(&mut self, operator: &Token<'a>, expr: &'a Expr<'a>) -> ExprResult {
-        let right = self.evaluate(expr)?;
+    fn visit_unary<'e>(
+        &mut self,
+        operator: &Token<'e>,
+        expr: &'e Expr<'e>,
+        env: Rc<RefCell<Environment<'_>>>,
+    ) -> ExprResult {
+        let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
@@ -119,14 +246,15 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn visit_binary(
+    fn visit_binary<'e>(
         &mut self,
-        left: &'a Expr<'a>,
-        operator: &'a Token<'a>,
-        right: &'a Expr<'a>,
+        left: &'e Expr<'e>,
+        operator: &'e Token<'e>,
+        right: &'e Expr<'e>,
+        env: Rc<RefCell<Environment<'_>>>,
     ) -> ExprResult {
-        let left = self.evaluate(left)?;
-        let right = self.evaluate(right)?;
+        let left = self.evaluate(left, Rc::clone(&env))?;
+        let right = self.evaluate(right, Rc::clone(&env))?;
 
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
@@ -160,55 +288,84 @@ impl<'a> Interpreter<'a> {
         }
     }
 
-    fn visit_variable(&self, name: &'a Token) -> ExprResult {
-        match self.env.get(name) {
-            Some(value) => Ok(value.clone()), // because Value::Str owns its String value (see comment on the Value enum)
+    fn visit_variable<'t>(
+        &self,
+        name: &'t Token<'_>,
+        env: Rc<RefCell<Environment<'t>>>,
+    ) -> ExprResult {
+        // match self.env.get(name) {
+        match env.borrow().get(name) {
+            Some(value) => Ok(value),
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
 
-    fn visit_assign(&mut self, name: &'a Token, value: Value) -> ExprResult {
-        // again, Environment owns Values, so we need to clone to let them participate in the evaluation further
-        self.env.assign(name, value).cloned()
+    fn visit_assign<'t>(
+        &mut self,
+        name: &'t Token<'_>,
+        value: Value,
+        env: Rc<RefCell<Environment<'t>>>,
+    ) -> ExprResult {
+        // self.env.borrow_mut().assign(name, value)
+        // env.assign(name, value)
+        env.borrow_mut().assign(name, value)
     }
 }
 
-impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) -> ExprResult {
+impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
+    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Rc<RefCell<Environment<'a>>>) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.visit_binary(left, operator, right),
-            Expr::Conditional { cond, left, right } => todo!("Add implementation for conditionals when the entire interpreter is ready"),
-            Expr::Grouping(expr) => self.evaluate(expr),
+            } => self.visit_binary(left, operator, right, env),
+            Expr::Conditional { cond, left, right } => {
+                todo!("Add implementation for conditionals when the entire interpreter is ready")
+            }
+            Expr::Grouping(expr) => self.evaluate(expr, env),
             Expr::Literal(literal) => Self::visit_literal(literal),
-            Expr::Unary { operator, right } => self.visit_unary(operator, right),
-            Expr::Variable(name) => self.visit_variable(name),
+            Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
+            Expr::Variable(name) => self.visit_variable(name, env),
             Expr::Assign { name, value } => {
-                let value = self.evaluate(value)?;
-                self.visit_assign(name, value)
+                let value = self.evaluate(value, Rc::clone(&env))?;
+                self.visit_assign(name, value, env)
             }
         }
     }
 }
 
-impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter<'a> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt) -> StmtResult {
+impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter {
+    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<Environment<'a>>>) -> StmtResult {
         match stmt {
-            Stmt::Expression(expr) => self.evaluate(expr).map(|_| VOID),
+            Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
             Stmt::Print(expr) => {
-                println!("{}", self.evaluate(expr).map(|v| v.to_string())?);
+                println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
                 Ok(VOID)
             }
             Stmt::Var { token, initializer } => {
                 let value = match initializer {
-                    Some(expr) => self.evaluate(expr)?,
+                    Some(expr) => self.evaluate(expr, Rc::clone(&env))?,
                     None => Value::Nil,
                 };
 
-                self.env.define(token, value);
+                // self.env.borrow_mut().define(token, value);
+                // self.env.define(token, value);
+                env.borrow_mut().define(token, value);
+
+                Ok(VOID)
+            }
+            Stmt::Block(statements) => {
+                self.execute_block(
+                    statements,
+                    Environment::with_enclosing(Rc::clone(&env)).wrapped(), // &mut Environment::with_enclosing(env),
+                                                                            // Environment::with_enclosing(&mut env),
+                );
+
+                // let env = &mut Environment::with_enclosing(env);
+                // for stmt in statements {
+                //     self.execute(stmt, env);
+                // }
 
                 Ok(VOID)
             }

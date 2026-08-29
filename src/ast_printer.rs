@@ -5,7 +5,7 @@ pub struct AstPrinter<'a> {
 }
 
 impl<'a> AstPrinter<'a> {
-    pub fn new(expr: &'a Expr) -> Self {
+    pub fn new(expr: &'a Expr<'_>) -> Self {
         Self { expr }
     }
 
@@ -13,15 +13,26 @@ impl<'a> AstPrinter<'a> {
         self.visit_expr(self.expr)
     }
 
-    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr) -> String {
+    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>) -> String {
         format!("({} {})", name, expr.accept(self))
     }
 
-    fn parenthesize_binary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr) -> String {
+    fn parenthesize_binary(
+        &mut self,
+        name: &str,
+        expr1: &'a Expr<'_>,
+        expr2: &'a Expr<'_>,
+    ) -> String {
         format!("({} {} {})", name, expr1.accept(self), expr2.accept(self))
     }
 
-    fn parenthesize_ternary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr, expr3: &'a Expr) -> String {
+    fn parenthesize_ternary(
+        &mut self,
+        name: &str,
+        expr1: &'a Expr<'_>,
+        expr2: &'a Expr<'_>,
+        expr3: &'a Expr<'_>,
+    ) -> String {
         format!(
             "({} {} {} {})",
             name,
@@ -31,13 +42,13 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr) -> String {
+    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>) -> String {
         format!("(<- {} {})", name, value.accept(self))
     }
 }
 
-impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) -> String {
+impl<'a> VisitorMut<String> for AstPrinter<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr<'_>) -> String {
         match expr {
             Expr::Binary {
                 left,

@@ -1,7 +1,12 @@
-use crate::scanner::{self, Token};
+use std::{cell::RefCell, rc::Rc};
 
-pub trait VisitorMut<'e, R> {
-    fn visit_expr(&mut self, expr: &'e Expr) -> R;
+use crate::{
+    environment::Environment,
+    scanner::{self, Token},
+};
+
+pub trait VisitorMut<'a, R> {
+    fn visit_expr(&self, expr: &'a Expr<'a>, env: Rc<RefCell<Environment<'a>>>) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -10,33 +15,37 @@ pub trait VisitorMut<'e, R> {
 // of Expr and the expression tree will be populated with references to it.
 // It's deemed an overkill for our use-case, so we're going away with Box.
 #[derive(Debug)]
-pub enum Expr<'a> {
+pub enum Expr<'e> {
     Binary {
-        left: Box<Expr<'a>>,
-        operator: Token<'a>,
-        right: Box<Expr<'a>>,
+        left: Box<Expr<'e>>,
+        operator: Token<'e>,
+        right: Box<Expr<'e>>,
     },
     Conditional {
-        cond: Box<Expr<'a>>,
-        left: Box<Expr<'a>>,
-        right: Box<Expr<'a>>,
+        cond: Box<Expr<'e>>,
+        left: Box<Expr<'e>>,
+        right: Box<Expr<'e>>,
     },
-    Grouping(Box<Expr<'a>>),
-    Literal(scanner::Literal<'a>),
+    Grouping(Box<Expr<'e>>),
+    Literal(scanner::Literal<'e>),
     Unary {
-        operator: Token<'a>,
-        right: Box<Expr<'a>>,
+        operator: Token<'e>,
+        right: Box<Expr<'e>>,
     },
-    Variable(Token<'a>), // token is the variable's name
+    Variable(Token<'e>), // token is the variable's name
     Assign {
-        name: Token<'a>,
-        value: Box<Expr<'a>>,
+        name: Token<'e>,
+        value: Box<Expr<'e>>,
     },
 }
 
-impl<'a> Expr<'a> {
-    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>) -> R {
-        visitor.visit_expr(self)
+impl<'e> Expr<'e> {
+    pub fn accept<R>(
+        &self,
+        visitor: &mut impl VisitorMut<'e, R>,
+        env: Rc<RefCell<Environment<'_>>>,
+    ) -> R {
+        visitor.visit_expr(self, env)
     }
 
     pub fn boxed(self) -> Box<Self> {

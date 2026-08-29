@@ -3,7 +3,8 @@
 //! program        → declaration* EOF ;
 //! declaration    → varDecl | statement ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | printStmt ;
+//! statement      → exprStmt | printStmt | block ;
+//! block          → "{" declaration* "}" ;
 //! exprStmt       → expression ";"
 //! expression     → assignment ;
 //! assignment     → IDENTIFIER "=" assignment | compound ;
@@ -189,6 +190,8 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> StmtResult<'a> {
         if self.match_next(&[TT::PRINT]) {
             self.print_statement()
+        } else if self.match_next(&[TT::LEFT_BRACE]) {
+            self.block_statement()
         } else {
             self.expression_statement()
         }
@@ -198,6 +201,18 @@ impl<'a> Parser<'a> {
         let value = self.expression()?;
         self.consume(&TT::SEMICOLON, "Expect ';' after value.")?;
         Ok(Stmt::Print(value))
+    }
+
+    fn block_statement(&mut self) -> StmtResult<'a> {
+        let mut statements: Vec<Stmt<'a>> = vec![];
+
+        while !self.check(&TT::RIGHT_BRACE) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(&TT::RIGHT_BRACE, "Expect '}' after block.")?;
+
+        Ok(Stmt::Block(statements))
     }
 
     fn expression_statement(&mut self) -> StmtResult<'a> {
