@@ -1,4 +1,7 @@
-use crate::expr::{Expr, VisitorMut};
+use crate::{
+    environment::{BareEnv, Env, clone_env},
+    expr::{Expr, VisitorMut},
+};
 
 pub struct AstPrinter<'a> {
     expr: &'a Expr<'a>,
@@ -10,11 +13,11 @@ impl<'a> AstPrinter<'a> {
     }
 
     pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr)
+        self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>) -> String {
-        format!("({} {})", name, expr.accept(self))
+    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>, env: Env<'a>) -> String {
+        format!("({} {})", name, expr.accept(self, env))
     }
 
     fn parenthesize_binary(
@@ -22,8 +25,14 @@ impl<'a> AstPrinter<'a> {
         name: &str,
         expr1: &'a Expr<'_>,
         expr2: &'a Expr<'_>,
+        env: Env<'a>,
     ) -> String {
-        format!("({} {} {})", name, expr1.accept(self), expr2.accept(self))
+        format!(
+            "({} {} {})",
+            name,
+            expr1.accept(self, clone_env(&env)),
+            expr2.accept(self, env)
+        )
     }
 
     fn parenthesize_ternary(
@@ -32,37 +41,38 @@ impl<'a> AstPrinter<'a> {
         expr1: &'a Expr<'_>,
         expr2: &'a Expr<'_>,
         expr3: &'a Expr<'_>,
+        env: Env<'a>,
     ) -> String {
         format!(
             "({} {} {} {})",
             name,
-            expr1.accept(self),
-            expr2.accept(self),
-            expr3.accept(self)
+            expr1.accept(self, clone_env(&env)),
+            expr2.accept(self, clone_env(&env)),
+            expr3.accept(self, env)
         )
     }
 
-    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>) -> String {
-        format!("(<- {} {})", name, value.accept(self))
+    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>, env: Env<'a>) -> String {
+        format!("(<- {} {})", name, value.accept(self, env))
     }
 }
 
-impl<'a> VisitorMut<String> for AstPrinter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr<'_>) -> String {
+impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
+    fn visit_expr(&mut self, expr: &'a Expr<'_>, env: Env<'a>) -> String {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(operator.lexeme, left, right),
+            } => self.parenthesize_binary(operator.lexeme, left, right, env),
             Expr::Conditional { cond, left, right } => {
-                self.parenthesize_ternary("?:", cond, left, right)
+                self.parenthesize_ternary("?:", cond, left, right, env)
             }
-            Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
+            Expr::Grouping(expr) => self.parenthesize_unary("group", expr, env),
             Expr::Literal(value) => value.to_string(),
-            Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right),
+            Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right, env),
             Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.parenthesize_assign(name.lexeme, value),
+            Expr::Assign { name, value } => self.parenthesize_assign(name.lexeme, value, env),
         }
     }
 }

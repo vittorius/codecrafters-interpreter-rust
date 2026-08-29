@@ -4,7 +4,7 @@ use crate::{lox, scanner::Token};
 pub struct RuntimeError(String);
 
 impl RuntimeError {
-    pub fn new(token: &Token, message: &str) -> Self {
+    pub fn new(token: &Token<'_>, message: &str) -> Self {
         RuntimeError(lox::fmt_runtime_error(token.line, message))
     }
 }

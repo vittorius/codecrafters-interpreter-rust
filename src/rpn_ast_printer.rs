@@ -1,55 +1,78 @@
-use crate::expr::{Expr, VisitorMut};
+use crate::{
+    environment::{BareEnv, Env, clone_env},
+    expr::{Expr, VisitorMut},
+};
 
 pub struct RpnAstPrinter<'a> {
     expr: &'a Expr<'a>,
 }
 
 impl<'a> RpnAstPrinter<'a> {
-    pub fn new(expr: &'a Expr) -> Self {
+    pub fn new(expr: &'a Expr<'_>) -> Self {
         Self { expr }
     }
 
     pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr)
+        self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn format_unary(&mut self, name: &str, expr: &'a Expr) -> String {
-        format!("{} {}", expr.accept(self), name)
+    fn format_unary(&mut self, name: &str, expr: &'a Expr<'_>, env: Env<'a>) -> String {
+        format!("{} {}", expr.accept(self, env), name)
     }
 
-    fn format_binary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr) -> String {
-        format!("{} {} {}", expr1.accept(self), expr2.accept(self), name)
+    fn format_binary(
+        &mut self,
+        name: &str,
+        expr1: &'a Expr<'_>,
+        expr2: &'a Expr<'_>,
+        env: Env<'a>,
+    ) -> String {
+        format!(
+            "{} {} {}",
+            expr1.accept(self, clone_env(&env)),
+            expr2.accept(self, env),
+            name
+        )
     }
 
-    fn format_ternary(&mut self, name: &str, expr1: &'a Expr, expr2: &'a Expr, expr3: &'a Expr) -> String {
+    fn format_ternary(
+        &mut self,
+        name: &str,
+        expr1: &'a Expr<'_>,
+        expr2: &'a Expr<'_>,
+        expr3: &'a Expr<'_>,
+        env: Env<'a>,
+    ) -> String {
         format!(
             "{} {} {} {}",
-            expr1.accept(self),
-            expr2.accept(self),
-            expr3.accept(self),
+            expr1.accept(self, clone_env(&env)),
+            expr2.accept(self, clone_env(&env)),
+            expr3.accept(self, env),
             name,
         )
     }
 
-    fn format_assign(&mut self, name: &str, value: &'a Expr) -> String {
-        format!("{} {} <-", name, value.accept(self))
+    fn format_assign(&mut self, name: &str, value: &'a Expr<'_>, env: Env<'a>) -> String {
+        format!("{} {} <-", name, value.accept(self, env))
     }
 }
 
 impl<'a> VisitorMut<'a, String> for RpnAstPrinter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr) -> String {
+    fn visit_expr(&mut self, expr: &'a Expr<'_>, env: Env<'a>) -> String {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.format_binary(operator.lexeme, left, right),
-            Expr::Conditional { cond, left, right } => self.format_ternary("?:", cond, left, right),
-            Expr::Grouping(expr) => expr.accept(self),
+            } => self.format_binary(operator.lexeme, left, right, env),
+            Expr::Conditional { cond, left, right } => {
+                self.format_ternary("?:", cond, left, right, env)
+            }
+            Expr::Grouping(expr) => expr.accept(self, env),
             Expr::Literal(value) => value.to_string(),
-            Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right),
+            Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right, env),
             Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.format_assign(name.lexeme, value),
+            Expr::Assign { name, value } => self.format_assign(name.lexeme, value, env),
         }
     }
 }

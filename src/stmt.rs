@@ -1,12 +1,12 @@
 use std::{
-    cell::{RefCell, RefMut},
+    cell::RefCell,
     rc::Rc,
 };
 
-use crate::{environment::Environment, expr::Expr, scanner::Token};
+use crate::{environment::BareEnv, expr::Expr, scanner::Token};
 
 pub trait VisitorMut<'a, R> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<Environment<'a>>>) -> R;
+    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Rc<RefCell<BareEnv<'a>>>) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -29,7 +29,7 @@ impl<'a> Stmt<'a> {
     pub fn accept<R>(
         &'a self,
         visitor: &mut impl VisitorMut<'a, R>,
-        env: Rc<RefCell<Environment<'a>>>,
+        env: Rc<RefCell<BareEnv<'a>>>,
     ) -> R {
         visitor.visit_stmt(self, env)
     }
