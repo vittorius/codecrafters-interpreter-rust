@@ -175,7 +175,6 @@ impl Interpreter {
     }
 
     fn visit_variable<'t>(&self, name: &'t Token<'_>, env: Rc<RefCell<BareEnv<'t>>>) -> ExprResult {
-        eprintln!("visit_variable: {:?}", clone_env(&env));
         match env.borrow().get(name) {
             Some(value) => Ok(value),
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
