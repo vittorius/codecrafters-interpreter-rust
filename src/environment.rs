@@ -2,20 +2,17 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{error::RuntimeError, interpreter::Value, scanner::Token};
 
-pub type Env<'a> = Rc<RefCell<BareEnv<'a>>>;
+pub type Env = Rc<RefCell<BareEnv>>;
 
-pub fn clone_env<'a>(env: &Env<'a>) -> Env<'a> {
-    Rc::clone(env)
-}
-
-// TODO: replace Value with Rc<Value> to avoid cloning values when visiting variables and assignments
+// Env owns its variable names (hence String keys) to make a true REPL:
+// variable definitions that survive the line of source they were derived from.
 #[derive(Debug)]
-pub struct BareEnv<'a> {
-    values: HashMap<&'a str, Value>,
-    enclosing: Option<Env<'a>>,
+pub struct BareEnv {
+    values: HashMap<String, Value>,
+    enclosing: Option<Env>,
 }
 
-impl<'a> BareEnv<'a> {
+impl BareEnv {
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
@@ -23,24 +20,24 @@ impl<'a> BareEnv<'a> {
         }
     }
 
-    pub fn with_enclosing(enclosing: Env<'a>) -> Self {
+    pub fn with_enclosing(enclosing: Env) -> Self {
         Self {
             enclosing: Some(enclosing),
             ..Self::new()
         }
     }
 
-    pub fn wrapped(self) -> Env<'a> {
+    pub fn wrapped(self) -> Env {
         Rc::new(RefCell::new(self))
     }
 
-    pub fn define(&mut self, name: &'a Token<'a>, value: Value) {
-        self.values.insert(name.lexeme, value);
+    pub fn define(&mut self, name: &Token<'_>, value: Value) {
+        self.values.insert(name.lexeme.to_owned(), value);
     }
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
-    pub fn get(&self, name: &'a Token<'a>) -> Option<Value> {
+    pub fn get(&self, name: &Token<'_>) -> Option<Value> {
         self.values.get(name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
                 enclosing.borrow().get(name)
@@ -50,10 +47,10 @@ impl<'a> BareEnv<'a> {
         })
     }
 
-    pub fn assign(&mut self, name: &'a Token<'a>, value: Value) -> Result<Value, RuntimeError> {
+    pub fn assign(&mut self, name: &Token<'_>, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 
-        match self.values.entry(name.lexeme) {
+        match self.values.entry(name.lexeme.to_owned()) {
             Entry::Occupied(mut occupied_entry) => {
                 occupied_entry.insert(value);
                 Ok(self
@@ -74,4 +71,8 @@ impl<'a> BareEnv<'a> {
             }
         }
     }
+}
+
+pub fn clone_env(env: &Env) -> Env {
+    Rc::clone(env)
 }

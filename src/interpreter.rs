@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use crate::{
     environment::{BareEnv, Env, clone_env},
@@ -46,33 +46,39 @@ pub type EvalResult = std::result::Result<String, RuntimeError>;
 type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
 
-pub struct Interpreter;
+pub struct Interpreter {
+    env: Env,
+}
 
 impl Interpreter {
     pub fn new() -> Self {
-        Self
+        Self {
+            env: BareEnv::new().wrapped(),
+        }
+    }
+
+    pub fn with_env(env: Env) -> Self {
+        Self { env }
     }
 
     pub fn interpret(&mut self, statements: &[Stmt<'_>]) -> Result {
-        let env = BareEnv::new().wrapped();
-
         for stmt in statements {
-            self.execute(stmt, clone_env(&env))?;
+            self.execute(stmt, clone_env(&self.env))?;
         }
 
         Ok(VOID)
     }
 
     pub fn interpret_expr(&mut self, expr: &Expr<'_>) -> EvalResult {
-        let env = BareEnv::new().wrapped();
-        self.evaluate(expr, env).map(|v| v.to_string())
+        self.evaluate(expr, clone_env(&self.env))
+            .map(|v| v.to_string())
     }
 
-    fn execute<'a>(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> StmtResult {
+    fn execute(&mut self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         stmt.accept(self, env)
     }
 
-    fn execute_block<'a>(&mut self, statements: &'a [Stmt<'_>], env: Env<'a>) -> StmtResult {
+    fn execute_block(&mut self, statements: &[Stmt<'_>], env: Env) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, clone_env(&env))?;
         }
@@ -80,7 +86,7 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    fn evaluate<'a>(&mut self, expr: &'a Expr<'_>, env: Env<'a>) -> ExprResult {
+    fn evaluate(&mut self, expr: &Expr<'_>, env: Env) -> ExprResult {
         expr.accept(self, env)
     }
 
@@ -116,12 +122,7 @@ impl Interpreter {
         })
     }
 
-    fn visit_unary<'a>(
-        &mut self,
-        operator: &Token<'a>,
-        expr: &'a Expr<'a>,
-        env: Env<'a>,
-    ) -> ExprResult {
+    fn visit_unary(&mut self, operator: &Token<'_>, expr: &Expr<'_>, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
@@ -132,12 +133,12 @@ impl Interpreter {
         }
     }
 
-    fn visit_binary<'a>(
+    fn visit_binary(
         &mut self,
-        left: &'a Expr<'a>,
-        operator: &'a Token<'a>,
-        right: &'a Expr<'a>,
-        env: Env<'a>,
+        left: &Expr<'_>,
+        operator: &Token<'_>,
+        right: &Expr<'_>,
+        env: Env,
     ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
         let right = self.evaluate(right, clone_env(&env))?;
@@ -174,25 +175,20 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable<'t>(&self, name: &'t Token<'_>, env: Rc<RefCell<BareEnv<'t>>>) -> ExprResult {
+    fn visit_variable(&self, name: &Token<'_>, env: Env) -> ExprResult {
         match env.borrow().get(name) {
             Some(value) => Ok(value),
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
 
-    fn visit_assign<'t>(
-        &mut self,
-        name: &'t Token<'_>,
-        value: Value,
-        env: Rc<RefCell<BareEnv<'t>>>,
-    ) -> ExprResult {
+    fn visit_assign(&mut self, name: &Token<'_>, value: Value, env: Env) -> ExprResult {
         env.borrow_mut().assign(name, value)
     }
 }
 
 impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
-    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env<'a>) -> ExprResult {
+    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
@@ -214,8 +210,8 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
     }
 }
 
-impl<'a> stmt::VisitorMut<'a, StmtResult> for Interpreter {
-    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> StmtResult {
+impl stmt::VisitorMut<StmtResult> for Interpreter {
+    fn visit_stmt(&mut self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
             Stmt::Print(expr) => {

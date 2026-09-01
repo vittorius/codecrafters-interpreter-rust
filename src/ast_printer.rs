@@ -16,7 +16,7 @@ impl<'a> AstPrinter<'a> {
         self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>, env: Env<'a>) -> String {
+    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>, env: Env) -> String {
         format!("({} {})", name, expr.accept(self, env))
     }
 
@@ -25,7 +25,7 @@ impl<'a> AstPrinter<'a> {
         name: &str,
         expr1: &'a Expr<'_>,
         expr2: &'a Expr<'_>,
-        env: Env<'a>,
+        env: Env,
     ) -> String {
         format!(
             "({} {} {})",
@@ -41,7 +41,7 @@ impl<'a> AstPrinter<'a> {
         expr1: &'a Expr<'_>,
         expr2: &'a Expr<'_>,
         expr3: &'a Expr<'_>,
-        env: Env<'a>,
+        env: Env,
     ) -> String {
         format!(
             "({} {} {} {})",
@@ -52,13 +52,13 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>, env: Env<'a>) -> String {
+    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>, env: Env) -> String {
         format!("(<- {} {})", name, value.accept(self, env))
     }
 }
 
 impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr<'_>, env: Env<'a>) -> String {
+    fn visit_expr(&mut self, expr: &'a Expr<'_>, env: Env) -> String {
         match expr {
             Expr::Binary {
                 left,

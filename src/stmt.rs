@@ -1,7 +1,7 @@
 use crate::{environment::Env, expr::Expr, scanner::Token};
 
-pub trait VisitorMut<'a, R> {
-    fn visit_stmt(&mut self, stmt: &'a Stmt<'a>, env: Env<'a>) -> R;
+pub trait VisitorMut<R> {
+    fn visit_stmt(&mut self, stmt: &Stmt<'_>, env: Env) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -21,7 +21,7 @@ pub enum Stmt<'a> {
 }
 
 impl<'a> Stmt<'a> {
-    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>, env: Env<'a>) -> R {
+    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<R>, env: Env) -> R {
         visitor.visit_stmt(self, env)
     }
 }

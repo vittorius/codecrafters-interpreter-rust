@@ -44,15 +44,15 @@ impl Display for ParseError {
 pub type Result<'a> = std::result::Result<Vec<Stmt<'a>>, ParseError>;
 pub type ExprResult<'a> = std::result::Result<Expr<'a>, ParseError>;
 type StmtResult<'a> = std::result::Result<Stmt<'a>, ParseError>;
-type TokenResult<'a> = std::result::Result<&'a Token<'a>, ParseError>; // TODO: maybe it's more practical to pass token by value in this result type
+type TokenResult<'a> = std::result::Result<Token<'a>, ParseError>; // TODO: maybe it's more practical to pass token by value in this result type
 
 pub struct Parser<'a> {
-    tokens: &'a [Token<'a>],
+    tokens: Vec<Token<'a>>,
     current: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Token<'a>]) -> Self {
+    pub fn new(tokens: Vec<Token<'a>>) -> Self {
         Parser { tokens, current: 0 }
     }
 
@@ -69,8 +69,8 @@ impl<'a> Parser<'a> {
         self.expression()
     }
 
-    fn peek(&self) -> &'a Token<'a> {
-        &self.tokens[self.current]
+    fn peek(&self) -> Token<'a> {
+        self.tokens[self.current]
     }
 
     // TODO: try to turn this into a token eater/emitter
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
         self.peek().token_type == *token_type
     }
 
-    fn advance(&mut self) -> &'a Token<'a> {
+    fn advance(&mut self) -> Token<'a> {
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -106,9 +106,8 @@ impl<'a> Parser<'a> {
         self.peek().token_type == TT::EOF
     }
 
-    // TODO: consider returning a Token copy
-    fn previous(&self) -> &'a Token<'a> {
-        &self.tokens[self.current - 1]
+    fn previous(&self) -> Token<'a> {
+        self.tokens[self.current - 1]
     }
 
     fn consume(&mut self, token_type: &TokenType, message: &str) -> TokenResult<'a> {
@@ -116,7 +115,7 @@ impl<'a> Parser<'a> {
             return Ok(self.advance());
         };
 
-        Err(Self::mk_error(self.peek(), message))
+        Err(Self::mk_error(&self.peek(), message))
     }
 
     fn synchronize(&mut self) {
@@ -182,7 +181,7 @@ impl<'a> Parser<'a> {
         self.consume(&TT::SEMICOLON, "Expect ';' after variable declaration.")?;
 
         Ok(Stmt::Var {
-            token: *name,
+            token: name,
             initializer,
         })
     }
@@ -229,7 +228,7 @@ impl<'a> Parser<'a> {
         let expr = self.comma()?;
 
         if self.match_next(&[TT::EQUAL]) {
-            let equals = *self.previous();
+            let equals = self.previous();
             let value = self.assignment()?;
 
             return if let Expr::Variable(name) = expr {
@@ -249,7 +248,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.conditional()?;
 
         while self.match_next(&[TT::COMMA]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.conditional()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
@@ -286,7 +285,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.comparison()?;
 
         while self.match_next(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.comparison()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
@@ -302,7 +301,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.term()?;
 
         while self.match_next(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.term()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
@@ -318,7 +317,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.factor()?;
 
         while self.match_next(&[TT::MINUS, TT::PLUS]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.factor()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
@@ -334,7 +333,7 @@ impl<'a> Parser<'a> {
         let mut expr = self.unary()?;
 
         while self.match_next(&[TT::SLASH, TT::STAR]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.unary()?.boxed();
             expr = Expr::Binary {
                 left: expr.boxed(),
@@ -348,7 +347,7 @@ impl<'a> Parser<'a> {
 
     fn unary(&mut self) -> ExprResult<'a> {
         if self.match_next(&[TT::BANG, TT::MINUS]) {
-            let operator = *self.previous();
+            let operator = self.previous();
             let right = self.unary()?.boxed();
             return Ok(Expr::Unary { operator, right });
         }
@@ -376,7 +375,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.match_next(&[TT::IDENTIFIER]) {
-            return Ok(Expr::Variable(*self.previous()));
+            return Ok(Expr::Variable(self.previous()));
         }
 
         if self.match_next(&[TT::LEFT_PAREN]) {
@@ -385,6 +384,6 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Grouping(expr.boxed()));
         }
 
-        Err(Self::mk_error(self.peek(), "Expect expression."))
+        Err(Self::mk_error(&self.peek(), "Expect expression."))
     }
 }
