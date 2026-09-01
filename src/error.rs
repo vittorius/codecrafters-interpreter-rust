@@ -1,7 +1,7 @@
 use crate::{lox, scanner::Token};
 
 #[derive(Debug)]
-pub struct RuntimeError(String);
+pub struct RuntimeError(pub String);
 
 impl RuntimeError {
     pub fn new(token: &Token<'_>, message: &str) -> Self {

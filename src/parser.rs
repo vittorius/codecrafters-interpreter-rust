@@ -27,7 +27,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ParseError(String);
+pub struct ParseError(pub String);
 
 impl Error for ParseError {}
 
