@@ -73,6 +73,8 @@ impl BareEnv {
     }
 }
 
+// This function is added for the same explicitness as comes with calling Rc::clone
+// but hiding the implementation details (`Rc`) a bit.
 pub fn clone_env(env: &Env) -> Env {
     Rc::clone(env)
 }

@@ -179,6 +179,20 @@ impl Interpreter {
         }
     }
 
+    fn visit_conditional(
+        &mut self,
+        cond: &Expr<'_>,
+        left: &Expr<'_>,
+        right: &Expr<'_>,
+        env: Env,
+    ) -> ExprResult {
+        if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
+            self.evaluate(left, env)
+        } else {
+            self.evaluate(right, env)
+        }
+    }
+
     fn visit_variable(&self, name: &Token<'_>, env: Env) -> ExprResult {
         match env.borrow().get(name) {
             Some(value) => match value {
@@ -207,7 +221,7 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
                 right,
             } => self.visit_binary(left, operator, right, env),
             Expr::Conditional { cond, left, right } => {
-                todo!("Add implementation for conditionals when the entire interpreter is ready")
+                self.visit_conditional(cond, left, right, env)
             }
             Expr::Grouping(expr) => self.evaluate(expr, env),
             Expr::Literal(literal) => Self::visit_literal(literal),
