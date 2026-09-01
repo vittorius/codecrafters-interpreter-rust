@@ -13,3 +13,8 @@ thiserror = "1.0.38"                             # error handling
 
 [lints.rust]
 elided_lifetimes_in_paths = "warn"
+
+[features]
+init-vars = []
+str-cmp = []
+str-num-concat = []

@@ -19,10 +19,9 @@ parser, AST, or evaluator yet, just a tokenizer.
   into `/tmp/codecrafters-build-interpreter-rust` and runs it — this is the
   actual CodeCrafters compile/run flow reproduced locally, so prefer it over
   `cargo run` when checking end-to-end behavior)
-- Run tests: `cargo test`
-- Run a single test: `cargo test --test tokenize test_multiline_comments`
-  (currently `#[ignore]`d pending nested-comment support in the scanner — add
-  `-- --ignored` to run it anyway)
+- Run tests (default, complying with CodeCrafters test suite): `cargo test`
+- Run tests (all, hidden behind features flags because of the CodeCrafters test
+  suite): `cargo test --all-features`
 - Submit to CodeCrafters: `codecrafters submit`
 
 ## Architecture

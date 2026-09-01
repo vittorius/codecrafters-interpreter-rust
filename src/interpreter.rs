@@ -152,19 +152,23 @@ impl Interpreter {
             (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            // implicit number-to-sting conversion on concatenation is commented for the sake of CodeCrafters test suite
-            // (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            // (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            #[cfg(feature = "str-num-concat")]
+            (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
+            #[cfg(feature = "str-num-concat")]
+            (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
             (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
             (TT::LESS_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l <= r)),
-            // string comparison is commented for the sake of CodeCrafters test suite
-            // (TT::GREATER, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l > r)),
-            // (TT::GREATER_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l >= r)),
-            // (TT::LESS, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l < r)),
-            // (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
+            #[cfg(feature = "str-cmp")]
+            (TT::GREATER, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l > r)),
+            #[cfg(feature = "str-cmp")]
+            (TT::GREATER_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l >= r)),
+            #[cfg(feature = "str-cmp")]
+            (TT::LESS, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l < r)),
+            #[cfg(feature = "str-cmp")]
+            (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
             (TT::GREATER | TT::GREATER_EQUAL | TT::LESS | TT::LESS_EQUAL, _, _) => {
                 Self::error(operator, "Operands must be numbers.")
             }
@@ -177,7 +181,14 @@ impl Interpreter {
 
     fn visit_variable(&self, name: &Token<'_>, env: Env) -> ExprResult {
         match env.borrow().get(name) {
-            Some(value) => Ok(value),
+            Some(value) => match value {
+                #[cfg(feature = "init-vars")]
+                Value::Nil => Self::error(
+                    name,
+                    &format!("Uninitialized variable \"{}\".", name.lexeme),
+                ),
+                _ => Ok(value),
+            },
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
