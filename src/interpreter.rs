@@ -210,6 +210,21 @@ impl Interpreter {
     fn visit_assign(&mut self, name: &Token<'_>, value: Value, env: Env) -> ExprResult {
         env.borrow_mut().assign(name, value)
     }
+
+    fn visit_if_statement(
+        &mut self,
+        condition: &Expr<'_>,
+        then_branch: &Stmt<'_>,
+        else_branch: &Option<Box<Stmt<'_>>>,
+        env: Env,
+    ) -> StmtResult {
+        if Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
+            self.execute(then_branch, env)?;
+        } else if let Some(else_branch) = else_branch {
+            self.execute(else_branch, env)?;
+        }
+        Ok(VOID)
+    }
 }
 
 impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
@@ -239,6 +254,11 @@ impl stmt::VisitorMut<StmtResult> for Interpreter {
     fn visit_stmt(&mut self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
+            Stmt::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => self.visit_if_statement(condition, then_branch, else_branch, clone_env(&env)),
             Stmt::Print(expr) => {
                 println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
                 Ok(VOID)

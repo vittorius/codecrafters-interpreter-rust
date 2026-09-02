@@ -3,14 +3,17 @@
 //! program        → declaration* EOF ;
 //! declaration    → varDecl | statement ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | printStmt | block ;
+//! statement      → exprStmt | ifStmt | printStmt | block ;
 //! exprStmt       → expression ";"
+//! ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
 //! printStmt      → "print" expression ";"
 //! block          → "{" declaration* "}" ;
 //! expression     → comma ;
 //! comma          → assignment ("," assignment)* ;
 //! assignment     → IDENTIFIER "=" assignment | conditional ;
-//! conditional    → equality ("?" equality ":" conditional)? ;
+//! conditional    → logic_or ("?" logic_or ":" conditional)? ;
+//! logic_or       → logic_and ( "or" logic_and )* ;
+//! logic_and      → equality ( "and" equality )* ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
@@ -190,11 +193,37 @@ impl<'a> Parser<'a> {
     fn statement(&mut self) -> StmtResult<'a> {
         if self.match_next(&[TT::PRINT]) {
             self.print_statement()
+        } else if self.match_next(&[TT::IF]) {
+            self.if_statement()
         } else if self.match_next(&[TT::LEFT_BRACE]) {
             self.block_statement()
         } else {
             self.expression_statement()
         }
+    }
+
+    fn expression_statement(&mut self) -> StmtResult<'a> {
+        let expr = self.expression()?;
+        self.consume(&TT::SEMICOLON, "Expect ';' after expression.")?;
+        Ok(Stmt::Expression(expr))
+    }
+
+    fn if_statement(&mut self) -> StmtResult<'a> {
+        self.consume(&TT::LEFT_PAREN, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(&TT::RIGHT_PAREN, "Expect ')' after if condition.")?;
+
+        let then_branch = self.statement()?.boxed();
+        let mut else_branch = None;
+        if self.match_next(&[TT::ELSE]) {
+            else_branch = Some(self.statement()?.boxed());
+        }
+
+        Ok(Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        })
     }
 
     fn print_statement(&mut self) -> StmtResult<'a> {
@@ -213,12 +242,6 @@ impl<'a> Parser<'a> {
         self.consume(&TT::RIGHT_BRACE, "Expect '}' after block.")?;
 
         Ok(Stmt::Block(statements))
-    }
-
-    fn expression_statement(&mut self) -> StmtResult<'a> {
-        let expr = self.expression()?;
-        self.consume(&TT::SEMICOLON, "Expect ';' after expression.")?;
-        Ok(Stmt::Expression(expr))
     }
 
     fn expression(&mut self) -> ExprResult<'a> {

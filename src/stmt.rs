@@ -12,6 +12,11 @@ pub trait VisitorMut<R> {
 #[derive(Debug)]
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
+    If {
+        condition: Expr<'a>,
+        then_branch: Box<Stmt<'a>>,
+        else_branch: Option<Box<Stmt<'a>>>,
+    },
     Print(Expr<'a>),
     Var {
         token: Token<'a>,
@@ -23,5 +28,9 @@ pub enum Stmt<'a> {
 impl<'a> Stmt<'a> {
     pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<R>, env: Env) -> R {
         visitor.visit_stmt(self, env)
+    }
+
+    pub fn boxed(self) -> Box<Self> {
+       Box::new(self) 
     }
 }
