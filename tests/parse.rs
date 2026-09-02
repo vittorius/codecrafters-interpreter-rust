@@ -60,7 +60,7 @@ fn test_comma_is_left_associative() {
 
 #[test]
 fn test_comma_has_lower_precedence_than_equality() {
-    // `compound`'s operands are `equality` expressions, so `==` binds
+    // `comma`'s operands are `equality` expressions, so `==` binds
     // tighter than `,`.
     assert_parse_success("1 == 1, 2 == 2", "(, (== 1.0 1.0) (== 2.0 2.0))\n");
 }
@@ -123,7 +123,7 @@ fn test_ternary_has_lower_precedence_than_equality() {
 
 #[test]
 fn test_ternary_has_higher_precedence_than_comma() {
-    // `compound`'s operands are `ternary` expressions, so `?:` binds
+    // `comma`'s operands are `ternary` expressions, so `?:` binds
     // tighter than `,`.
     assert_parse_success("true ? 1 : 2, 3", "(, (?: true 1.0 2.0) 3.0)\n");
 }

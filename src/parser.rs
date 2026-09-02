@@ -4,11 +4,12 @@
 //! declaration    → varDecl | statement ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 //! statement      → exprStmt | printStmt | block ;
-//! block          → "{" declaration* "}" ;
 //! exprStmt       → expression ";"
-//! expression     → assignment ;
-//! assignment     → IDENTIFIER "=" assignment | compound ;
-//! compound       → conditional ("," conditional)* ;
+//! printStmt      → "print" expression ";"
+//! block          → "{" declaration* "}" ;
+//! expression     → comma ;
+//! comma          → assignment ("," assignment)* ;
+//! assignment     → IDENTIFIER "=" assignment | conditional ;
 //! conditional    → equality ("?" equality ":" conditional)? ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
@@ -221,11 +222,27 @@ impl<'a> Parser<'a> {
     }
 
     fn expression(&mut self) -> ExprResult<'a> {
-        self.assignment()
+        self.comma()
     }
 
+    fn comma(&mut self) -> ExprResult<'a> {
+        let mut expr = self.assignment()?;
+
+        while self.match_next(&[TT::COMMA]) {
+            let operator = self.previous();
+            let right = self.assignment()?.boxed();
+            expr = Expr::Binary {
+                left: expr.boxed(),
+                operator,
+                right,
+            };
+        }
+
+        Ok(expr)
+    }
+    
     fn assignment(&mut self) -> ExprResult<'a> {
-        let expr = self.comma()?;
+        let expr = self.conditional()?;
 
         if self.match_next(&[TT::EQUAL]) {
             let equals = self.previous();
@@ -238,22 +255,6 @@ impl<'a> Parser<'a> {
                 })
             } else {
                 Err(Self::mk_error(&equals, "Invalid assignment target."))
-            };
-        }
-
-        Ok(expr)
-    }
-
-    fn comma(&mut self) -> ExprResult<'a> {
-        let mut expr = self.conditional()?;
-
-        while self.match_next(&[TT::COMMA]) {
-            let operator = self.previous();
-            let right = self.conditional()?.boxed();
-            expr = Expr::Binary {
-                left: expr.boxed(),
-                operator,
-                right,
             };
         }
 
