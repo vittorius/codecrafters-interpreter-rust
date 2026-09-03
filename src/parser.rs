@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
     // and offload the matching to the Rust `match` in rule functions
     fn match_next(&mut self, token_types: &[TokenType]) -> bool {
         for tt in token_types {
-            if self.check(tt) {
+            if self.check(*tt) {
                 self.advance();
                 return true;
             }
@@ -91,12 +91,12 @@ impl<'a> Parser<'a> {
         false
     }
 
-    fn check(&self, token_type: &TokenType) -> bool {
+    fn check(&self, token_type: TokenType) -> bool {
         if self.is_at_end() {
             return false;
         }
 
-        self.peek().token_type == *token_type
+        self.peek().token_type == token_type
     }
 
     fn advance(&mut self) -> Token<'a> {
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
         self.tokens[self.current - 1]
     }
 
-    fn consume(&mut self, token_type: &TokenType, message: &str) -> TokenResult<'a> {
+    fn consume(&mut self, token_type: TokenType, message: &str) -> TokenResult<'a> {
         if self.check(token_type) {
             return Ok(self.advance());
         };
@@ -176,14 +176,14 @@ impl<'a> Parser<'a> {
     }
 
     fn var_declaration(&mut self) -> StmtResult<'a> {
-        let name = self.consume(&TT::IDENTIFIER, "Expect variable name.")?;
+        let name = self.consume(TT::IDENTIFIER, "Expect variable name.")?;
 
         let mut initializer = None;
         if self.match_next(&[TT::EQUAL]) {
             initializer = Some(self.expression()?);
         }
 
-        self.consume(&TT::SEMICOLON, "Expect ';' after variable declaration.")?;
+        self.consume(TT::SEMICOLON, "Expect ';' after variable declaration.")?;
 
         Ok(Stmt::Var {
             token: name,
@@ -207,14 +207,14 @@ impl<'a> Parser<'a> {
 
     fn expression_statement(&mut self) -> StmtResult<'a> {
         let expr = self.expression()?;
-        self.consume(&TT::SEMICOLON, "Expect ';' after expression.")?;
+        self.consume(TT::SEMICOLON, "Expect ';' after expression.")?;
         Ok(Stmt::Expression(expr))
     }
 
     fn if_statement(&mut self) -> StmtResult<'a> {
-        self.consume(&TT::LEFT_PAREN, "Expect '(' after 'if'.")?;
+        self.consume(TT::LEFT_PAREN, "Expect '(' after 'if'.")?;
         let condition = self.expression()?;
-        self.consume(&TT::RIGHT_PAREN, "Expect ')' after if condition.")?;
+        self.consume(TT::RIGHT_PAREN, "Expect ')' after if condition.")?;
 
         let then_branch = self.statement()?.boxed();
         let mut else_branch = None;
@@ -231,14 +231,14 @@ impl<'a> Parser<'a> {
 
     fn print_statement(&mut self) -> StmtResult<'a> {
         let value = self.expression()?;
-        self.consume(&TT::SEMICOLON, "Expect ';' after value.")?;
+        self.consume(TT::SEMICOLON, "Expect ';' after value.")?;
         Ok(Stmt::Print(value))
     }
 
     fn while_statement(&mut self) -> StmtResult<'a> {
-        self.consume(&TT::LEFT_PAREN, "Expect '(' after 'while'.")?;
+        self.consume(TT::LEFT_PAREN, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
-        self.consume(&TT::RIGHT_PAREN, "Expect ')' after condition.")?;
+        self.consume(TT::RIGHT_PAREN, "Expect ')' after condition.")?;
         let body = self.statement()?.boxed();
 
         Ok(Stmt::While { condition, body })
@@ -247,11 +247,11 @@ impl<'a> Parser<'a> {
     fn block_statement(&mut self) -> StmtResult<'a> {
         let mut statements: Vec<Stmt<'a>> = vec![];
 
-        while !self.check(&TT::RIGHT_BRACE) && !self.is_at_end() {
+        while !self.check(TT::RIGHT_BRACE) && !self.is_at_end() {
             statements.push(self.declaration()?);
         }
 
-        self.consume(&TT::RIGHT_BRACE, "Expect '}' after block.")?;
+        self.consume(TT::RIGHT_BRACE, "Expect '}' after block.")?;
 
         Ok(Stmt::Block(statements))
     }
@@ -303,7 +303,7 @@ impl<'a> Parser<'a> {
             let left = self.or()?.boxed();
 
             self.consume(
-                &TT::COLON,
+                TT::COLON,
                 "Expect ':' after then branch of conditional expression.",
             )?;
             let right = self.conditional()?.boxed();
@@ -450,7 +450,7 @@ impl<'a> Parser<'a> {
 
         if self.match_next(&[TT::LEFT_PAREN]) {
             let expr = self.expression()?;
-            self.consume(&TT::RIGHT_PAREN, "Expect ')' after expression.")?;
+            self.consume(TT::RIGHT_PAREN, "Expect ')' after expression.")?;
             return Ok(Expr::Grouping(expr.boxed()));
         }
 
