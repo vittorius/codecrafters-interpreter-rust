@@ -3,10 +3,11 @@
 //! program        → declaration* EOF ;
 //! declaration    → varDecl | statement ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | ifStmt | printStmt | block ;
+//! statement      → exprStmt | ifStmt | printStmt | whileStmt | block ;
 //! exprStmt       → expression ";"
 //! ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
 //! printStmt      → "print" expression ";"
+//! whileStmt      → "while" "(" expression ")" statement ;
 //! block          → "{" declaration* "}" ;
 //! expression     → comma ;
 //! comma          → assignment ("," assignment)* ;
@@ -191,10 +192,12 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> StmtResult<'a> {
-        if self.match_next(&[TT::PRINT]) {
-            self.print_statement()
-        } else if self.match_next(&[TT::IF]) {
+        if self.match_next(&[TT::IF]) {
             self.if_statement()
+        } else if self.match_next(&[TT::PRINT]) {
+            self.print_statement()
+        } else if self.match_next(&[TT::WHILE]) {
+            self.while_statement()
         } else if self.match_next(&[TT::LEFT_BRACE]) {
             self.block_statement()
         } else {
@@ -230,6 +233,15 @@ impl<'a> Parser<'a> {
         let value = self.expression()?;
         self.consume(&TT::SEMICOLON, "Expect ';' after value.")?;
         Ok(Stmt::Print(value))
+    }
+
+    fn while_statement(&mut self) -> StmtResult<'a> {
+        self.consume(&TT::LEFT_PAREN, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(&TT::RIGHT_PAREN, "Expect ')' after condition.")?;
+        let body = self.statement()?.boxed();
+
+        Ok(Stmt::While { condition, body })
     }
 
     fn block_statement(&mut self) -> StmtResult<'a> {

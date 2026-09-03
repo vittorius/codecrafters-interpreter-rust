@@ -247,6 +247,14 @@ impl Interpreter {
         }
         Ok(VOID)
     }
+
+    fn visit_while_statement(&self, condition: &Expr<'_>, body: &Stmt<'_>, env: Env) -> StmtResult {
+        while Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
+            self.execute(body, clone_env(&env))?
+        }
+
+        Ok(VOID)
+    }
 }
 
 impl<'a> expr::Visitor<'a, ExprResult> for Interpreter {
@@ -300,6 +308,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
                 Ok(VOID)
             }
+            Stmt::While { condition, body } => self.visit_while_statement(condition, body, env),
             Stmt::Block(statements) => {
                 self.execute_block(
                     statements,
