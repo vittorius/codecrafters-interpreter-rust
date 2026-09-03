@@ -200,11 +200,9 @@ pub struct Scanner<'a> {
     tokens: Tokens<'a>,
     errors: ErrorSink,
     line: usize,
-    pub has_error: bool, // TODO: remove this in favor of ErrorSink to collect all scanning errors
 }
 
 impl<'a> Scanner<'a> {
-    // TODO: accept ErrorReporter to avoid calling lox::error and properly return Err up through the callstack
     pub fn new(source: &'a str) -> Self {
         Self {
             cursor: Cursor {
@@ -216,7 +214,6 @@ impl<'a> Scanner<'a> {
             tokens: vec![],
             errors: ErrorSink::new(),
             line: 1,
-            has_error: false,
         }
     }
 
@@ -303,7 +300,6 @@ impl<'a> Scanner<'a> {
 
     fn error(&mut self, message: &str) {
         self.errors.append(&fmt_error(self.line, message));
-        self.has_error = true;
     }
 
     fn add_token(&mut self, token_type: TokenType) {

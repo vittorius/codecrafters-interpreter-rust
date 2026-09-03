@@ -3,9 +3,10 @@
 //! program        → declaration* EOF ;
 //! declaration    → varDecl | statement ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | ifStmt | printStmt | whileStmt | block ;
+//! statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
 //! exprStmt       → expression ";"
 //! ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
+//! forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
 //! printStmt      → "print" expression ";"
 //! whileStmt      → "while" "(" expression ")" statement ;
 //! block          → "{" declaration* "}" ;
@@ -49,7 +50,7 @@ impl Display for ParseError {
 pub type Result<'a> = std::result::Result<Vec<Stmt<'a>>, ParseError>;
 pub type ExprResult<'a> = std::result::Result<Expr<'a>, ParseError>;
 type StmtResult<'a> = std::result::Result<Stmt<'a>, ParseError>;
-type TokenResult<'a> = std::result::Result<Token<'a>, ParseError>; // TODO: maybe it's more practical to pass token by value in this result type
+type TokenResult<'a> = std::result::Result<Token<'a>, ParseError>;
 
 pub struct Parser<'a> {
     tokens: Vec<Token<'a>>,

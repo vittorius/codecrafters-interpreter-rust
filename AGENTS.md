@@ -51,8 +51,7 @@ parser, AST, or evaluator yet, just a tokenizer.
 
 ## Known incomplete areas
 
-- Multiline `/* */` comments are partially implemented in
-  `Scanner::comment_or_slash` (no nesting support yet, marked `TODO`).
+- Multiline `/* */` comments are partially implemented in `Scanner::comment_or_slash`
 - `KEYWORDS` uses a `HashMap` behind a `LazyLock`; there's a standing `TODO` to
   switch to the `phf` crate for a compile-time-built map.
 - `Token::fmt` clones the `Literal` on every format call (marked `FIXME`).
