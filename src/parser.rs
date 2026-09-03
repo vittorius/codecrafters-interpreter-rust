@@ -79,18 +79,17 @@ impl<'a> Parser<'a> {
         self.tokens[self.current]
     }
 
-    // TODO: try to turn this into a token eater/emitter
-    // and offload the matching to the Rust `match` in rule functions
-    // TODO: turn this into match_one, match_two, match_tree functions to receive respective number of arguments
-    fn match_next(&mut self, token_types: &[TokenType]) -> bool {
-        for tt in token_types {
-            if self.check(*tt) {
-                self.advance();
-                return true;
-            }
+    fn match_next(&mut self, token_type: TokenType) -> bool {
+        if self.check(token_type) {
+            self.advance();
+            return true;
         }
 
         false
+    }
+
+    fn match_next_any(&mut self, token_types: &[TokenType]) -> bool {
+        token_types.iter().any(|tt| self.match_next(*tt))
     }
 
     fn check(&self, token_type: TokenType) -> bool {
@@ -162,8 +161,7 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> StmtResult<'a> {
-        // TODO: later, any declaration must be sychronizable but not statements
-        if self.match_next(&[TT::VAR]) {
+        if self.match_next(TT::VAR) {
             let decl = self.var_declaration();
             if decl.is_err() {
                 self.synchronize();
@@ -181,7 +179,7 @@ impl<'a> Parser<'a> {
         let name = self.consume(TT::IDENTIFIER, "Expect variable name.")?;
 
         let mut initializer = None;
-        if self.match_next(&[TT::EQUAL]) {
+        if self.match_next(TT::EQUAL) {
             initializer = Some(self.expression()?);
         }
 
@@ -189,20 +187,20 @@ impl<'a> Parser<'a> {
 
         Ok(Stmt::Var {
             token: name,
-            initializer,
+            initializer
         })
     }
 
     fn statement(&mut self) -> StmtResult<'a> {
-        if self.match_next(&[TT::FOR]) {
+        if self.match_next(TT::FOR) {
             self.for_statement()
-        } else if self.match_next(&[TT::IF]) {
+        } else if self.match_next(TT::IF) {
             self.if_statement()
-        } else if self.match_next(&[TT::PRINT]) {
+        } else if self.match_next(TT::PRINT) {
             self.print_statement()
-        } else if self.match_next(&[TT::WHILE]) {
+        } else if self.match_next(TT::WHILE) {
             self.while_statement()
-        } else if self.match_next(&[TT::LEFT_BRACE]) {
+        } else if self.match_next(TT::LEFT_BRACE) {
             self.block_statement()
         } else {
             self.expression_statement()
@@ -218,9 +216,9 @@ impl<'a> Parser<'a> {
     fn for_statement(&mut self) -> StmtResult<'a> {
         self.consume(TT::LEFT_PAREN, "Expect '(' after 'for'.")?;
 
-        let initializer = if self.match_next(&[TT::SEMICOLON]) {
+        let initializer = if self.match_next(TT::SEMICOLON) {
             None
-        } else if self.match_next(&[TT::VAR]) {
+        } else if self.match_next(TT::VAR) {
             Some(self.var_declaration()?)
         } else {
             Some(self.expression_statement()?)
@@ -245,7 +243,7 @@ impl<'a> Parser<'a> {
         if let Some(increment) = increment {
             body = Stmt::Block(vec![body, Stmt::Expression(increment)])
         }
-        
+
         body = Stmt::While {
             condition,
             body: body.boxed(),
@@ -265,7 +263,7 @@ impl<'a> Parser<'a> {
 
         let then_branch = self.statement()?.boxed();
         let mut else_branch = None;
-        if self.match_next(&[TT::ELSE]) {
+        if self.match_next(TT::ELSE) {
             else_branch = Some(self.statement()?.boxed());
         }
 
@@ -310,7 +308,7 @@ impl<'a> Parser<'a> {
     fn comma(&mut self) -> ExprResult<'a> {
         let mut expr = self.assignment()?;
 
-        while self.match_next(&[TT::COMMA]) {
+        while self.match_next(TT::COMMA) {
             let operator = self.previous();
             let right = self.assignment()?.boxed();
             expr = Expr::Binary {
@@ -326,7 +324,7 @@ impl<'a> Parser<'a> {
     fn assignment(&mut self) -> ExprResult<'a> {
         let expr = self.conditional()?;
 
-        if self.match_next(&[TT::EQUAL]) {
+        if self.match_next(TT::EQUAL) {
             let equals = self.previous();
             let value = self.assignment()?;
 
@@ -346,7 +344,7 @@ impl<'a> Parser<'a> {
     fn conditional(&mut self) -> ExprResult<'a> {
         let cond = self.or()?;
 
-        if self.match_next(&[TT::QUESTION]) {
+        if self.match_next(TT::QUESTION) {
             let left = self.or()?.boxed();
 
             self.consume(
@@ -367,7 +365,7 @@ impl<'a> Parser<'a> {
     fn or(&mut self) -> ExprResult<'a> {
         let mut expr = self.and()?;
 
-        while self.match_next(&[TT::OR]) {
+        while self.match_next(TT::OR) {
             let operator = self.previous();
             let right = self.and()?.boxed();
 
@@ -384,7 +382,7 @@ impl<'a> Parser<'a> {
     fn and(&mut self) -> ExprResult<'a> {
         let mut expr = self.equality()?;
 
-        while self.match_next(&[TT::AND]) {
+        while self.match_next(TT::AND) {
             let operator = self.previous();
             let right = self.equality()?.boxed();
 
@@ -401,7 +399,7 @@ impl<'a> Parser<'a> {
     fn equality(&mut self) -> ExprResult<'a> {
         let mut expr = self.comparison()?;
 
-        while self.match_next(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
+        while self.match_next_any(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
             let operator = self.previous();
             let right = self.comparison()?.boxed();
             expr = Expr::Binary {
@@ -417,7 +415,7 @@ impl<'a> Parser<'a> {
     fn comparison(&mut self) -> ExprResult<'a> {
         let mut expr = self.term()?;
 
-        while self.match_next(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
+        while self.match_next_any(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
             let operator = self.previous();
             let right = self.term()?.boxed();
             expr = Expr::Binary {
@@ -433,7 +431,7 @@ impl<'a> Parser<'a> {
     fn term(&mut self) -> ExprResult<'a> {
         let mut expr = self.factor()?;
 
-        while self.match_next(&[TT::MINUS, TT::PLUS]) {
+        while self.match_next_any(&[TT::MINUS, TT::PLUS]) {
             let operator = self.previous();
             let right = self.factor()?.boxed();
             expr = Expr::Binary {
@@ -449,7 +447,7 @@ impl<'a> Parser<'a> {
     fn factor(&mut self) -> ExprResult<'a> {
         let mut expr = self.unary()?;
 
-        while self.match_next(&[TT::SLASH, TT::STAR]) {
+        while self.match_next_any(&[TT::SLASH, TT::STAR]) {
             let operator = self.previous();
             let right = self.unary()?.boxed();
             expr = Expr::Binary {
@@ -463,7 +461,7 @@ impl<'a> Parser<'a> {
     }
 
     fn unary(&mut self) -> ExprResult<'a> {
-        if self.match_next(&[TT::BANG, TT::MINUS]) {
+        if self.match_next_any(&[TT::BANG, TT::MINUS]) {
             let operator = self.previous();
             let right = self.unary()?.boxed();
             return Ok(Expr::Unary { operator, right });
@@ -473,17 +471,17 @@ impl<'a> Parser<'a> {
     }
 
     fn primary(&mut self) -> ExprResult<'a> {
-        if self.match_next(&[TT::FALSE]) {
+        if self.match_next(TT::FALSE) {
             return Ok(Expr::Literal(Literal::Bool(false)));
         };
-        if self.match_next(&[TT::TRUE]) {
+        if self.match_next(TT::TRUE) {
             return Ok(Expr::Literal(Literal::Bool(true)));
         };
-        if self.match_next(&[TT::NIL]) {
+        if self.match_next(TT::NIL) {
             return Ok(Expr::Literal(Literal::Nil));
         };
 
-        if self.match_next(&[TT::NUMBER, TT::STRING]) {
+        if self.match_next_any(&[TT::NUMBER, TT::STRING]) {
             return Ok(Expr::Literal(
                 self.previous()
                     .literal
@@ -491,11 +489,11 @@ impl<'a> Parser<'a> {
             ));
         }
 
-        if self.match_next(&[TT::IDENTIFIER]) {
+        if self.match_next(TT::IDENTIFIER) {
             return Ok(Expr::Variable(self.previous()));
         }
 
-        if self.match_next(&[TT::LEFT_PAREN]) {
+        if self.match_next(TT::LEFT_PAREN) {
             let expr = self.expression()?;
             self.consume(TT::RIGHT_PAREN, "Expect ')' after expression.")?;
             return Ok(Expr::Grouping(expr.boxed()));
