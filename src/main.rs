@@ -4,7 +4,6 @@ use std::env;
 use std::fs;
 use std::io;
 use std::io::Write;
-use std::io::stderr;
 use std::io::stdout;
 use std::process::ExitCode;
 
@@ -25,6 +24,7 @@ use crate::parser::Parser;
 use crate::scanner::Scanner;
 
 mod ast_printer;
+mod callable;
 mod console;
 mod environment;
 mod error;
@@ -35,6 +35,7 @@ mod parser;
 mod rpn_ast_printer;
 mod scanner;
 mod stmt;
+mod value;
 
 #[repr(u8)]
 enum ExitValue {
@@ -239,6 +240,9 @@ fn repl() -> Result<(), ExitValue> {
         loop {
             if let Event::Key(key_event) = event::read()? {
                 match (key_event.code, key_event.modifiers) {
+                    // FIXME: preserve the currently-edited line in the history to enabling getting
+                    // back to it with the down arrow but avoid duplicate entries of it in history
+                    // after the subsequent up arrow.
                     (KeyCode::Up, _) => {
                         if history_pos == 0 {
                             continue;
@@ -274,8 +278,8 @@ fn repl() -> Result<(), ExitValue> {
                         source.clear();
                     }
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                        stderr().execute(cursor::MoveToNextLine(1))?;
-                        eprintln!("\nExiting");
+                        drop(_raw_mode_guard);
+                        eprintln!("\nInterrupted, exiting");
                         return Err(ExitValue::Termination);
                     }
                     (KeyCode::Char(c), _) => {
@@ -301,7 +305,6 @@ fn repl() -> Result<(), ExitValue> {
                 stdout().execute(cursor::MoveToColumn(0))?;
             }
             Err(msg) => {
-                stderr().execute(cursor::MoveToNextLine(1))?;
                 stdout().execute(cursor::MoveToColumn(0))?;
                 for str in msg.split('\n') {
                     eprintln!("{str}");
