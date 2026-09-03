@@ -150,7 +150,7 @@ fn evaluate(source: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let mut interpreter = Interpreter::new();
+    let interpreter = Interpreter::new();
     let Ok(result) = interpreter.interpret_expr(&expr) else {
         return ExitValue::RuntimeError;
     };
@@ -175,7 +175,7 @@ fn run(source: &str) -> ExitValue {
         }
     };
 
-    let mut interpreter = Interpreter::new();
+    let interpreter = Interpreter::new();
     match interpreter.interpret(&statements) {
         Ok(_) => ExitValue::Success,
         Err(err) => {

@@ -1,6 +1,6 @@
 use crate::{
     environment::{BareEnv, Env, clone_env},
-    expr::{Expr, VisitorMut},
+    expr::{Expr, Visitor},
 };
 
 pub struct AstPrinter<'a> {
@@ -16,12 +16,12 @@ impl<'a> AstPrinter<'a> {
         self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn parenthesize_unary(&mut self, name: &str, expr: &'a Expr<'_>, env: Env) -> String {
+    fn parenthesize_unary(&self, name: &str, expr: &'a Expr<'_>, env: Env) -> String {
         format!("({} {})", name, expr.accept(self, env))
     }
 
     fn parenthesize_binary(
-        &mut self,
+        &self,
         name: &str,
         left: &'a Expr<'_>,
         right: &'a Expr<'_>,
@@ -36,7 +36,7 @@ impl<'a> AstPrinter<'a> {
     }
 
     fn parenthesize_ternary(
-        &mut self,
+        &self,
         cond: &'a Expr<'_>,
         left: &'a Expr<'_>,
         right: &'a Expr<'_>,
@@ -50,13 +50,13 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_assign(&mut self, name: &str, value: &'a Expr<'_>, env: Env) -> String {
+    fn parenthesize_assign(&self, name: &str, value: &'a Expr<'_>, env: Env) -> String {
         format!("(<- {} {})", name, value.accept(self, env))
     }
 }
 
-impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
-    fn visit_expr(&mut self, expr: &'a Expr<'_>, env: Env) -> String {
+impl<'a> Visitor<'a, String> for AstPrinter<'a> {
+    fn visit_expr(&self, expr: &'a Expr<'_>, env: Env) -> String {
         match expr {
             Expr::Binary {
                 left,

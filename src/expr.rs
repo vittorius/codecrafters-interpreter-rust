@@ -3,8 +3,8 @@ use crate::{
     scanner::{self, Token},
 };
 
-pub trait VisitorMut<'a, R> {
-    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env) -> R;
+pub trait Visitor<'a, R> {
+    fn visit_expr(&self, expr: &'a Expr<'a>, env: Env) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -43,7 +43,7 @@ pub enum Expr<'a> {
 }
 
 impl<'a> Expr<'a> {
-    pub fn accept<R>(&'a self, visitor: &mut impl VisitorMut<'a, R>, env: Env) -> R {
+    pub fn accept<R>(&'a self, visitor: &impl Visitor<'a, R>, env: Env) -> R {
         visitor.visit_expr(self, env)
     }
 

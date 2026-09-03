@@ -61,7 +61,7 @@ impl Interpreter {
         Self { env }
     }
 
-    pub fn interpret(&mut self, statements: &[Stmt<'_>]) -> Result {
+    pub fn interpret(&self, statements: &[Stmt<'_>]) -> Result {
         for stmt in statements {
             self.execute(stmt, clone_env(&self.env))?;
         }
@@ -69,16 +69,16 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    pub fn interpret_expr(&mut self, expr: &Expr<'_>) -> EvalResult {
+    pub fn interpret_expr(&self, expr: &Expr<'_>) -> EvalResult {
         self.evaluate(expr, clone_env(&self.env))
             .map(|v| v.to_string())
     }
 
-    fn execute(&mut self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
+    fn execute(&self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         stmt.accept(self, env)
     }
 
-    fn execute_block(&mut self, statements: &[Stmt<'_>], env: Env) -> StmtResult {
+    fn execute_block(&self, statements: &[Stmt<'_>], env: Env) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, clone_env(&env))?;
         }
@@ -86,7 +86,7 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    fn evaluate(&mut self, expr: &Expr<'_>, env: Env) -> ExprResult {
+    fn evaluate(&self, expr: &Expr<'_>, env: Env) -> ExprResult {
         expr.accept(self, env)
     }
 
@@ -123,7 +123,7 @@ impl Interpreter {
     }
 
     fn visit_logical(
-        &mut self,
+        &self,
         left: &Expr<'_>,
         operator: &Token<'_>,
         right: &Expr<'_>,
@@ -144,7 +144,7 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_unary(&mut self, operator: &Token<'_>, expr: &Expr<'_>, env: Env) -> ExprResult {
+    fn visit_unary(&self, operator: &Token<'_>, expr: &Expr<'_>, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
@@ -156,7 +156,7 @@ impl Interpreter {
     }
 
     fn visit_binary(
-        &mut self,
+        &self,
         left: &Expr<'_>,
         operator: &Token<'_>,
         right: &Expr<'_>,
@@ -202,7 +202,7 @@ impl Interpreter {
     }
 
     fn visit_conditional(
-        &mut self,
+        &self,
         cond: &Expr<'_>,
         left: &Expr<'_>,
         right: &Expr<'_>,
@@ -229,12 +229,12 @@ impl Interpreter {
         }
     }
 
-    fn visit_assign(&mut self, name: &Token<'_>, value: Value, env: Env) -> ExprResult {
+    fn visit_assign(&self, name: &Token<'_>, value: Value, env: Env) -> ExprResult {
         env.borrow_mut().assign(name, value)
     }
 
     fn visit_if_statement(
-        &mut self,
+        &self,
         condition: &Expr<'_>,
         then_branch: &Stmt<'_>,
         else_branch: &Option<Box<Stmt<'_>>>,
@@ -249,8 +249,8 @@ impl Interpreter {
     }
 }
 
-impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
-    fn visit_expr(&mut self, expr: &'a Expr<'a>, env: Env) -> ExprResult {
+impl<'a> expr::Visitor<'a, ExprResult> for Interpreter {
+    fn visit_expr(&self, expr: &'a Expr<'a>, env: Env) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
@@ -277,8 +277,8 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
     }
 }
 
-impl stmt::VisitorMut<StmtResult> for Interpreter {
-    fn visit_stmt(&mut self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
+impl stmt::Visitor<StmtResult> for Interpreter {
+    fn visit_stmt(&self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
             Stmt::If {
