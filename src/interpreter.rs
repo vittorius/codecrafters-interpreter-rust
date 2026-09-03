@@ -122,6 +122,28 @@ impl Interpreter {
         })
     }
 
+    fn visit_logical(
+        &mut self,
+        left: &Expr<'_>,
+        operator: &Token<'_>,
+        right: &Expr<'_>,
+        env: Env,
+    ) -> ExprResult {
+        let left = self.evaluate(left, clone_env(&env))?;
+
+        if operator.token_type == TT::OR {
+            if Self::is_truthy(&left) {
+                return Ok(left);
+            };
+        } else {
+            if !Self::is_truthy(&left) {
+                return Ok(left);
+            };
+        }
+
+        self.evaluate(right, env)
+    }
+
     fn visit_unary(&mut self, operator: &Token<'_>, expr: &Expr<'_>, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
@@ -240,6 +262,11 @@ impl<'a> expr::VisitorMut<'a, ExprResult> for Interpreter {
             }
             Expr::Grouping(expr) => self.evaluate(expr, env),
             Expr::Literal(literal) => Self::visit_literal(literal),
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => self.visit_logical(left, operator, right, env),
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
             Expr::Variable(name) => self.visit_variable(name, env),
             Expr::Assign { name, value } => {

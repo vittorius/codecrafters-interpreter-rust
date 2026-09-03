@@ -23,32 +23,30 @@ impl<'a> AstPrinter<'a> {
     fn parenthesize_binary(
         &mut self,
         name: &str,
-        expr1: &'a Expr<'_>,
-        expr2: &'a Expr<'_>,
+        left: &'a Expr<'_>,
+        right: &'a Expr<'_>,
         env: Env,
     ) -> String {
         format!(
             "({} {} {})",
             name,
-            expr1.accept(self, clone_env(&env)),
-            expr2.accept(self, env)
+            left.accept(self, clone_env(&env)),
+            right.accept(self, env)
         )
     }
 
     fn parenthesize_ternary(
         &mut self,
-        name: &str,
-        expr1: &'a Expr<'_>,
-        expr2: &'a Expr<'_>,
-        expr3: &'a Expr<'_>,
+        cond: &'a Expr<'_>,
+        left: &'a Expr<'_>,
+        right: &'a Expr<'_>,
         env: Env,
     ) -> String {
         format!(
-            "({} {} {} {})",
-            name,
-            expr1.accept(self, clone_env(&env)),
-            expr2.accept(self, clone_env(&env)),
-            expr3.accept(self, env)
+            "(?: {} {} {})",
+            cond.accept(self, clone_env(&env)),
+            left.accept(self, clone_env(&env)),
+            right.accept(self, env)
         )
     }
 
@@ -66,10 +64,15 @@ impl<'a> VisitorMut<'a, String> for AstPrinter<'a> {
                 right,
             } => self.parenthesize_binary(operator.lexeme, left, right, env),
             Expr::Conditional { cond, left, right } => {
-                self.parenthesize_ternary("?:", cond, left, right, env)
+                self.parenthesize_ternary(cond, left, right, env)
             }
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr, env),
             Expr::Literal(value) => value.to_string(),
+            Expr::Logical {
+                left,
+                operator,
+                right,
+            } => self.parenthesize_binary(operator.lexeme, left, right, env),
             Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right, env),
             Expr::Variable(name) => name.lexeme.to_owned(),
             Expr::Assign { name, value } => self.parenthesize_assign(name.lexeme, value, env),

@@ -263,7 +263,7 @@ impl<'a> Parser<'a> {
 
         Ok(expr)
     }
-    
+
     fn assignment(&mut self) -> ExprResult<'a> {
         let expr = self.conditional()?;
 
@@ -285,10 +285,10 @@ impl<'a> Parser<'a> {
     }
 
     fn conditional(&mut self) -> ExprResult<'a> {
-        let cond = self.equality()?;
+        let cond = self.or()?;
 
         if self.match_next(&[TT::QUESTION]) {
-            let left = self.equality()?.boxed();
+            let left = self.or()?.boxed();
 
             self.consume(
                 &TT::COLON,
@@ -303,6 +303,40 @@ impl<'a> Parser<'a> {
         } else {
             Ok(cond)
         }
+    }
+
+    fn or(&mut self) -> ExprResult<'a> {
+        let mut expr = self.and()?;
+
+        while self.match_next(&[TT::OR]) {
+            let operator = self.previous();
+            let right = self.and()?.boxed();
+
+            expr = Expr::Logical {
+                left: expr.boxed(),
+                operator,
+                right,
+            };
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> ExprResult<'a> {
+        let mut expr = self.equality()?;
+
+        while self.match_next(&[TT::AND]) {
+            let operator = self.previous();
+            let right = self.equality()?.boxed();
+
+            expr = Expr::Logical {
+                left: expr.boxed(),
+                operator,
+                right,
+            }
+        }
+
+        Ok(expr)
     }
 
     fn equality(&mut self) -> ExprResult<'a> {
