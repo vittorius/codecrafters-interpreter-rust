@@ -28,7 +28,7 @@ use std::{error::Error, fmt::Display};
 use crate::{
     expr::Expr,
     lox,
-    scanner::{Literal, Token, TokenType, TokenType as TT},
+    scanner::{self, Literal, Token, TokenType, TokenType as TT},
     stmt::Stmt,
 };
 
@@ -81,6 +81,7 @@ impl<'a> Parser<'a> {
 
     // TODO: try to turn this into a token eater/emitter
     // and offload the matching to the Rust `match` in rule functions
+    // TODO: turn this into match_one, match_two, match_tree functions to receive respective number of arguments
     fn match_next(&mut self, token_types: &[TokenType]) -> bool {
         for tt in token_types {
             if self.check(*tt) {
@@ -193,7 +194,9 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> StmtResult<'a> {
-        if self.match_next(&[TT::IF]) {
+        if self.match_next(&[TT::FOR]) {
+            self.for_statement()
+        } else if self.match_next(&[TT::IF]) {
             self.if_statement()
         } else if self.match_next(&[TT::PRINT]) {
             self.print_statement()
@@ -210,6 +213,49 @@ impl<'a> Parser<'a> {
         let expr = self.expression()?;
         self.consume(TT::SEMICOLON, "Expect ';' after expression.")?;
         Ok(Stmt::Expression(expr))
+    }
+
+    fn for_statement(&mut self) -> StmtResult<'a> {
+        self.consume(TT::LEFT_PAREN, "Expect '(' after 'for'.")?;
+
+        let initializer = if self.match_next(&[TT::SEMICOLON]) {
+            None
+        } else if self.match_next(&[TT::VAR]) {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+
+        let condition = if !self.check(TT::SEMICOLON) {
+            self.expression()?
+        } else {
+            Expr::Literal(scanner::Literal::Bool(true))
+        };
+        self.consume(TT::SEMICOLON, "Expect ';' after loop condition.")?;
+
+        let increment = if !self.check(TT::RIGHT_PAREN) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TT::RIGHT_PAREN, "Expect ')' after for clauses.")?;
+
+        let mut body = self.statement()?;
+
+        if let Some(increment) = increment {
+            body = Stmt::Block(vec![body, Stmt::Expression(increment)])
+        }
+        
+        body = Stmt::While {
+            condition,
+            body: body.boxed(),
+        };
+
+        if let Some(initializer) = initializer {
+            body = Stmt::Block(vec![initializer, body]);
+        }
+
+        Ok(body)
     }
 
     fn if_statement(&mut self) -> StmtResult<'a> {
