@@ -4,6 +4,7 @@ use crate::{
     environment::{BareEnv, Env, clone_env},
     error::RuntimeError,
     expr::{self, Expr},
+    function::Function,
     native::ClockFunction,
     stmt::{self, FunctionDeclaration, Stmt},
     token::{self, Token, TokenType as TT},
@@ -27,7 +28,7 @@ impl Interpreter {
     pub fn new() -> Self {
         let env = BareEnv::new().wrapped();
         env.borrow_mut()
-            .define("clock", Value::Callable(Rc::new(ClockFunction)));
+            .define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
         Self {
             global_env: clone_env(&env),
             env,
@@ -161,6 +162,7 @@ impl Interpreter {
             }
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
+            #[cfg(feature = "comma-op")]
             (TT::COMMA, _, r) => Ok(r), // discard left and return right
             _ => unreachable!("Invalid binary operation."),
         }
@@ -216,6 +218,16 @@ impl Interpreter {
 
     fn visit_assign(&self, name: &Token, value: Value, env: Env) -> ExprResult {
         env.borrow_mut().assign(name, value)
+    }
+
+    fn visit_function_statement(&self, declaration: FunctionDeclaration, env: Env) -> StmtResult {
+        let function = Function::new(declaration);
+        env.borrow_mut().define(
+            function.name().to_owned(),
+            Value::Callable(Rc::new(function)),
+        );
+
+        Ok(VOID)
     }
 
     fn visit_if_statement(
@@ -279,7 +291,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
-            Stmt::Function(FunctionDeclaration { name, params, body }) => todo!(),
+            Stmt::Function(declaration) => self.visit_function_statement(declaration.clone(), env),
             Stmt::If {
                 condition,
                 then_branch,
@@ -295,7 +307,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
                     None => Value::Nil,
                 };
 
-                env.borrow_mut().define(&token.lexeme, value);
+                env.borrow_mut().define(token.lexeme.clone(), value);
 
                 Ok(VOID)
             }

@@ -1,3 +1,5 @@
+# "Build your own Interpreter" Challenge
+
 [![progress-banner](https://backend.codecrafters.io/progress/interpreter/98ec52f5-e86b-4e88-8d91-0489ad9c62e9)](https://app.codecrafters.io/users/vittorius?r=2qF)
 
 This is a starting point for Rust solutions to the
@@ -27,7 +29,7 @@ challenge. This challenge will start from chapter 4,
 **Note**: If you're viewing this repo on GitHub, head over to
 [codecrafters.io](https://codecrafters.io) to try the challenge.
 
-# Passing the first stage
+## Passing the first stage
 
 The entry point for your program is in `src/main.rs`. Study and uncomment the
 relevant code, and then run the command below to execute the tests on our
@@ -39,7 +41,7 @@ codecrafters submit
 
 Time to move on to the next stage!
 
-# Stage 2 & beyond
+## Stage 2 & beyond
 
 Note: This section is for stages 2 and beyond.
 

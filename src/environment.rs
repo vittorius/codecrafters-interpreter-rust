@@ -34,8 +34,8 @@ impl BareEnv {
         Rc::new(RefCell::new(self))
     }
 
-    pub fn define(&mut self, name: &str, value: Value) {
-        self.values.insert(name.to_owned(), value);
+    pub fn define(&mut self, name: String, value: Value) {
+        self.values.insert(name, value);
     }
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.

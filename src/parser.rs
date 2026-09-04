@@ -364,10 +364,22 @@ impl Parser {
         Ok(Stmt::Block(statements))
     }
 
+    #[cfg(not(feature = "comma-op"))]
     fn expression(&mut self) -> ExprResult {
-        self.comma()
+        self.assignment()
     }
 
+    #[cfg(feature = "comma-op")]
+    fn expression(&mut self) -> ExprResult {
+       self.comma()
+    }
+    
+    #[cfg(feature = "comma-op")]
+    fn expression_in_fn_call(&mut self) -> ExprResult {
+       self.assignment()
+    }
+
+    #[cfg(feature = "comma-op")]
     fn comma(&mut self) -> ExprResult {
         let mut expr = self.assignment()?;
 
@@ -562,7 +574,10 @@ impl Parser {
                         "Can't have more than 255 arguments.",
                     ));
                 }
+                #[cfg(not(feature = "comma-op"))]
                 arguments.push(self.expression()?);
+                #[cfg(feature = "comma-op")]
+                arguments.push(self.expression_in_fn_call()?);
 
                 if !self.match_next(TT::COMMA) {
                     break;

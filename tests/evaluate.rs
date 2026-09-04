@@ -24,14 +24,21 @@ fn assert_evaluate_success(source: &str, expected_stdout: &str) {
     assert_eq!(stdout, expected_stdout);
 }
 
-#[test]
-fn test_comma_evaluates_left_discards_it_and_returns_right() {
-    assert_evaluate_success("1 + 2, 40 + 2", "42\n");
+#[cfg(feature = "comma-op")]
+mod comma_op_tests {
+    use crate::assert_evaluate_success;
+    use crate::common::TempLoxFile;
+    use crate::run_evaluate;
 
-    let file = TempLoxFile::new("undefined, 42");
-    let output = run_evaluate(&file.path);
+    #[test]
+    fn test_comma_evaluates_left_discards_it_and_returns_right() {
+        assert_evaluate_success("1 + 2, 40 + 2", "42\n");
 
-    assert_eq!(output.status.code(), Some(70));
+        let file = TempLoxFile::new("undefined, 42");
+        let output = run_evaluate(&file.path);
+
+        assert_eq!(output.status.code(), Some(70));
+    }
 }
 
 #[cfg(feature = "str-cmp")]
@@ -95,7 +102,7 @@ mod str_cmp_tests {
 #[cfg(feature = "str-num-concat")]
 mod str_num_concat_tests {
     use crate::assert_evaluate_success;
-    
+
     #[test]
     fn test_concat_string_left_number_right() {
         assert_evaluate_success(r#""value: " + 1"#, "value: 1\n");

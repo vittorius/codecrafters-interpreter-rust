@@ -13,6 +13,16 @@ pub struct Function {
     declaration: FunctionDeclaration,
 }
 
+impl Function {
+    pub fn new(declaration: FunctionDeclaration) -> Self {
+        Self { declaration }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.declaration.name.lexeme
+    }
+}
+
 impl Callable for Function {
     fn arity(&self) -> usize {
         self.declaration.params.len()
@@ -22,7 +32,8 @@ impl Callable for Function {
         let env = BareEnv::with_enclosing(interpreter.globals()).wrapped();
 
         for (i, p) in self.declaration.params.iter().enumerate() {
-            env.borrow_mut().define(&p.lexeme, arguments[i].clone());
+            env.borrow_mut()
+                .define(p.lexeme.clone(), arguments[i].clone());
         }
 
         interpreter.execute_block(&self.declaration.body, env)?;

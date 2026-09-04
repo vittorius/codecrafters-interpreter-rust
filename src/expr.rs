@@ -11,7 +11,7 @@ pub trait Visitor<R> {
 // If it's not a tree of boxed Exprs than it should've been a Vec or arena
 // of Expr and the expression tree will be populated with references to it.
 // It's deemed an overkill for our use-case, so we're going away with Box.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Binary {
         left: Box<Expr>,

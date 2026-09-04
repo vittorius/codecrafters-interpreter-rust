@@ -4,7 +4,7 @@ pub trait Visitor<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionDeclaration {
     pub name: Token,
     pub params: Vec<Token>,
@@ -16,7 +16,7 @@ pub struct FunctionDeclaration {
 // owning statements. Owned Exprs could not be references here
 // because otherwise they would have to be references to
 // temporary values that are dropped right after they are built.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
     Function(FunctionDeclaration),
