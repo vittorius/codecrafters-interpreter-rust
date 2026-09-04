@@ -56,11 +56,7 @@ impl Interpreter {
     }
 
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
-        if env.borrow().is_returning_from_fn() {
-            VOID_OK
-        } else {
-            stmt.accept(self, env)
-        }
+        stmt.accept(self, env)
     }
 
     pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
