@@ -1,64 +1,37 @@
-use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::{
     environment::{BareEnv, Env, clone_env},
     error::RuntimeError,
     expr::{self, Expr},
+    native::ClockFunction,
     scanner::{self, Token, TokenType as TT},
-    stmt::{self, Stmt},
+    stmt::{self,  Stmt},
+    value::Value::{self, Callable},
 };
-
-// TODO: worth extracting into a separate module or moving to `environment`
-// TODO: there could be an enum Object { Value, Ref }
-// and Ref can hold stings and class objects, others go into Value.
-//
-// We made Value cloneable because we need to be able to store values in the environment
-// and refer to variable in expressions. We construct a new Value in 2 cases: evaluating expressions
-// and defining variables. Therefore, we cannot maintain a single place where values are stored.
-// Actually, it's mostly because of String values, and we could have a dedicated string interner
-// to own strings. String values would be Value::Str(&'v str). But it seems to be an overkill, and we
-// just clone Strings (and Values) when we evaluate variables and get their values from the environment.
-// The environment owns Values.
-#[derive(Clone, Debug)]
-pub enum Value {
-    Str(String),
-    Num(f64),
-    Bool(bool),
-    Nil,
-}
 
 type Void = (); // right now, trying to follow the book, maybe remove it later
 const VOID: Void = ();
 
-impl Display for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Str(value) => write!(f, "{value}"),
-            Value::Num(value) => write!(f, "{value}"),
-            Value::Bool(value) => write!(f, "{value}"),
-            Value::Nil => write!(f, "nil"),
-        }
-    }
-}
-
 pub type Result = std::result::Result<Void, RuntimeError>;
-pub type EvalResult = std::result::Result<String, RuntimeError>;
+pub type StringResult = std::result::Result<String, RuntimeError>;
 type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter {
     env: Env,
+    global_env: Env,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
+        let env = BareEnv::new().wrapped();
+        env.borrow_mut()
+            .define("clock", Value::Callable(Rc::new(ClockFunction)));
         Self {
-            env: BareEnv::new().wrapped(),
+            global_env: clone_env(&env),
+            env,
         }
-    }
-
-    pub fn with_env(env: Env) -> Self {
-        Self { env }
     }
 
     pub fn interpret(&self, statements: &[Stmt<'_>]) -> Result {
@@ -69,7 +42,7 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    pub fn interpret_expr(&self, expr: &Expr<'_>) -> EvalResult {
+    pub fn interpret_expr(&self, expr: &Expr<'_>) -> StringResult {
         self.evaluate(expr, clone_env(&self.env))
             .map(|v| v.to_string())
     }
@@ -197,7 +170,39 @@ impl Interpreter {
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
             (TT::COMMA, _, r) => Ok(r), // discard left and return right
-            _ => unreachable!(),
+            _ => unreachable!("Invalid binary operation."),
+        }
+    }
+
+    fn visit_call(
+        &self,
+        callee: &Expr<'_>,
+        paren: &Token<'_>,
+        arguments: &[Expr<'_>],
+        env: Env,
+    ) -> ExprResult {
+        let callee = self.evaluate(callee, clone_env(&env))?;
+
+        let arguments = arguments
+            .iter()
+            .map(|arg| self.evaluate(arg, clone_env(&env)))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
+        if let Callable(function) = callee {
+            if arguments.len() != function.arity() {
+                return Self::error(
+                    paren,
+                    &format!(
+                        "Expected {} arguments but got {}.",
+                        function.arity(),
+                        arguments.len()
+                    ),
+                );
+            }
+
+            Ok(function.call(self, &arguments, env))
+        } else {
+            Self::error(paren, "Can only call functions and classes.")
         }
     }
 
@@ -265,6 +270,11 @@ impl<'a> expr::Visitor<'a, ExprResult> for Interpreter {
                 operator,
                 right,
             } => self.visit_binary(left, operator, right, env),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => self.visit_call(callee, paren, arguments, env),
             Expr::Conditional { cond, left, right } => {
                 self.visit_conditional(cond, left, right, env)
             }
@@ -289,6 +299,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
+            Stmt::Function { name, params, body } => todo!(),
             Stmt::If {
                 condition,
                 then_branch,
@@ -304,7 +315,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
                     None => Value::Nil,
                 };
 
-                env.borrow_mut().define(token, value);
+                env.borrow_mut().define(token.lexeme, value);
 
                 Ok(VOID)
             }

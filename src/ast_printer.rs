@@ -35,6 +35,15 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
+    fn parenthesize_call(&self, callee: &Expr<'_>, arguments: &[Expr<'_>], env: Env) -> String {
+        let mut s = format!("({}", callee.accept(self, clone_env(&env)));
+        for arg in arguments {
+            s.push_str(&format!(" {}", arg.accept(self, clone_env(&env))));
+        }
+        s.push(')');
+        s
+    }
+
     fn parenthesize_ternary(
         &self,
         cond: &'a Expr<'_>,
@@ -63,6 +72,11 @@ impl<'a> Visitor<'a, String> for AstPrinter<'a> {
                 operator,
                 right,
             } => self.parenthesize_binary(operator.lexeme, left, right, env),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => self.parenthesize_call(callee, arguments, env),
             Expr::Conditional { cond, left, right } => {
                 self.parenthesize_ternary(cond, left, right, env)
             }

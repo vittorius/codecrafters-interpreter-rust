@@ -35,6 +35,15 @@ impl<'a> RpnAstPrinter<'a> {
         )
     }
 
+    fn format_call(&self, callee: &Expr<'_>, arguments: &[Expr<'_>], env: Env) -> String {
+        let mut s = String::from("(");
+        for arg in arguments {
+            s.push_str(&format!("{} ", arg.accept(self, clone_env(&env))));
+        }
+        s.push_str(&format!("{})", callee.accept(self, clone_env(&env))));
+        s
+    }
+
     fn format_conditional(
         &self,
         cond: &'a Expr<'_>,
@@ -63,6 +72,11 @@ impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
                 operator,
                 right,
             } => self.format_binary(operator.lexeme, left, right, env),
+            Expr::Call {
+                callee,
+                paren,
+                arguments,
+            } => self.format_call(callee, arguments, env),
             Expr::Conditional { cond, left, right } => {
                 self.format_conditional(cond, left, right, env)
             }

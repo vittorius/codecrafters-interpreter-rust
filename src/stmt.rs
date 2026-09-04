@@ -12,6 +12,11 @@ pub trait Visitor<R> {
 #[derive(Debug)]
 pub enum Stmt<'a> {
     Expression(Expr<'a>),
+    Function {
+        name: Token<'a>,
+        params: Vec<Token<'a>>,
+        body: Vec<Stmt<'a>>,
+    },
     If {
         condition: Expr<'a>,
         then_branch: Box<Stmt<'a>>,
@@ -35,6 +40,6 @@ impl<'a> Stmt<'a> {
     }
 
     pub fn boxed(self) -> Box<Self> {
-       Box::new(self) 
+        Box::new(self)
     }
 }

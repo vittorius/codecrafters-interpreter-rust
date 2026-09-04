@@ -88,7 +88,6 @@ impl Display for TokenType {
 
 #[derive(Debug, Copy, Clone)]
 pub enum Literal<'a> {
-    // Ident(&'a str),
     Str(&'a str),
     Num(f64),
     Bool(bool),
@@ -98,7 +97,6 @@ pub enum Literal<'a> {
 impl<'a> Display for Literal<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            // Literal::Ident(value) | Literal::Str(value) => write!(f, "{value}"),
             Literal::Str(value) => write!(f, "{value}"),
             Literal::Num(value) => {
                 if value.fract() == 0.0 {

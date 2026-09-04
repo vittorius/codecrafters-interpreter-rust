@@ -1,7 +1,10 @@
 //! Lox grammar:
 //!
 //! program        → declaration* EOF ;
-//! declaration    → varDecl | statement ;
+//! declaration    → funDecl | varDecl | statement ;
+//! funDecl        → "fun" function ;
+//! function       → IDENTIFIER "(" parameters? ")" block ;
+//! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;/
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 //! statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
 //! exprStmt       → expression ";"
@@ -20,7 +23,9 @@
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
 //! factor         → unary ( ( "/" | "*" ) unary )* ;
-//! unary          → ( "!" | "-" ) unary | primary ;
+//! unary          → ( "!" | "-" ) unary | call ;
+//! call           → primary ( "(" arguments? ")" )* ;
+//! arguments      → expression ( "," expression )* ;
 //! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
 use std::{error::Error, fmt::Display};
@@ -57,7 +62,23 @@ pub struct Parser<'a> {
     current: usize,
 }
 
+enum FunctionKind {
+    Function,
+    Method,
+}
+
+impl Display for FunctionKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self {
+            FunctionKind::Function => write!(f, "function"),
+            FunctionKind::Method => write!(f, "method"),
+        }
+    }
+}
+
 impl<'a> Parser<'a> {
+    const FUN_ARGS_MAX: usize = 255;
+
     pub fn new(tokens: Vec<Token<'a>>) -> Self {
         Parser { tokens, current: 0 }
     }
@@ -161,7 +182,9 @@ impl<'a> Parser<'a> {
     }
 
     fn declaration(&mut self) -> StmtResult<'a> {
-        if self.match_next(TT::VAR) {
+        if self.match_next(TT::FUN) {
+            self.function(FunctionKind::Function)
+        } else if self.match_next(TT::VAR) {
             let decl = self.var_declaration();
             if decl.is_err() {
                 self.synchronize();
@@ -173,6 +196,40 @@ impl<'a> Parser<'a> {
             // for "print" statement missing an expression, for example
             self.statement()
         }
+    }
+
+    fn function(&mut self, kind: FunctionKind) -> StmtResult<'a> {
+        let name = self.consume(TT::IDENTIFIER, &format!("Expect {} name.", kind))?;
+        self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
+
+        let mut params = Vec::<Token<'_>>::new();
+        if !self.check(TT::RIGHT_PAREN) {
+            loop {
+                if params.len() >= Self::FUN_ARGS_MAX {
+                    return Err(Self::mk_error(
+                        &self.peek(),
+                        "Can't have more than 255 parameters.",
+                    ));
+                }
+
+                params.push(self.consume(TT::IDENTIFIER, "Expect parameter name.")?);
+
+                if !self.match_next(TT::COMMA) {
+                    break;
+                }
+            }
+        }
+        self.consume(TT::RIGHT_PAREN, "Expect ')' after parameters.")?;
+
+        self.consume(
+            TT::LEFT_BRACE,
+            &format!("Expect '{{' before {} body.", kind),
+        )?;
+        let Stmt::Block(body) = self.block()? else {
+            unreachable!("block statement must return a collection of statements")
+        };
+
+        Ok(Stmt::Function { name, params, body })
     }
 
     fn var_declaration(&mut self) -> StmtResult<'a> {
@@ -187,7 +244,7 @@ impl<'a> Parser<'a> {
 
         Ok(Stmt::Var {
             token: name,
-            initializer
+            initializer,
         })
     }
 
@@ -201,7 +258,7 @@ impl<'a> Parser<'a> {
         } else if self.match_next(TT::WHILE) {
             self.while_statement()
         } else if self.match_next(TT::LEFT_BRACE) {
-            self.block_statement()
+            self.block()
         } else {
             self.expression_statement()
         }
@@ -289,7 +346,7 @@ impl<'a> Parser<'a> {
         Ok(Stmt::While { condition, body })
     }
 
-    fn block_statement(&mut self) -> StmtResult<'a> {
+    fn block(&mut self) -> StmtResult<'a> {
         let mut statements: Vec<Stmt<'a>> = vec![];
 
         while !self.check(TT::RIGHT_BRACE) && !self.is_at_end() {
@@ -467,7 +524,56 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Unary { operator, right });
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> ExprResult<'a> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.match_next(TT::LEFT_PAREN) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(&mut self, callee: Expr<'a>) -> ExprResult<'a> {
+        let mut arguments = Vec::<Expr<'_>>::new();
+
+        if !self.check(TT::RIGHT_PAREN) {
+            // arguments.push(self.expression()?);
+
+            // while self.match_next(TT::COMMA) {
+
+            //     arguments.push(self.expression()?);
+            // }
+
+            loop {
+                if arguments.len() >= 255 {
+                    return Err(Self::mk_error(
+                        &self.peek(),
+                        "Can't have more than 255 arguments.",
+                    ));
+                }
+                arguments.push(self.expression()?);
+
+                if !self.match_next(TT::COMMA) {
+                    break;
+                }
+            }
+        }
+
+        let paren = self.consume(TT::RIGHT_PAREN, "Expect ')' after arguments.")?;
+
+        Ok(Expr::Call {
+            callee: callee.boxed(),
+            paren,
+            arguments,
+        })
     }
 
     fn primary(&mut self) -> ExprResult<'a> {

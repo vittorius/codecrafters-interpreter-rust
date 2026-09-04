@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{error::RuntimeError, interpreter::Value, scanner::Token};
+use crate::{error::RuntimeError, scanner::Token, value::Value};
 
 pub type Env = Rc<RefCell<BareEnv>>;
 
@@ -31,12 +31,13 @@ impl BareEnv {
         Rc::new(RefCell::new(self))
     }
 
-    pub fn define(&mut self, name: &Token<'_>, value: Value) {
-        self.values.insert(name.lexeme.to_owned(), value);
+    pub fn define(&mut self, name: &str, value: Value) {
+        self.values.insert(name.to_owned(), value);
     }
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
+    // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
     pub fn get(&self, name: &Token<'_>) -> Option<Value> {
         self.values.get(name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {

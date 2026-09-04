@@ -1,3 +1,5 @@
+// TODO: move these functions to error module and delete this module
+
 pub fn fmt_error(line: usize, message: &str) -> String {
     fmt_error_at(line, "", message)
 }

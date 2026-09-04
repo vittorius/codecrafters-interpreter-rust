@@ -19,6 +19,11 @@ pub enum Expr<'a> {
         operator: Token<'a>,
         right: Box<Expr<'a>>,
     },
+    Call {
+        callee: Box<Expr<'a>>,
+        paren: Token<'a>,
+        arguments: Vec<Expr<'a>>,
+    },
     Conditional {
         cond: Box<Expr<'a>>,
         left: Box<Expr<'a>>,
