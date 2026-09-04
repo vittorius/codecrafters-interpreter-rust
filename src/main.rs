@@ -37,6 +37,7 @@ mod parser;
 mod rpn_ast_printer;
 mod scanner;
 mod stmt;
+mod token;
 mod value;
 
 #[repr(u8)]

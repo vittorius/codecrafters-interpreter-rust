@@ -33,7 +33,7 @@ use std::{error::Error, fmt::Display};
 use crate::{
     expr::Expr,
     lox,
-    scanner::{self, Literal, Token, TokenType, TokenType as TT},
+    token::{self, Literal, Token, TokenType, TokenType as TT},
     stmt::Stmt,
 };
 
@@ -284,7 +284,7 @@ impl<'a> Parser<'a> {
         let condition = if !self.check(TT::SEMICOLON) {
             self.expression()?
         } else {
-            Expr::Literal(scanner::Literal::Bool(true))
+            Expr::Literal(token::Literal::Bool(true))
         };
         self.consume(TT::SEMICOLON, "Expect ';' after loop condition.")?;
 

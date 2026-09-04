@@ -1,4 +1,4 @@
-use crate::{lox, scanner::Token};
+use crate::{lox, token::Token};
 
 #[derive(Debug)]
 pub struct RuntimeError(pub String);

@@ -1,13 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    environment::{BareEnv, Env, clone_env},
-    error::RuntimeError,
-    expr::{self, Expr},
-    native::ClockFunction,
-    scanner::{self, Token, TokenType as TT},
-    stmt::{self,  Stmt},
-    value::Value::{self, Callable},
+    environment::{BareEnv, Env, clone_env}, error::RuntimeError, expr::{self, Expr}, native::ClockFunction, stmt::{self, Stmt}, token::{self, Token, TokenType as TT}, value::Value::{self, Callable},
 };
 
 type Void = (); // right now, trying to follow the book, maybe remove it later
@@ -86,12 +80,12 @@ impl Interpreter {
         Err(RuntimeError::new(token, message))
     }
 
-    fn visit_literal<'l>(literal: &scanner::Literal<'l>) -> ExprResult {
+    fn visit_literal<'l>(literal: &token::Literal<'l>) -> ExprResult {
         Ok(match literal {
-            scanner::Literal::Str(s) => Value::Str((*s).to_owned()),
-            scanner::Literal::Num(n) => Value::Num(*n),
-            scanner::Literal::Bool(b) => Value::Bool(*b),
-            scanner::Literal::Nil => Value::Nil,
+            token::Literal::Str(s) => Value::Str((*s).to_owned()),
+            token::Literal::Num(n) => Value::Num(*n),
+            token::Literal::Bool(b) => Value::Bool(*b),
+            token::Literal::Nil => Value::Nil,
         })
     }
 

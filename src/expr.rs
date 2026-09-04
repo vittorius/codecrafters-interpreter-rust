@@ -1,6 +1,5 @@
 use crate::{
-    environment::Env,
-    scanner::{self, Token},
+    environment::Env, token::{self, Token},
 };
 
 pub trait Visitor<'a, R> {
@@ -30,7 +29,7 @@ pub enum Expr<'a> {
         right: Box<Expr<'a>>,
     },
     Grouping(Box<Expr<'a>>),
-    Literal(scanner::Literal<'a>),
+    Literal(token::Literal<'a>),
     Logical {
         left: Box<Expr<'a>>,
         operator: Token<'a>,

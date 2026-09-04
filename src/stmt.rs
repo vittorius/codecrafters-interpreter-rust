@@ -1,4 +1,4 @@
-use crate::{environment::Env, expr::Expr, scanner::Token};
+use crate::{environment::Env, expr::Expr, token::Token};
 
 pub trait Visitor<R> {
     fn visit_stmt(&self, stmt: &Stmt<'_>, env: Env) -> R;

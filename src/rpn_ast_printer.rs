@@ -96,7 +96,7 @@ impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::scanner::{Literal, Token, TokenType};
+    use crate::token::{Literal, Token, TokenType};
 
     use super::*;
 
