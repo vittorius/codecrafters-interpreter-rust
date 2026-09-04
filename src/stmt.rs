@@ -4,6 +4,13 @@ pub trait Visitor<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
 }
 
+#[derive(Debug)]
+pub struct FunctionDeclaration {
+    pub name: Token,
+    pub params: Vec<Token>,
+    pub body: Vec<Stmt>,
+}
+
 // These variants own their Exprs because the latter ones
 // are not being used anywhere besides being the part of their
 // owning statements. Owned Exprs could not be references here
@@ -12,11 +19,7 @@ pub trait Visitor<R> {
 #[derive(Debug)]
 pub enum Stmt {
     Expression(Expr),
-    Function {
-        name: Token,
-        params: Vec<Token>,
-        body: Vec<Stmt>,
-    },
+    Function(FunctionDeclaration),
     If {
         condition: Expr,
         then_branch: Box<Stmt>,

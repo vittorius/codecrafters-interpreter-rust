@@ -33,7 +33,7 @@ use std::{error::Error, fmt::Display};
 use crate::{
     expr::Expr,
     lox,
-    stmt::Stmt,
+    stmt::{FunctionDeclaration, Stmt},
     token::{self, Literal, Token, TokenType, TokenType as TT},
 };
 
@@ -233,7 +233,7 @@ impl Parser {
             unreachable!("block statement must return a collection of statements")
         };
 
-        Ok(Stmt::Function { name, params, body })
+        Ok(Stmt::Function(FunctionDeclaration { name, params, body }))
     }
 
     fn var_declaration(&mut self) -> StmtResult {

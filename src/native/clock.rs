@@ -3,7 +3,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{callable::Callable, environment::Env, interpreter::Interpreter, value::Value};
+use crate::{
+    callable::{CallResult, Callable},
+    environment::Env,
+    interpreter::Interpreter,
+    value::Value,
+};
 
 #[derive(Debug)]
 pub struct ClockFunction;
@@ -13,13 +18,13 @@ impl Callable for ClockFunction {
         0
     }
 
-    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> Value {
-        Value::Num(
+    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult {
+        Ok(Value::Num(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("system time is before the Unix epoch")
                 .as_secs_f64(),
-        )
+        ))
     }
 }
 

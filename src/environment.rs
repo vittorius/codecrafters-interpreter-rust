@@ -2,6 +2,9 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
 
+// TODO: since Env doesn't capture the source tokens and literals lifetime anymore
+// (similar to Literal, Token, Expr, and Stmt), it can be feasible to step away from
+// Rc<RefCell<...>> wrapping and share the &mut Env everywhere since it's needed.
 pub type Env = Rc<RefCell<BareEnv>>;
 
 // Env owns its variable names (hence String keys) to make a true REPL:

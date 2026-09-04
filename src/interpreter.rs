@@ -1,7 +1,13 @@
 use std::rc::Rc;
 
 use crate::{
-    environment::{BareEnv, Env, clone_env}, error::RuntimeError, expr::{self, Expr}, native::ClockFunction, stmt::{self, Stmt}, token::{self, Token, TokenType as TT}, value::Value::{self, Callable},
+    environment::{BareEnv, Env, clone_env},
+    error::RuntimeError,
+    expr::{self, Expr},
+    native::ClockFunction,
+    stmt::{self, FunctionDeclaration, Stmt},
+    token::{self, Token, TokenType as TT},
+    value::Value::{self, Callable},
 };
 
 type Void = (); // right now, trying to follow the book, maybe remove it later
@@ -39,6 +45,10 @@ impl Interpreter {
     pub fn interpret_expr(&self, expr: &Expr) -> StringResult {
         self.evaluate(expr, clone_env(&self.env))
             .map(|v| v.to_string())
+    }
+
+    pub fn globals(&self) -> Env {
+        clone_env(&self.global_env)
     }
 
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
@@ -89,13 +99,7 @@ impl Interpreter {
         })
     }
 
-    fn visit_logical(
-        &self,
-        left: &Expr,
-        operator: &Token,
-        right: &Expr,
-        env: Env,
-    ) -> ExprResult {
+    fn visit_logical(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
 
         if operator.token_type == TT::OR {
@@ -122,13 +126,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_binary(
-        &self,
-        left: &Expr,
-        operator: &Token,
-        right: &Expr,
-        env: Env,
-    ) -> ExprResult {
+    fn visit_binary(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
         let right = self.evaluate(right, clone_env(&env))?;
 
@@ -168,13 +166,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_call(
-        &self,
-        callee: &Expr,
-        paren: &Token,
-        arguments: &[Expr],
-        env: Env,
-    ) -> ExprResult {
+    fn visit_call(&self, callee: &Expr, paren: &Token, arguments: &[Expr], env: Env) -> ExprResult {
         let callee = self.evaluate(callee, clone_env(&env))?;
 
         let arguments = arguments
@@ -194,19 +186,13 @@ impl Interpreter {
                 );
             }
 
-            Ok(function.call(self, &arguments, env))
+            function.call(self, &arguments, env)
         } else {
             Self::error(paren, "Can only call functions and classes.")
         }
     }
 
-    fn visit_conditional(
-        &self,
-        cond: &Expr,
-        left: &Expr,
-        right: &Expr,
-        env: Env,
-    ) -> ExprResult {
+    fn visit_conditional(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
             self.evaluate(left, env)
         } else {
@@ -293,7 +279,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
-            Stmt::Function { name, params, body } => todo!(),
+            Stmt::Function(FunctionDeclaration { name, params, body }) => todo!(),
             Stmt::If {
                 condition,
                 then_branch,

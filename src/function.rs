@@ -1,38 +1,38 @@
-// TODO: implement user-defined functions
+use std::fmt::Display;
 
+use crate::{
+    callable::{CallResult, Callable},
+    environment::{BareEnv, Env},
+    interpreter::Interpreter,
+    stmt::FunctionDeclaration,
+    value::Value,
+};
 
-// use std::fmt::Display;
+#[derive(Debug)]
+pub struct Function {
+    declaration: FunctionDeclaration,
+}
 
-// use crate::callable::Callable;
+impl Callable for Function {
+    fn arity(&self) -> usize {
+        self.declaration.params.len()
+    }
 
-// struct FunctionDeclaration {
-//     name: String,
-//     params: Vec<String>,
-//     // body: Vec<Stmt<'a>>,
-// }
+    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult {
+        let env = BareEnv::with_enclosing(interpreter.globals()).wrapped();
 
-// #[derive(Debug)]
-// pub struct Function<'a> {
-//     declaration: FunctionDeclaration,
-// }
+        for (i, p) in self.declaration.params.iter().enumerate() {
+            env.borrow_mut().define(&p.lexeme, arguments[i].clone());
+        }
 
-// impl Callable for Function<'_> {
-//     fn arity(&self) -> usize {
-//         todo!()
-//     }
+        interpreter.execute_block(&self.declaration.body, env)?;
 
-//     fn call(
-//         &self,
-//         interpreter: &crate::interpreter::Interpreter,
-//         arguments: &[crate::value::Value],
-//         env: crate::environment::Env,
-//     ) -> crate::value::Value {
-//         todo!()
-//     }
-// }
+        Ok(Value::Nil)
+    }
+}
 
-// impl Display for Function<'_> {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "<fn {}>", self.declaration.name.lexeme)
-//     }
-// }
+impl Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<fn {}>", self.declaration.name.lexeme)
+    }
+}
