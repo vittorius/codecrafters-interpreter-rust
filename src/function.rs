@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{
     callable::{CallResult, Callable},
-    environment::{BareEnv, Env},
+    environment::{BareEnv, Env, clone_env},
     interpreter::Interpreter,
     stmt::FunctionDeclaration,
     value::Value,
@@ -36,9 +36,16 @@ impl Callable for Function {
                 .define(p.lexeme.clone(), arguments[i].clone());
         }
 
-        interpreter.execute_block(&self.declaration.body, env)?;
+        interpreter.execute_block(&self.declaration.body, clone_env(&env))?;
 
-        Ok(Value::Nil)
+        if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
+            // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
+            // AND there was an actual return value stored in the env.
+            // Return the `return` value and clear the "returning" env state.
+            Ok(return_value.clone())
+        } else {
+            Ok(Value::Nil)
+        }
     }
 }
 

@@ -12,7 +12,7 @@ use crate::{
 };
 
 type Void = (); // right now, trying to follow the book, maybe remove it later
-const VOID: Void = ();
+const VOID_OK: StmtResult = Ok(());
 
 pub type Result = std::result::Result<Void, RuntimeError>;
 pub type StringResult = std::result::Result<String, RuntimeError>;
@@ -40,7 +40,7 @@ impl Interpreter {
             self.execute(stmt, clone_env(&self.env))?;
         }
 
-        Ok(VOID)
+        VOID_OK
     }
 
     pub fn interpret_expr(&self, expr: &Expr) -> StringResult {
@@ -53,7 +53,11 @@ impl Interpreter {
     }
 
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
-        stmt.accept(self, env)
+        if env.borrow().is_returning_from_fn() {
+            VOID_OK
+        } else {
+            stmt.accept(self, env)
+        }
     }
 
     pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
@@ -61,7 +65,7 @@ impl Interpreter {
             self.execute(stmt, clone_env(&env))?;
         }
 
-        Ok(VOID)
+        VOID_OK
     }
 
     fn evaluate(&self, expr: &Expr, env: Env) -> ExprResult {
@@ -227,7 +231,7 @@ impl Interpreter {
             Value::Callable(Rc::new(function)),
         );
 
-        Ok(VOID)
+        VOID_OK
     }
 
     fn visit_if_statement(
@@ -242,7 +246,19 @@ impl Interpreter {
         } else if let Some(else_branch) = else_branch {
             self.execute(else_branch, env)?;
         }
-        Ok(VOID)
+        VOID_OK
+    }
+
+    fn visit_print_statement(&self, expr: &Expr, env: Env) -> StmtResult {
+        println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
+        VOID_OK
+    }
+
+    fn visit_return_statement(&self, expr: &Expr, env: Env) -> StmtResult {
+        let value = self.evaluate(expr, clone_env(&env))?;
+        env.borrow_mut().return_from_fn(value);
+
+        VOID_OK
     }
 
     fn visit_while_statement(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
@@ -250,7 +266,7 @@ impl Interpreter {
             self.execute(body, clone_env(&env))?
         }
 
-        Ok(VOID)
+        VOID_OK
     }
 }
 
@@ -290,17 +306,16 @@ impl expr::Visitor<ExprResult> for Interpreter {
 impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
-            Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
+            Stmt::Expression(expr) => self.evaluate(expr, env).and(VOID_OK),
             Stmt::Function(declaration) => self.visit_function_statement(declaration.clone(), env),
             Stmt::If {
                 condition,
                 then_branch,
                 else_branch,
             } => self.visit_if_statement(condition, then_branch, else_branch, clone_env(&env)),
-            Stmt::Print(expr) => {
-                println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
-                Ok(VOID)
-            }
+            Stmt::Print(expr) => self.visit_print_statement(expr, env),
+
+            Stmt::Return { keyword, value } => self.visit_return_statement(value, env),
             Stmt::Var { token, initializer } => {
                 let value = match initializer {
                     Some(expr) => self.evaluate(expr, clone_env(&env))?,
@@ -309,7 +324,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
 
                 env.borrow_mut().define(token.lexeme.clone(), value);
 
-                Ok(VOID)
+                VOID_OK
             }
             Stmt::While { condition, body } => self.visit_while_statement(condition, body, env),
             Stmt::Block(statements) => {
@@ -318,7 +333,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
                     BareEnv::with_enclosing(clone_env(&env)).wrapped(),
                 )?;
 
-                Ok(VOID)
+                VOID_OK
             }
         }
     }

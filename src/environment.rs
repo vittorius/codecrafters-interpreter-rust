@@ -2,9 +2,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
 
-// TODO: since Env doesn't capture the source tokens and literals lifetime anymore
-// (similar to Literal, Token, Expr, and Stmt), it can be feasible to step away from
-// Rc<RefCell<...>> wrapping and share the &mut Env everywhere since it's needed.
+// Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
+// for multiple child environments where it can be potentially mutated (e.g. Binary expression)
 pub type Env = Rc<RefCell<BareEnv>>;
 
 // Env owns its variable names (hence String keys) to make a true REPL:
@@ -13,6 +12,7 @@ pub type Env = Rc<RefCell<BareEnv>>;
 pub struct BareEnv {
     values: HashMap<String, Value>,
     enclosing: Option<Env>,
+    return_value: Option<Value>,
 }
 
 impl BareEnv {
@@ -20,6 +20,7 @@ impl BareEnv {
         Self {
             values: HashMap::new(),
             enclosing: None,
+            return_value: None,
         }
     }
 
@@ -74,6 +75,18 @@ impl BareEnv {
                 }
             }
         }
+    }
+
+    pub fn return_from_fn(&mut self, value: Value) {
+        self.return_value = Some(value)
+    }
+
+    pub fn is_returning_from_fn(&self) -> bool {
+        self.return_value.is_some()
+    }
+
+    pub fn clear_return_from_fn(&mut self) -> Option<Value> {
+        self.return_value.take()
     }
 }
 

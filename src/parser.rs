@@ -6,11 +6,12 @@
 //! function       → IDENTIFIER "(" parameters? ")" block ;
 //! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;/
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | forStmt | ifStmt | printStmt | whileStmt | block ;
+//! statement      → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
 //! exprStmt       → expression ";"
 //! ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
 //! forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
 //! printStmt      → "print" expression ";"
+//! returnStmt     → "return" expression? ";"
 //! whileStmt      → "while" "(" expression ")" statement ;
 //! block          → "{" declaration* "}" ;
 //! expression     → comma ;
@@ -259,6 +260,8 @@ impl Parser {
             self.if_statement()
         } else if self.match_next(TT::PRINT) {
             self.print_statement()
+        } else if self.match_next(TT::RETURN) {
+            self.return_statement()
         } else if self.match_next(TT::WHILE) {
             self.while_statement()
         } else if self.match_next(TT::LEFT_BRACE) {
@@ -343,6 +346,19 @@ impl Parser {
         Ok(Stmt::Print(value))
     }
 
+    fn return_statement(&mut self) -> StmtResult {
+        let keyword = self.previous().clone();
+        let value = if self.check(TT::SEMICOLON) {
+            Expr::Literal(token::Literal::Nil)
+        } else {
+            self.expression()?
+        };
+
+        self.consume(TT::SEMICOLON, "Expect ';' after return value.")?;
+
+        Ok(Stmt::Return { keyword, value })
+    }
+
     fn while_statement(&mut self) -> StmtResult {
         self.consume(TT::LEFT_PAREN, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
@@ -371,12 +387,12 @@ impl Parser {
 
     #[cfg(feature = "comma-op")]
     fn expression(&mut self) -> ExprResult {
-       self.comma()
+        self.comma()
     }
-    
+
     #[cfg(feature = "comma-op")]
     fn expression_in_fn_call(&mut self) -> ExprResult {
-       self.assignment()
+        self.assignment()
     }
 
     #[cfg(feature = "comma-op")]
