@@ -4,11 +4,11 @@ use crate::{
 };
 
 pub struct AstPrinter<'a> {
-    expr: &'a Expr<'a>,
+    expr: &'a Expr,
 }
 
 impl<'a> AstPrinter<'a> {
-    pub fn new(expr: &'a Expr<'_>) -> Self {
+    pub fn new(expr: &'a Expr) -> Self {
         Self { expr }
     }
 
@@ -16,17 +16,11 @@ impl<'a> AstPrinter<'a> {
         self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn parenthesize_unary(&self, name: &str, expr: &'a Expr<'_>, env: Env) -> String {
+    fn parenthesize_unary(&self, name: &str, expr: &Expr, env: Env) -> String {
         format!("({} {})", name, expr.accept(self, env))
     }
 
-    fn parenthesize_binary(
-        &self,
-        name: &str,
-        left: &'a Expr<'_>,
-        right: &'a Expr<'_>,
-        env: Env,
-    ) -> String {
+    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: Env) -> String {
         format!(
             "({} {} {})",
             name,
@@ -35,7 +29,7 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_call(&self, callee: &Expr<'_>, arguments: &[Expr<'_>], env: Env) -> String {
+    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = format!("({}", callee.accept(self, clone_env(&env)));
         for arg in arguments {
             s.push_str(&format!(" {}", arg.accept(self, clone_env(&env))));
@@ -44,13 +38,7 @@ impl<'a> AstPrinter<'a> {
         s
     }
 
-    fn parenthesize_ternary(
-        &self,
-        cond: &'a Expr<'_>,
-        left: &'a Expr<'_>,
-        right: &'a Expr<'_>,
-        env: Env,
-    ) -> String {
+    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> String {
         format!(
             "(?: {} {} {})",
             cond.accept(self, clone_env(&env)),
@@ -59,19 +47,19 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_assign(&self, name: &str, value: &'a Expr<'_>, env: Env) -> String {
+    fn parenthesize_assign(&self, name: &str, value: &Expr, env: Env) -> String {
         format!("(<- {} {})", name, value.accept(self, env))
     }
 }
 
-impl<'a> Visitor<'a, String> for AstPrinter<'a> {
-    fn visit_expr(&self, expr: &'a Expr<'_>, env: Env) -> String {
+impl Visitor<String> for AstPrinter<'_> {
+    fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(operator.lexeme, left, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
             Expr::Call {
                 callee,
                 paren,
@@ -86,20 +74,21 @@ impl<'a> Visitor<'a, String> for AstPrinter<'a> {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(operator.lexeme, left, right, env),
-            Expr::Unary { operator, right } => self.parenthesize_unary(operator.lexeme, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            Expr::Unary { operator, right } => {
+                self.parenthesize_unary(&operator.lexeme, right, env)
+            }
             Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.parenthesize_assign(name.lexeme, value, env),
+            Expr::Assign { name, value } => self.parenthesize_assign(&name.lexeme, value, env),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use crate::token::{Literal, Token, TokenType};
 
-use super::*;
+    use super::*;
 
     #[test]
     fn test_ast_printer() {
@@ -113,11 +102,11 @@ use super::*;
 
         let expr = Expr::Binary {
             left: Expr::Unary {
-                operator: Token::new(TokenType::MINUS, "-", None, 1),
+                operator: Token::new(TokenType::MINUS, "-".to_owned(), None, 1),
                 right: Expr::Literal(Literal::Num(123.0)).boxed(),
             }
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*", None, 1),
+            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
             right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
@@ -129,10 +118,10 @@ use super::*;
     #[test]
     fn test_assignment_expression() {
         let expr = Expr::Assign {
-            name: Token::new(TokenType::IDENTIFIER, "answer", None, 1),
+            name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
-                operator: Token::new(TokenType::PLUS, "+", None, 1),
+                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
                 right: Expr::Literal(Literal::Num(2.0)).boxed(),
             }
             .boxed(),

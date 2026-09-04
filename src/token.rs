@@ -1,6 +1,5 @@
 use std::{collections::HashMap, fmt::Display, sync::LazyLock};
 
-
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenType {
@@ -85,15 +84,23 @@ impl Display for TokenType {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Literal<'a> {
-    Str(&'a str),
+// This type owns a string in `Str` variant because it's better for an interpreter
+// where the environment must exist past the interpreted source line in REPL.
+// A an AST type that borrows the source string is better for the compiler or
+// for a one-shot interpreter (read the file, interpret, shutdown).
+// Also, the reason for this is the ability to reuse the `Stmt` struct to store the
+// functions' code in the persistent environment and execute it within the interpreter later.
+// Otherwise, we would have to invent a parallel owned `Stmt` kind for that etc. etc.
+// #[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
+pub enum Literal {
+    Str(String),
     Num(f64),
     Bool(bool),
     Nil,
 }
 
-impl<'a> Display for Literal<'a> {
+impl Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::Str(value) => write!(f, "{value}"),
@@ -110,19 +117,26 @@ impl<'a> Display for Literal<'a> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Token<'a> {
+// This type owns a string in `lexeme` because it's better for an interpreter
+// where the environment must exist past the interpreted source line in REPL.
+// A an AST type that borrows the source string is better for the compiler or
+// for a one-shot interpreter (read the file, interpret, shutdown).
+// Also, the reason for this is the ability to reuse the `Stmt` struct to store the
+// functions' code in the persistent environment and execute it within the interpreter later.
+// Otherwise, we would have to invent a parallel owned `Stmt` kind for that etc. etc.
+#[derive(Debug, Clone)]
+pub struct Token {
     pub token_type: TokenType,
-    pub lexeme: &'a str,
-    pub literal: Option<Literal<'a>>, // TODO: try to encode in types that Literal is present for token_type = NUMBER | STRING
+    pub lexeme: String,
+    pub literal: Option<Literal>, // TODO: try to encode in types that Literal is present for token_type = NUMBER | STRING
     pub line: usize,
 }
 
-impl<'a> Token<'a> {
+impl Token {
     pub fn new(
         token_type: TokenType,
-        lexeme: &'a str,
-        literal: Option<Literal<'a>>,
+        lexeme: String,
+        literal: Option<Literal>,
         line: usize,
     ) -> Self {
         Self {
@@ -134,7 +148,7 @@ impl<'a> Token<'a> {
     }
 }
 
-impl<'a> Display for Token<'a> {
+impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -142,6 +156,7 @@ impl<'a> Display for Token<'a> {
             self.token_type,
             self.lexeme,
             self.literal
+                .as_ref()
                 .map(|v| v.to_string())
                 .unwrap_or_else(|| "null".to_owned())
         )

@@ -1,7 +1,7 @@
 use crate::{environment::Env, expr::Expr, token::Token};
 
 pub trait Visitor<R> {
-    fn visit_stmt(&self, stmt: &Stmt<'_>, env: Env) -> R;
+    fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -10,32 +10,32 @@ pub trait Visitor<R> {
 // because otherwise they would have to be references to
 // temporary values that are dropped right after they are built.
 #[derive(Debug)]
-pub enum Stmt<'a> {
-    Expression(Expr<'a>),
+pub enum Stmt {
+    Expression(Expr),
     Function {
-        name: Token<'a>,
-        params: Vec<Token<'a>>,
-        body: Vec<Stmt<'a>>,
+        name: Token,
+        params: Vec<Token>,
+        body: Vec<Stmt>,
     },
     If {
-        condition: Expr<'a>,
-        then_branch: Box<Stmt<'a>>,
-        else_branch: Option<Box<Stmt<'a>>>,
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        else_branch: Option<Box<Stmt>>,
     },
-    Print(Expr<'a>),
+    Print(Expr),
     Var {
-        token: Token<'a>,
-        initializer: Option<Expr<'a>>,
+        token: Token,
+        initializer: Option<Expr>,
     },
     While {
-        condition: Expr<'a>,
-        body: Box<Stmt<'a>>,
+        condition: Expr,
+        body: Box<Stmt>,
     },
-    Block(Vec<Stmt<'a>>),
+    Block(Vec<Stmt>),
 }
 
-impl<'a> Stmt<'a> {
-    pub fn accept<R>(&'a self, visitor: &impl Visitor<R>, env: Env) -> R {
+impl Stmt {
+    pub fn accept<R>(&self, visitor: &impl Visitor<R>, env: Env) -> R {
         visitor.visit_stmt(self, env)
     }
 

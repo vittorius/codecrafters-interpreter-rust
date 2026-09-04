@@ -4,11 +4,11 @@ use crate::{
 };
 
 pub struct RpnAstPrinter<'a> {
-    expr: &'a Expr<'a>,
+    expr: &'a Expr,
 }
 
 impl<'a> RpnAstPrinter<'a> {
-    pub fn new(expr: &'a Expr<'_>) -> Self {
+    pub fn new(expr: &'a Expr) -> Self {
         Self { expr }
     }
 
@@ -16,15 +16,15 @@ impl<'a> RpnAstPrinter<'a> {
         self.visit_expr(self.expr, BareEnv::new().wrapped())
     }
 
-    fn format_unary(&self, name: &str, expr: &'a Expr<'_>, env: Env) -> String {
+    fn format_unary(&self, name: &str, expr: &'a Expr, env: Env) -> String {
         format!("{} {}", expr.accept(self, env), name)
     }
 
     fn format_binary(
         &self,
         name: &str,
-        left: &'a Expr<'_>,
-        right: &'a Expr<'_>,
+        left: &'a Expr,
+        right: &'a Expr,
         env: Env,
     ) -> String {
         format!(
@@ -35,7 +35,7 @@ impl<'a> RpnAstPrinter<'a> {
         )
     }
 
-    fn format_call(&self, callee: &Expr<'_>, arguments: &[Expr<'_>], env: Env) -> String {
+    fn format_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = String::from("(");
         for arg in arguments {
             s.push_str(&format!("{} ", arg.accept(self, clone_env(&env))));
@@ -46,9 +46,9 @@ impl<'a> RpnAstPrinter<'a> {
 
     fn format_conditional(
         &self,
-        cond: &'a Expr<'_>,
-        left: &'a Expr<'_>,
-        right: &'a Expr<'_>,
+        cond: &'a Expr,
+        left: &'a Expr,
+        right: &'a Expr,
         env: Env,
     ) -> String {
         format!(
@@ -59,19 +59,19 @@ impl<'a> RpnAstPrinter<'a> {
         )
     }
 
-    fn format_assign(&self, name: &str, value: &'a Expr<'_>, env: Env) -> String {
+    fn format_assign(&self, name: &str, value: &'a Expr, env: Env) -> String {
         format!("{} {} <-", name, value.accept(self, env))
     }
 }
 
-impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
-    fn visit_expr(&self, expr: &'a Expr<'_>, env: Env) -> String {
+impl Visitor<String> for RpnAstPrinter<'_> {
+    fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.format_binary(operator.lexeme, left, right, env),
+            } => self.format_binary(&operator.lexeme, left, right, env),
             Expr::Call {
                 callee,
                 paren,
@@ -86,10 +86,10 @@ impl<'a> Visitor<'a, String> for RpnAstPrinter<'a> {
                 left,
                 operator,
                 right,
-            } => self.format_binary(operator.lexeme, left, right, env),
-            Expr::Unary { operator, right } => self.format_unary(operator.lexeme, right, env),
+            } => self.format_binary(&operator.lexeme, left, right, env),
+            Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.format_assign(name.lexeme, value, env),
+            Expr::Assign { name, value } => self.format_assign(&name.lexeme, value, env),
         }
     }
 }
@@ -108,17 +108,17 @@ mod tests {
             left: Expr::Grouping(
                 Expr::Binary {
                     left: Expr::Literal(Literal::Num(1.0)).boxed(),
-                    operator: Token::new(TokenType::PLUS, "+", None, 1),
+                    operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
                     right: Expr::Literal(Literal::Num(2.0)).boxed(),
                 }
                 .boxed(),
             )
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*", None, 1),
+            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
             right: Expr::Grouping(
                 Expr::Binary {
                     left: Expr::Literal(Literal::Num(4.0)).boxed(),
-                    operator: Token::new(TokenType::PLUS, "-", None, 1),
+                    operator: Token::new(TokenType::PLUS, "-".to_owned(), None, 1),
                     right: Expr::Literal(Literal::Num(3.0)).boxed(),
                 }
                 .boxed(),
@@ -133,10 +133,10 @@ mod tests {
     #[test]
     fn test_assignment_expression() {
         let expr = Expr::Assign {
-            name: Token::new(TokenType::IDENTIFIER, "answer", None, 1),
+            name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
-                operator: Token::new(TokenType::PLUS, "+", None, 1),
+                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
                 right: Expr::Literal(Literal::Num(2.0)).boxed(),
             }
             .boxed(),

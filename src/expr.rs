@@ -2,8 +2,8 @@ use crate::{
     environment::Env, token::{self, Token},
 };
 
-pub trait Visitor<'a, R> {
-    fn visit_expr(&self, expr: &'a Expr<'a>, env: Env) -> R;
+pub trait Visitor<R> {
+    fn visit_expr(&self, expr: &Expr, env: Env) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -12,42 +12,42 @@ pub trait Visitor<'a, R> {
 // of Expr and the expression tree will be populated with references to it.
 // It's deemed an overkill for our use-case, so we're going away with Box.
 #[derive(Debug)]
-pub enum Expr<'a> {
+pub enum Expr {
     Binary {
-        left: Box<Expr<'a>>,
-        operator: Token<'a>,
-        right: Box<Expr<'a>>,
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
     },
     Call {
-        callee: Box<Expr<'a>>,
-        paren: Token<'a>,
-        arguments: Vec<Expr<'a>>,
+        callee: Box<Expr>,
+        paren: Token,
+        arguments: Vec<Expr>,
     },
     Conditional {
-        cond: Box<Expr<'a>>,
-        left: Box<Expr<'a>>,
-        right: Box<Expr<'a>>,
+        cond: Box<Expr>,
+        left: Box<Expr>,
+        right: Box<Expr>,
     },
-    Grouping(Box<Expr<'a>>),
-    Literal(token::Literal<'a>),
+    Grouping(Box<Expr>),
+    Literal(token::Literal),
     Logical {
-        left: Box<Expr<'a>>,
-        operator: Token<'a>,
-        right: Box<Expr<'a>>,
+        left: Box<Expr>,
+        operator: Token,
+        right: Box<Expr>,
     },
     Unary {
-        operator: Token<'a>,
-        right: Box<Expr<'a>>,
+        operator: Token,
+        right: Box<Expr>,
     },
-    Variable(Token<'a>), // token is the variable's name
+    Variable(Token), // token is the variable's name
     Assign {
-        name: Token<'a>,
-        value: Box<Expr<'a>>,
+        name: Token,
+        value: Box<Expr>,
     },
 }
 
-impl<'a> Expr<'a> {
-    pub fn accept<R>(&'a self, visitor: &impl Visitor<'a, R>, env: Env) -> R {
+impl Expr {
+    pub fn accept<R>(&self, visitor: &impl Visitor<R>, env: Env) -> R {
         visitor.visit_expr(self, env)
     }
 

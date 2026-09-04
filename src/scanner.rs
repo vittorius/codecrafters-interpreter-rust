@@ -64,15 +64,15 @@ impl<'a> Cursor<'a> {
     }
 }
 
-pub type Tokens<'a> = Vec<Token<'a>>;
-pub enum Result<'a> {
-    Ok(Tokens<'a>),
-    Err(ErrorSink, Tokens<'a>), // have to return both errors (printed first) and tokens (printed second) because of "tokenize" command requirements
+pub type Tokens = Vec<Token>;
+pub enum Result {
+    Ok(Tokens),
+    Err(ErrorSink, Tokens), // have to return both errors (printed first) and tokens (printed second) because of "tokenize" command requirements
 }
 
 pub struct Scanner<'a> {
     cursor: Cursor<'a>,
-    tokens: Tokens<'a>,
+    tokens: Tokens,
     errors: ErrorSink,
     line: usize,
 }
@@ -92,7 +92,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(mut self) -> Result<'a> {
+    pub fn scan_tokens(mut self) -> Result {
         while !self.is_at_end() {
             self.cursor.catch_up();
 
@@ -100,7 +100,7 @@ impl<'a> Scanner<'a> {
         }
 
         self.tokens
-            .push(Token::new(TokenType::EOF, "", None, self.line));
+            .push(Token::new(TokenType::EOF, "".to_owned(), None, self.line));
 
         if self.errors.is_empty() {
             Result::Ok(self.tokens)
@@ -181,10 +181,10 @@ impl<'a> Scanner<'a> {
         self.add_token_with_literal(token_type, None);
     }
 
-    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal<'a>>) {
+    fn add_token_with_literal(&mut self, token_type: TokenType, literal: Option<Literal>) {
         self.tokens.push(Token::new(
             token_type,
-            self.cur_lexeme(),
+            self.cur_lexeme().to_owned(),
             literal,
             self.line,
         ));
@@ -266,7 +266,7 @@ impl<'a> Scanner<'a> {
         let string = self.cur_lexeme();
         self.add_token_with_literal(
             TokenType::STRING,
-            Some(Literal::Str(&string[1..string.len() - 1])), // everything between quotes
+            Some(Literal::Str(string[1..string.len() - 1].to_owned())), // everything between quotes
         );
     }
 

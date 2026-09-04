@@ -33,8 +33,8 @@ use std::{error::Error, fmt::Display};
 use crate::{
     expr::Expr,
     lox,
-    token::{self, Literal, Token, TokenType, TokenType as TT},
     stmt::Stmt,
+    token::{self, Literal, Token, TokenType, TokenType as TT},
 };
 
 #[derive(Debug)]
@@ -52,13 +52,13 @@ impl Display for ParseError {
 // Instead of reporting error immediately (actually, just printing it),
 // we accumulate them in the error sink. Also, instead of throwing an error,
 // we use Result returns values and don't panic.
-pub type Result<'a> = std::result::Result<Vec<Stmt<'a>>, ParseError>;
-pub type ExprResult<'a> = std::result::Result<Expr<'a>, ParseError>;
-type StmtResult<'a> = std::result::Result<Stmt<'a>, ParseError>;
-type TokenResult<'a> = std::result::Result<Token<'a>, ParseError>;
+pub type Result = std::result::Result<Vec<Stmt>, ParseError>;
+pub type ExprResult = std::result::Result<Expr, ParseError>;
+type StmtResult = std::result::Result<Stmt, ParseError>;
+type TokenResult = std::result::Result<Token, ParseError>;
 
-pub struct Parser<'a> {
-    tokens: Vec<Token<'a>>,
+pub struct Parser {
+    tokens: Vec<Token>,
     current: usize,
 }
 
@@ -76,15 +76,15 @@ impl Display for FunctionKind {
     }
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     const FUN_ARGS_MAX: usize = 255;
 
-    pub fn new(tokens: Vec<Token<'a>>) -> Self {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<'a> {
-        let mut statements = Vec::<Stmt<'a>>::new();
+    pub fn parse(&mut self) -> Result {
+        let mut statements = Vec::<Stmt>::new();
         while !self.is_at_end() {
             statements.push(self.declaration()?);
         }
@@ -92,12 +92,12 @@ impl<'a> Parser<'a> {
         Ok(statements)
     }
 
-    pub fn parse_expr(&mut self) -> ExprResult<'a> {
+    pub fn parse_expr(&mut self) -> ExprResult {
         self.expression()
     }
 
-    fn peek(&self) -> Token<'a> {
-        self.tokens[self.current]
+    fn peek(&self) -> &Token {
+        &self.tokens[self.current]
     }
 
     fn match_next(&mut self, token_type: TokenType) -> bool {
@@ -121,7 +121,7 @@ impl<'a> Parser<'a> {
         self.peek().token_type == token_type
     }
 
-    fn advance(&mut self) -> Token<'a> {
+    fn advance(&mut self) -> &Token {
         if !self.is_at_end() {
             self.current += 1;
         }
@@ -133,16 +133,16 @@ impl<'a> Parser<'a> {
         self.peek().token_type == TT::EOF
     }
 
-    fn previous(&self) -> Token<'a> {
-        self.tokens[self.current - 1]
+    fn previous(&self) -> &Token {
+        &self.tokens[self.current - 1]
     }
 
-    fn consume(&mut self, token_type: TokenType, message: &str) -> TokenResult<'a> {
+    fn consume(&mut self, token_type: TokenType, message: &str) -> TokenResult {
         if self.check(token_type) {
-            return Ok(self.advance());
+            return Ok(self.advance().clone());
         };
 
-        Err(Self::mk_error(&self.peek(), message))
+        Err(Self::mk_error(self.peek(), message))
     }
 
     fn synchronize(&mut self) {
@@ -171,7 +171,7 @@ impl<'a> Parser<'a> {
 
     // We need to construct the bare error and not wrap it into an Err variant
     // because this error value is used in different Result return types later
-    fn mk_error(token: &Token<'_>, message: &str) -> ParseError {
+    fn mk_error(token: &Token, message: &str) -> ParseError {
         let msg = if token.token_type == TT::EOF {
             lox::fmt_error_at(token.line, " at end", message)
         } else {
@@ -181,7 +181,7 @@ impl<'a> Parser<'a> {
         ParseError(msg)
     }
 
-    fn declaration(&mut self) -> StmtResult<'a> {
+    fn declaration(&mut self) -> StmtResult {
         if self.match_next(TT::FUN) {
             self.function(FunctionKind::Function)
         } else if self.match_next(TT::VAR) {
@@ -198,21 +198,25 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn function(&mut self, kind: FunctionKind) -> StmtResult<'a> {
-        let name = self.consume(TT::IDENTIFIER, &format!("Expect {} name.", kind))?;
+    fn function(&mut self, kind: FunctionKind) -> StmtResult {
+        let name = self
+            .consume(TT::IDENTIFIER, &format!("Expect {} name.", kind))?
+            .clone();
         self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
 
-        let mut params = Vec::<Token<'_>>::new();
+        let mut params = Vec::<Token>::new();
         if !self.check(TT::RIGHT_PAREN) {
             loop {
                 if params.len() >= Self::FUN_ARGS_MAX {
                     return Err(Self::mk_error(
-                        &self.peek(),
+                        self.peek(),
                         "Can't have more than 255 parameters.",
                     ));
                 }
-
-                params.push(self.consume(TT::IDENTIFIER, "Expect parameter name.")?);
+                params.push(
+                    self.consume(TT::IDENTIFIER, "Expect parameter name.")?
+                        .clone(),
+                );
 
                 if !self.match_next(TT::COMMA) {
                     break;
@@ -232,7 +236,7 @@ impl<'a> Parser<'a> {
         Ok(Stmt::Function { name, params, body })
     }
 
-    fn var_declaration(&mut self) -> StmtResult<'a> {
+    fn var_declaration(&mut self) -> StmtResult {
         let name = self.consume(TT::IDENTIFIER, "Expect variable name.")?;
 
         let mut initializer = None;
@@ -248,7 +252,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn statement(&mut self) -> StmtResult<'a> {
+    fn statement(&mut self) -> StmtResult {
         if self.match_next(TT::FOR) {
             self.for_statement()
         } else if self.match_next(TT::IF) {
@@ -264,13 +268,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expression_statement(&mut self) -> StmtResult<'a> {
+    fn expression_statement(&mut self) -> StmtResult {
         let expr = self.expression()?;
         self.consume(TT::SEMICOLON, "Expect ';' after expression.")?;
+
         Ok(Stmt::Expression(expr))
     }
 
-    fn for_statement(&mut self) -> StmtResult<'a> {
+    fn for_statement(&mut self) -> StmtResult {
         self.consume(TT::LEFT_PAREN, "Expect '(' after 'for'.")?;
 
         let initializer = if self.match_next(TT::SEMICOLON) {
@@ -313,7 +318,7 @@ impl<'a> Parser<'a> {
         Ok(body)
     }
 
-    fn if_statement(&mut self) -> StmtResult<'a> {
+    fn if_statement(&mut self) -> StmtResult {
         self.consume(TT::LEFT_PAREN, "Expect '(' after 'if'.")?;
         let condition = self.expression()?;
         self.consume(TT::RIGHT_PAREN, "Expect ')' after if condition.")?;
@@ -331,13 +336,14 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn print_statement(&mut self) -> StmtResult<'a> {
+    fn print_statement(&mut self) -> StmtResult {
         let value = self.expression()?;
         self.consume(TT::SEMICOLON, "Expect ';' after value.")?;
+
         Ok(Stmt::Print(value))
     }
 
-    fn while_statement(&mut self) -> StmtResult<'a> {
+    fn while_statement(&mut self) -> StmtResult {
         self.consume(TT::LEFT_PAREN, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
         self.consume(TT::RIGHT_PAREN, "Expect ')' after condition.")?;
@@ -346,8 +352,8 @@ impl<'a> Parser<'a> {
         Ok(Stmt::While { condition, body })
     }
 
-    fn block(&mut self) -> StmtResult<'a> {
-        let mut statements: Vec<Stmt<'a>> = vec![];
+    fn block(&mut self) -> StmtResult {
+        let mut statements: Vec<Stmt> = vec![];
 
         while !self.check(TT::RIGHT_BRACE) && !self.is_at_end() {
             statements.push(self.declaration()?);
@@ -358,16 +364,17 @@ impl<'a> Parser<'a> {
         Ok(Stmt::Block(statements))
     }
 
-    fn expression(&mut self) -> ExprResult<'a> {
+    fn expression(&mut self) -> ExprResult {
         self.comma()
     }
 
-    fn comma(&mut self) -> ExprResult<'a> {
+    fn comma(&mut self) -> ExprResult {
         let mut expr = self.assignment()?;
 
         while self.match_next(TT::COMMA) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.assignment()?.boxed();
+
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -378,27 +385,25 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn assignment(&mut self) -> ExprResult<'a> {
+    fn assignment(&mut self) -> ExprResult {
         let expr = self.conditional()?;
 
         if self.match_next(TT::EQUAL) {
-            let equals = self.previous();
-            let value = self.assignment()?;
-
             return if let Expr::Variable(name) = expr {
                 Ok(Expr::Assign {
                     name,
-                    value: value.boxed(),
+                    value: self.assignment()?.boxed(),
                 })
             } else {
-                Err(Self::mk_error(&equals, "Invalid assignment target."))
+                let equals = self.previous();
+                Err(Self::mk_error(equals, "Invalid assignment target."))
             };
         }
 
         Ok(expr)
     }
 
-    fn conditional(&mut self) -> ExprResult<'a> {
+    fn conditional(&mut self) -> ExprResult {
         let cond = self.or()?;
 
         if self.match_next(TT::QUESTION) {
@@ -409,6 +414,7 @@ impl<'a> Parser<'a> {
                 "Expect ':' after then branch of conditional expression.",
             )?;
             let right = self.conditional()?.boxed();
+
             Ok(Expr::Conditional {
                 cond: cond.boxed(),
                 left,
@@ -419,11 +425,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn or(&mut self) -> ExprResult<'a> {
+    fn or(&mut self) -> ExprResult {
         let mut expr = self.and()?;
 
         while self.match_next(TT::OR) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.and()?.boxed();
 
             expr = Expr::Logical {
@@ -436,11 +442,11 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn and(&mut self) -> ExprResult<'a> {
+    fn and(&mut self) -> ExprResult {
         let mut expr = self.equality()?;
 
         while self.match_next(TT::AND) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.equality()?.boxed();
 
             expr = Expr::Logical {
@@ -453,12 +459,13 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn equality(&mut self) -> ExprResult<'a> {
+    fn equality(&mut self) -> ExprResult {
         let mut expr = self.comparison()?;
 
         while self.match_next_any(&[TT::BANG_EQUAL, TT::EQUAL_EQUAL]) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.comparison()?.boxed();
+
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -469,12 +476,13 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn comparison(&mut self) -> ExprResult<'a> {
+    fn comparison(&mut self) -> ExprResult {
         let mut expr = self.term()?;
 
         while self.match_next_any(&[TT::GREATER, TT::GREATER_EQUAL, TT::LESS, TT::LESS_EQUAL]) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.term()?.boxed();
+
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -485,12 +493,13 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn term(&mut self) -> ExprResult<'a> {
+    fn term(&mut self) -> ExprResult {
         let mut expr = self.factor()?;
 
         while self.match_next_any(&[TT::MINUS, TT::PLUS]) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.factor()?.boxed();
+
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -501,12 +510,13 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn factor(&mut self) -> ExprResult<'a> {
+    fn factor(&mut self) -> ExprResult {
         let mut expr = self.unary()?;
 
         while self.match_next_any(&[TT::SLASH, TT::STAR]) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.unary()?.boxed();
+
             expr = Expr::Binary {
                 left: expr.boxed(),
                 operator,
@@ -517,9 +527,9 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn unary(&mut self) -> ExprResult<'a> {
+    fn unary(&mut self) -> ExprResult {
         if self.match_next_any(&[TT::BANG, TT::MINUS]) {
-            let operator = self.previous();
+            let operator = self.previous().clone();
             let right = self.unary()?.boxed();
             return Ok(Expr::Unary { operator, right });
         }
@@ -527,7 +537,7 @@ impl<'a> Parser<'a> {
         self.call()
     }
 
-    fn call(&mut self) -> ExprResult<'a> {
+    fn call(&mut self) -> ExprResult {
         let mut expr = self.primary()?;
 
         loop {
@@ -541,21 +551,14 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    fn finish_call(&mut self, callee: Expr<'a>) -> ExprResult<'a> {
-        let mut arguments = Vec::<Expr<'_>>::new();
+    fn finish_call(&mut self, callee: Expr) -> ExprResult {
+        let mut arguments = Vec::<Expr>::new();
 
         if !self.check(TT::RIGHT_PAREN) {
-            // arguments.push(self.expression()?);
-
-            // while self.match_next(TT::COMMA) {
-
-            //     arguments.push(self.expression()?);
-            // }
-
             loop {
                 if arguments.len() >= 255 {
                     return Err(Self::mk_error(
-                        &self.peek(),
+                        self.peek(),
                         "Can't have more than 255 arguments.",
                     ));
                 }
@@ -576,7 +579,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn primary(&mut self) -> ExprResult<'a> {
+    fn primary(&mut self) -> ExprResult {
         if self.match_next(TT::FALSE) {
             return Ok(Expr::Literal(Literal::Bool(false)));
         };
@@ -591,12 +594,14 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Literal(
                 self.previous()
                     .literal
-                    .expect("NUMBER or STRING must have literal assigned"),
+                    .as_ref()
+                    .expect("NUMBER or STRING must have literal assigned")
+                    .clone(),
             ));
         }
 
         if self.match_next(TT::IDENTIFIER) {
-            return Ok(Expr::Variable(self.previous()));
+            return Ok(Expr::Variable(self.previous().clone()));
         }
 
         if self.match_next(TT::LEFT_PAREN) {
@@ -605,6 +610,6 @@ impl<'a> Parser<'a> {
             return Ok(Expr::Grouping(expr.boxed()));
         }
 
-        Err(Self::mk_error(&self.peek(), "Expect expression."))
+        Err(Self::mk_error(self.peek(), "Expect expression."))
     }
 }

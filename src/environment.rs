@@ -38,8 +38,8 @@ impl BareEnv {
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
     // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
-    pub fn get(&self, name: &Token<'_>) -> Option<Value> {
-        self.values.get(name.lexeme).cloned().or_else(|| {
+    pub fn get(&self, name: &Token) -> Option<Value> {
+        self.values.get(&name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
                 enclosing.borrow().get(name)
             } else {
@@ -48,7 +48,7 @@ impl BareEnv {
         })
     }
 
-    pub fn assign(&mut self, name: &Token<'_>, value: Value) -> Result<Value, RuntimeError> {
+    pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 
         match self.values.entry(name.lexeme.to_owned()) {
@@ -56,7 +56,7 @@ impl BareEnv {
                 occupied_entry.insert(value);
                 Ok(self
                     .values
-                    .get(name.lexeme)
+                    .get(&name.lexeme)
                     .expect("A value for this key must be just inserted")
                     .clone()) // we treat Values as true "value objects" (see comment on the Value enum)
             }

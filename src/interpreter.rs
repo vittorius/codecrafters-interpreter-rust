@@ -28,7 +28,7 @@ impl Interpreter {
         }
     }
 
-    pub fn interpret(&self, statements: &[Stmt<'_>]) -> Result {
+    pub fn interpret(&self, statements: &[Stmt]) -> Result {
         for stmt in statements {
             self.execute(stmt, clone_env(&self.env))?;
         }
@@ -36,16 +36,16 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    pub fn interpret_expr(&self, expr: &Expr<'_>) -> StringResult {
+    pub fn interpret_expr(&self, expr: &Expr) -> StringResult {
         self.evaluate(expr, clone_env(&self.env))
             .map(|v| v.to_string())
     }
 
-    fn execute(&self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
+    fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
         stmt.accept(self, env)
     }
 
-    fn execute_block(&self, statements: &[Stmt<'_>], env: Env) -> StmtResult {
+    pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, clone_env(&env))?;
         }
@@ -53,7 +53,7 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    fn evaluate(&self, expr: &Expr<'_>, env: Env) -> ExprResult {
+    fn evaluate(&self, expr: &Expr, env: Env) -> ExprResult {
         expr.accept(self, env)
     }
 
@@ -76,13 +76,13 @@ impl Interpreter {
         }
     }
 
-    fn error(token: &Token<'_>, message: &str) -> ExprResult {
+    fn error(token: &Token, message: &str) -> ExprResult {
         Err(RuntimeError::new(token, message))
     }
 
-    fn visit_literal<'l>(literal: &token::Literal<'l>) -> ExprResult {
+    fn visit_literal(literal: &token::Literal) -> ExprResult {
         Ok(match literal {
-            token::Literal::Str(s) => Value::Str((*s).to_owned()),
+            token::Literal::Str(s) => Value::Str(s.clone()),
             token::Literal::Num(n) => Value::Num(*n),
             token::Literal::Bool(b) => Value::Bool(*b),
             token::Literal::Nil => Value::Nil,
@@ -91,9 +91,9 @@ impl Interpreter {
 
     fn visit_logical(
         &self,
-        left: &Expr<'_>,
-        operator: &Token<'_>,
-        right: &Expr<'_>,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
         env: Env,
     ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
@@ -111,7 +111,7 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_unary(&self, operator: &Token<'_>, expr: &Expr<'_>, env: Env) -> ExprResult {
+    fn visit_unary(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
@@ -124,9 +124,9 @@ impl Interpreter {
 
     fn visit_binary(
         &self,
-        left: &Expr<'_>,
-        operator: &Token<'_>,
-        right: &Expr<'_>,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
         env: Env,
     ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
@@ -170,9 +170,9 @@ impl Interpreter {
 
     fn visit_call(
         &self,
-        callee: &Expr<'_>,
-        paren: &Token<'_>,
-        arguments: &[Expr<'_>],
+        callee: &Expr,
+        paren: &Token,
+        arguments: &[Expr],
         env: Env,
     ) -> ExprResult {
         let callee = self.evaluate(callee, clone_env(&env))?;
@@ -202,9 +202,9 @@ impl Interpreter {
 
     fn visit_conditional(
         &self,
-        cond: &Expr<'_>,
-        left: &Expr<'_>,
-        right: &Expr<'_>,
+        cond: &Expr,
+        left: &Expr,
+        right: &Expr,
         env: Env,
     ) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
@@ -214,7 +214,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable(&self, name: &Token<'_>, env: Env) -> ExprResult {
+    fn visit_variable(&self, name: &Token, env: Env) -> ExprResult {
         match env.borrow().get(name) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
@@ -228,15 +228,15 @@ impl Interpreter {
         }
     }
 
-    fn visit_assign(&self, name: &Token<'_>, value: Value, env: Env) -> ExprResult {
+    fn visit_assign(&self, name: &Token, value: Value, env: Env) -> ExprResult {
         env.borrow_mut().assign(name, value)
     }
 
     fn visit_if_statement(
         &self,
-        condition: &Expr<'_>,
-        then_branch: &Stmt<'_>,
-        else_branch: &Option<Box<Stmt<'_>>>,
+        condition: &Expr,
+        then_branch: &Stmt,
+        else_branch: &Option<Box<Stmt>>,
         env: Env,
     ) -> StmtResult {
         if Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
@@ -247,7 +247,7 @@ impl Interpreter {
         Ok(VOID)
     }
 
-    fn visit_while_statement(&self, condition: &Expr<'_>, body: &Stmt<'_>, env: Env) -> StmtResult {
+    fn visit_while_statement(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
         while Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
             self.execute(body, clone_env(&env))?
         }
@@ -256,8 +256,8 @@ impl Interpreter {
     }
 }
 
-impl<'a> expr::Visitor<'a, ExprResult> for Interpreter {
-    fn visit_expr(&self, expr: &'a Expr<'a>, env: Env) -> ExprResult {
+impl expr::Visitor<ExprResult> for Interpreter {
+    fn visit_expr(&self, expr: &Expr, env: Env) -> ExprResult {
         match expr {
             Expr::Binary {
                 left,
@@ -290,7 +290,7 @@ impl<'a> expr::Visitor<'a, ExprResult> for Interpreter {
 }
 
 impl stmt::Visitor<StmtResult> for Interpreter {
-    fn visit_stmt(&self, stmt: &Stmt<'_>, env: Env) -> StmtResult {
+    fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).map(|_| VOID),
             Stmt::Function { name, params, body } => todo!(),
@@ -309,7 +309,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
                     None => Value::Nil,
                 };
 
-                env.borrow_mut().define(token.lexeme, value);
+                env.borrow_mut().define(&token.lexeme, value);
 
                 Ok(VOID)
             }
