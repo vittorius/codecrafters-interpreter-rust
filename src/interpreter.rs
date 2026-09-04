@@ -38,6 +38,9 @@ impl Interpreter {
     pub fn interpret(&self, statements: &[Stmt]) -> Result {
         for stmt in statements {
             self.execute(stmt, clone_env(&self.env))?;
+            if self.env.borrow().is_returning_from_fn() {
+                break;
+            }
         }
 
         VOID_OK
@@ -63,6 +66,9 @@ impl Interpreter {
     pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, clone_env(&env))?;
+            if env.borrow().is_returning_from_fn() {
+                break;
+            }
         }
 
         VOID_OK
@@ -225,7 +231,7 @@ impl Interpreter {
     }
 
     fn visit_function_statement(&self, declaration: FunctionDeclaration, env: Env) -> StmtResult {
-        let function = Function::new(declaration);
+        let function = Function::new(declaration, clone_env(&env));
         env.borrow_mut().define(
             function.name().to_owned(),
             Value::Callable(Rc::new(function)),
@@ -263,7 +269,10 @@ impl Interpreter {
 
     fn visit_while_statement(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
         while Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
-            self.execute(body, clone_env(&env))?
+            self.execute(body, clone_env(&env))?;
+            if env.borrow().is_returning_from_fn() {
+                break;
+            }
         }
 
         VOID_OK

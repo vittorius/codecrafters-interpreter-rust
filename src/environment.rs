@@ -13,6 +13,7 @@ pub struct BareEnv {
     values: HashMap<String, Value>,
     enclosing: Option<Env>,
     return_value: Option<Value>,
+    is_fn: bool,
 }
 
 impl BareEnv {
@@ -21,13 +22,25 @@ impl BareEnv {
             values: HashMap::new(),
             enclosing: None,
             return_value: None,
+            is_fn: false,
         }
     }
 
     pub fn with_enclosing(enclosing: Env) -> Self {
         Self {
             enclosing: Some(enclosing),
-            ..Self::new()
+            is_fn: false,
+            values: HashMap::new(),
+            return_value: None,
+        }
+    }
+
+    pub fn for_fn(closure: Env) -> Self {
+        Self {
+            enclosing: Some(closure),
+            is_fn: true,
+            values: HashMap::new(),
+            return_value: None,
         }
     }
 
@@ -78,7 +91,7 @@ impl BareEnv {
     }
 
     pub fn return_from_fn(&mut self, value: Value) {
-        self.return_value = Some(value)
+        self.return_value = Some(value);
     }
 
     pub fn is_returning_from_fn(&self) -> bool {
@@ -94,4 +107,14 @@ impl BareEnv {
 // but hiding the implementation details (`Rc`) a bit.
 pub fn clone_env(env: &Env) -> Env {
     Rc::clone(env)
+}
+
+impl Drop for BareEnv {
+    fn drop(&mut self) {
+        if let Some(enclosing) = &self.enclosing
+            && let Some(return_value) = self.return_value.take()
+        {
+            enclosing.borrow_mut().return_from_fn(return_value);
+        }
+    }
 }

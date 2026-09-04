@@ -11,11 +11,15 @@ use crate::{
 #[derive(Debug)]
 pub struct Function {
     declaration: FunctionDeclaration,
+    closure: Env,
 }
 
 impl Function {
-    pub fn new(declaration: FunctionDeclaration) -> Self {
-        Self { declaration }
+    pub fn new(declaration: FunctionDeclaration, closure: Env) -> Self {
+        Self {
+            declaration,
+            closure,
+        }
     }
 
     pub fn name(&self) -> &str {
@@ -29,7 +33,7 @@ impl Callable for Function {
     }
 
     fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult {
-        let env = BareEnv::with_enclosing(interpreter.globals()).wrapped();
+        let env = BareEnv::for_fn(clone_env(&self.closure)).wrapped();
 
         for (i, p) in self.declaration.params.iter().enumerate() {
             env.borrow_mut()
