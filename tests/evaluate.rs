@@ -5,10 +5,12 @@ mod common;
 
 use common::{TempLoxFile, run_binary};
 
+#[allow(dead_code)]
 fn run_evaluate(path: &Path) -> Output {
     run_binary("evaluate", path)
 }
 
+#[allow(dead_code)]
 fn assert_evaluate_success(source: &str, expected_stdout: &str) {
     let file = TempLoxFile::new(source);
     let output = run_evaluate(&file.path);
