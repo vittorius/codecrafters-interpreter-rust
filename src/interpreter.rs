@@ -1,12 +1,14 @@
 use std::rc::Rc;
 
+#[cfg(feature = "lambda")]
+use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
     error::RuntimeError,
     expr::{self, Expr},
     function::Function,
     native::ClockFunction,
-    stmt::{self, FunctionDeclaration, Stmt},
+    stmt::{self, Stmt, fun_decl::FunDecl},
     token::{self, Token, TokenType as TT},
     value::Value::{self, Callable},
 };
@@ -226,10 +228,19 @@ impl Interpreter {
         env.borrow_mut().assign(name, value)
     }
 
-    fn visit_function_statement(&self, declaration: FunctionDeclaration, env: Env) -> StmtResult {
-        let function = Function::new(declaration, clone_env(&env));
+    #[cfg(feature = "lambda")]
+    fn visit_function_expr(&self, fun_expr: FunExpr, env: Env) -> ExprResult {
+        let function = Function::new_lambda(fun_expr, clone_env(&env));
+        Ok(Value::Callable(Rc::new(function)))
+    }
+
+    fn visit_function_statement(&self, decl: FunDecl, env: Env) -> StmtResult {
+        let function = Function::new(decl, clone_env(&env));
         env.borrow_mut().define(
-            function.name().to_owned(),
+            function
+                .name()
+                .expect("A regular function always has a name")
+                .to_owned(),
             Value::Callable(Rc::new(function)),
         );
 
@@ -304,6 +315,8 @@ impl expr::Visitor<ExprResult> for Interpreter {
                 let value = self.evaluate(value, clone_env(&env))?;
                 self.visit_assign(name, value, env)
             }
+            #[cfg(feature = "lambda")]
+            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
         }
     }
 }
@@ -312,7 +325,7 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).and(VOID_OK),
-            Stmt::Function(declaration) => self.visit_function_statement(declaration.clone(), env),
+            Stmt::Function(decl) => self.visit_function_statement(decl.clone(), env),
             Stmt::If {
                 condition,
                 then_branch,

@@ -4,7 +4,7 @@
 //! declaration    → funDecl | varDecl | statement ;
 //! funDecl        → "fun" function ;
 //! function       → IDENTIFIER "(" parameters? ")" block ;
-//! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;/
+//! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
 //! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
 //! statement      → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
 //! exprStmt       → expression ";"
@@ -19,7 +19,9 @@
 //! assignment     → IDENTIFIER "=" assignment | conditional ;
 //! conditional    → logic_or ("?" logic_or ":" conditional)? ;
 //! logic_or       → logic_and ( "or" logic_and )* ;
-//! logic_and      → equality ( "and" equality )* ;
+//! logic_and      → funExpr ( "and" funExpr )* ;
+//! funExpr        → lambda | equality ;
+//! lambda         → "fun" "(" parameters? ")" block ;
 //! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 //! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 //! term           → factor ( ( "-" | "+" ) factor )* ;
@@ -32,9 +34,12 @@
 use std::{error::Error, fmt::Display};
 
 use crate::{
-    expr::Expr,
+    expr::{
+        Expr,
+        fun_expr::{FunBody, FunExpr, FunParams},
+    },
     lox,
-    stmt::{FunctionDeclaration, Stmt},
+    stmt::{Stmt, fun_decl::FunDecl},
     token::{self, Literal, Token, TokenType, TokenType as TT},
 };
 
@@ -66,6 +71,8 @@ pub struct Parser {
 enum FunctionKind {
     Function,
     Method,
+    #[cfg(feature = "lambda")]
+    Lambda,
 }
 
 impl Display for FunctionKind {
@@ -73,13 +80,15 @@ impl Display for FunctionKind {
         match &self {
             FunctionKind::Function => write!(f, "function"),
             FunctionKind::Method => write!(f, "method"),
+            #[cfg(feature = "lambda")]
+            FunctionKind::Lambda => write!(f, "lambda"),
         }
     }
 }
 
-impl Parser {
-    const FUN_ARGS_MAX: usize = 255;
+const FUN_ARGS_MAX: usize = 255;
 
+impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
@@ -184,7 +193,14 @@ impl Parser {
 
     fn declaration(&mut self) -> StmtResult {
         if self.match_next(TT::FUN) {
-            self.function(FunctionKind::Function)
+            if cfg!(feature = "lambda") && !self.check(TT::IDENTIFIER) {
+                Err(Self::mk_error(
+                    self.previous(),
+                    "Lambda functions are forbidden in statements",
+                ))
+            } else {
+                self.function(FunctionKind::Function)
+            }
         } else if self.match_next(TT::VAR) {
             let decl = self.var_declaration();
             if decl.is_err() {
@@ -203,38 +219,12 @@ impl Parser {
         let name = self
             .consume(TT::IDENTIFIER, &format!("Expect {} name.", kind))?
             .clone();
-        self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
 
-        let mut params = Vec::<Token>::new();
-        if !self.check(TT::RIGHT_PAREN) {
-            loop {
-                if params.len() >= Self::FUN_ARGS_MAX {
-                    return Err(Self::mk_error(
-                        self.peek(),
-                        "Can't have more than 255 parameters.",
-                    ));
-                }
-                params.push(
-                    self.consume(TT::IDENTIFIER, "Expect parameter name.")?
-                        .clone(),
-                );
-
-                if !self.match_next(TT::COMMA) {
-                    break;
-                }
-            }
-        }
-        self.consume(TT::RIGHT_PAREN, "Expect ')' after parameters.")?;
-
-        self.consume(
-            TT::LEFT_BRACE,
-            &format!("Expect '{{' before {} body.", kind),
-        )?;
-        let Stmt::Block(body) = self.block()? else {
-            unreachable!("block statement must return a collection of statements")
-        };
-
-        Ok(Stmt::Function(FunctionDeclaration { name, params, body }))
+        let (params, body) = self.function_body(kind)?;
+        Ok(Stmt::Function(FunDecl {
+            name,
+            expr: FunExpr { params, body },
+        }))
     }
 
     fn var_declaration(&mut self) -> StmtResult {
@@ -471,10 +461,16 @@ impl Parser {
     }
 
     fn and(&mut self) -> ExprResult {
+        #[cfg(feature = "lambda")]
+        let mut expr = self.fun_expr()?;
+        #[cfg(not(feature = "lambda"))]
         let mut expr = self.equality()?;
 
         while self.match_next(TT::AND) {
             let operator = self.previous().clone();
+            #[cfg(feature = "lambda")]
+            let right = self.fun_expr()?.boxed();
+            #[cfg(not(feature = "lambda"))]
             let right = self.equality()?.boxed();
 
             expr = Expr::Logical {
@@ -485,6 +481,60 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    #[cfg(feature = "lambda")]
+    fn fun_expr(&mut self) -> ExprResult {
+        if self.match_next(TT::FUN) {
+            let (params, body) = self.function_body(FunctionKind::Lambda)?;
+            Ok(Expr::Lambda(FunExpr { params, body }))
+        } else {
+            self.equality()
+        }
+    }
+
+    fn function_body(
+        &mut self,
+        kind: FunctionKind,
+    ) -> std::result::Result<(FunParams, FunBody), ParseError> {
+        #[cfg(feature = "lambda")]
+        self.consume(
+            TT::LEFT_PAREN,
+            &format!("Expect '(' before {} parameters", FunctionKind::Lambda),
+        )?;
+        #[cfg(not(feature = "lambda"))]
+        self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
+
+        let mut params = Vec::<Token>::new();
+        if !self.check(TT::RIGHT_PAREN) {
+            loop {
+                if params.len() >= FUN_ARGS_MAX {
+                    return Err(Self::mk_error(
+                        self.peek(),
+                        &format!("Can't have more than {} arguments.", FUN_ARGS_MAX),
+                    ));
+                }
+                params.push(
+                    self.consume(TT::IDENTIFIER, "Expect parameter name.")?
+                        .clone(),
+                );
+
+                if !self.match_next(TT::COMMA) {
+                    break;
+                }
+            }
+        }
+        self.consume(TT::RIGHT_PAREN, "Expect ')' after parameters.")?;
+
+        self.consume(
+            TT::LEFT_BRACE,
+            &format!("Expect '{{' before {} body.", kind),
+        )?;
+        let Stmt::Block(body) = self.block()? else {
+            unreachable!("block statement must return a collection of statements")
+        };
+
+        Ok((params, body))
     }
 
     fn equality(&mut self) -> ExprResult {
@@ -584,10 +634,10 @@ impl Parser {
 
         if !self.check(TT::RIGHT_PAREN) {
             loop {
-                if arguments.len() >= 255 {
+                if arguments.len() >= FUN_ARGS_MAX {
                     return Err(Self::mk_error(
                         self.peek(),
-                        "Can't have more than 255 arguments.",
+                        &format!("Can't have more than {} arguments.", FUN_ARGS_MAX),
                     ));
                 }
                 #[cfg(not(feature = "comma-op"))]

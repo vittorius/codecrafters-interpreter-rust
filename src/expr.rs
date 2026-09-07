@@ -1,6 +1,13 @@
+#[cfg(feature = "lambda")]
+use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::Env, token::{self, Token},
+    environment::Env,
+    token::{self, Token},
 };
+
+pub mod fun_expr;
+
+// pub use fun_expr::*;
 
 pub trait Visitor<R> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> R;
@@ -44,6 +51,8 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    #[cfg(feature = "lambda")]
+    Lambda(FunExpr),
 }
 
 impl Expr {

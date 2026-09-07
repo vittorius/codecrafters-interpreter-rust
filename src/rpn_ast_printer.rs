@@ -1,3 +1,5 @@
+#[cfg(feature = "lambda")]
+use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
     expr::{Expr, Visitor},
@@ -20,13 +22,7 @@ impl<'a> RpnAstPrinter<'a> {
         format!("{} {}", expr.accept(self, env), name)
     }
 
-    fn format_binary(
-        &self,
-        name: &str,
-        left: &'a Expr,
-        right: &'a Expr,
-        env: Env,
-    ) -> String {
+    fn format_binary(&self, name: &str, left: &'a Expr, right: &'a Expr, env: Env) -> String {
         format!(
             "{} {} {}",
             left.accept(self, clone_env(&env)),
@@ -62,6 +58,15 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_assign(&self, name: &str, value: &'a Expr, env: Env) -> String {
         format!("{} {} <-", name, value.accept(self, env))
     }
+    #[cfg(feature = "lambda")]
+    fn format_lambda(&self, fun_expr: &FunExpr) -> String {
+        let mut s = String::from("(");
+        for param in fun_expr.params.iter() {
+            s.push_str(&format!("{} ", param.lexeme));
+        }
+        s.push_str(&format!("{})", "lambda"));
+        s
+    }
 }
 
 impl Visitor<String> for RpnAstPrinter<'_> {
@@ -90,6 +95,8 @@ impl Visitor<String> for RpnAstPrinter<'_> {
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable(name) => name.lexeme.to_owned(),
             Expr::Assign { name, value } => self.format_assign(&name.lexeme, value, env),
+            #[cfg(feature = "lambda")]
+            Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
         }
     }
 }

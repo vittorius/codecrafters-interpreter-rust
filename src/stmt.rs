@@ -1,14 +1,14 @@
-use crate::{environment::Env, expr::Expr, token::Token};
+use crate::{
+    environment::Env,
+    expr::Expr,
+    stmt::fun_decl::FunDecl,
+    token::Token,
+};
+
+pub mod fun_decl;
 
 pub trait Visitor<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
-}
-
-#[derive(Debug, Clone)]
-pub struct FunctionDeclaration {
-    pub name: Token,
-    pub params: Vec<Token>,
-    pub body: Vec<Stmt>,
 }
 
 // These variants own their Exprs because the latter ones
@@ -19,7 +19,7 @@ pub struct FunctionDeclaration {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Expression(Expr),
-    Function(FunctionDeclaration),
+    Function(FunDecl),
     If {
         condition: Expr,
         then_branch: Box<Stmt>,
