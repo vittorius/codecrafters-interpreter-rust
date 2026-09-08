@@ -91,7 +91,6 @@ impl Display for TokenType {
 // Also, the reason for this is the ability to reuse the `Stmt` struct to store the
 // functions' code in the persistent environment and execute it within the interpreter later.
 // Otherwise, we would have to invent a parallel owned `Stmt` kind for that etc. etc.
-// #[derive(Debug, Copy, Clone)]
 #[derive(Debug, Clone)]
 pub enum Literal {
     Str(String),

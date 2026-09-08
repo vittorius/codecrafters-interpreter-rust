@@ -31,7 +31,7 @@
 //! arguments      → expression ( "," expression )* ;
 //! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
-use std::{error::Error, fmt::Display};
+use std::fmt::Display;
 
 use crate::{
     expr::{
@@ -46,7 +46,11 @@ use crate::{
 #[derive(Debug)]
 pub struct ParseError(pub String);
 
-impl Error for ParseError {}
+impl From<ParseError> for String {
+    fn from(value: ParseError) -> Self {
+        value.0
+    }
+}
 
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -237,10 +241,7 @@ impl Parser {
 
         self.consume(TT::SEMICOLON, "Expect ';' after variable declaration.")?;
 
-        Ok(Stmt::Var {
-            name,
-            initializer,
-        })
+        Ok(Stmt::Var { name, initializer })
     }
 
     fn statement(&mut self) -> StmtResult {

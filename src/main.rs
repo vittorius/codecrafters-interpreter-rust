@@ -22,6 +22,7 @@ use crate::interpreter::Interpreter;
 use crate::parser::ParseError;
 use crate::parser::Parser;
 use crate::resolver::Resolver;
+use crate::scanner::ScanError;
 use crate::scanner::Scanner;
 
 mod ast_printer;
@@ -108,14 +109,14 @@ fn main() -> ExitCode {
 fn tokenize(source: &str) -> ExitValue {
     let scanner = Scanner::new(source);
     match scanner.scan_tokens() {
-        scanner::Result::Ok(tokens) => {
+        Ok(tokens) => {
             for token in tokens {
                 println!("{token}");
             }
 
             ExitValue::Success
         }
-        scanner::Result::Err(error_sink, tokens) => {
+        Err(ScanError(error_sink, tokens)) => {
             for err in error_sink.errors() {
                 eprintln!("{err}");
             }
@@ -193,26 +194,17 @@ fn run(source: &str) -> ExitValue {
 
 fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(), String> {
     let scanner = Scanner::new(source);
-    let tokens = match scanner.scan_tokens() {
-        scanner::Result::Ok(tokens) => tokens,
-        scanner::Result::Err(error_sink, tokens) => {
-            return Err(error_sink.errors().fold(String::from(""), |mut acc, e| {
-                acc.push_str(&format!("\n{e}"));
-                acc
-            }));
-        }
-    };
+    let tokens = scanner.scan_tokens()?;
+
     let mut parser = Parser::new(tokens);
+    let statements = parser.parse()?;
 
-    let statements = match parser.parse() {
-        Ok(res) => res,
-        Err(ParseError(msg)) => return Err(msg),
-    };
+    let mut resolver = Resolver::new(interpreter);
+    resolver.resolve_statements(&statements)?;
 
-    match interpreter.interpret(&statements) {
-        Ok(_) => Ok(()),
-        Err(RuntimeError(msg)) => Err(msg),
-    }
+    interpreter.interpret(&statements)?;
+
+    Ok(())
 }
 
 // TODO: add syntax highlighting (or, at least, the prompt highlighting)

@@ -1,6 +1,10 @@
 use std::{collections::HashMap, iter::Peekable, str::Chars, sync::LazyLock};
 
-use crate::{error::ErrorSink, lox::fmt_error, token::{Literal, Token, TokenType}};
+use crate::{
+    error::ErrorSink,
+    lox::fmt_error,
+    token::{Literal, Token, TokenType},
+};
 
 // TODO: refactor using phf crate
 static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
@@ -65,9 +69,16 @@ impl<'a> Cursor<'a> {
 }
 
 pub type Tokens = Vec<Token>;
-pub enum Result {
-    Ok(Tokens),
-    Err(ErrorSink, Tokens), // have to return both errors (printed first) and tokens (printed second) because of "tokenize" command requirements
+pub struct ScanError(pub ErrorSink, pub Tokens);
+pub type Result = std::result::Result<Tokens, ScanError>;
+
+impl From<ScanError> for String {
+    fn from(value: ScanError) -> Self {
+        value.0.errors().fold(String::from(""), |mut acc, e| {
+            acc.push_str(&format!("\n{e}"));
+            acc
+        })
+    }
 }
 
 pub struct Scanner<'a> {
@@ -103,9 +114,9 @@ impl<'a> Scanner<'a> {
             .push(Token::new(TokenType::EOF, "".to_owned(), None, self.line));
 
         if self.errors.is_empty() {
-            Result::Ok(self.tokens)
+            Ok(self.tokens)
         } else {
-            Result::Err(self.errors, self.tokens)
+            Err(ScanError(self.errors, self.tokens))
         }
     }
 

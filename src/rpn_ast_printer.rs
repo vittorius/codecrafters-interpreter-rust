@@ -50,9 +50,9 @@ impl<'a> RpnAstPrinter<'a> {
     ) -> String {
         format!(
             "?: {} {} {}",
-            cond.accept(self, clone_env(&env)),
-            left.accept(self, clone_env(&env)),
-            right.accept(self, env),
+            cond.accept_visitor_env(self, clone_env(&env)),
+            left.accept_visitor_env(self, clone_env(&env)),
+            right.accept_visitor_env(self, env),
         )
     }
 

@@ -9,6 +9,12 @@ impl RuntimeError {
     }
 }
 
+impl From<RuntimeError> for String {
+    fn from(value: RuntimeError) -> Self {
+        value.0
+    }
+}
+
 pub struct ErrorSink {
     errors: Vec<String>,
 }

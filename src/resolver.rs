@@ -1,12 +1,11 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
-    expr::{self, Expr, VisitorEnv},
+    expr::{self, Expr, fun_expr::FunExpr},
     interpreter::{Interpreter, Void},
     lox,
     stmt::{self, Stmt, fun_decl::FunDecl},
     token::{Literal, Token},
-    value::Value,
 };
 
 pub struct ResolveError(String);
@@ -14,6 +13,12 @@ pub struct ResolveError(String);
 impl ResolveError {
     pub fn new(token: &Token, message: &str) -> Self {
         ResolveError(lox::fmt_runtime_error(token.line, message))
+    }
+}
+
+impl From<ResolveError> for String {
+    fn from(value: ResolveError) -> Self {
+        value.0
     }
 }
 
@@ -31,6 +36,14 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: Vec::new(),
         }
+    }
+
+    pub fn resolve_statements(&mut self, statements: &[Stmt]) -> ResolveResult {
+        for stmt in statements {
+            stmt.accept_visitor_mut(self)?;
+        }
+
+        VOID_OK
     }
 
     fn error(token: &Token, message: &str) -> ResolveResult {
@@ -130,17 +143,13 @@ impl<'a> Resolver<'a> {
 
         VOID_OK
     }
+    
+    fn visit_function_expr(&mut self, fun_expr: &FunExpr) -> ResolveResult {
+        self.resolve_function(fun_expr)
+    }
 
     fn resolve_stmt(&mut self, stmt: &Stmt) -> ResolveResult {
         stmt.accept_visitor_mut(self)
-    }
-
-    fn resolve_statements(&mut self, statements: &[Stmt]) -> ResolveResult {
-        for stmt in statements {
-            stmt.accept_visitor_mut(self)?;
-        }
-
-        VOID_OK
     }
 
     fn visit_var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> ResolveResult {
@@ -174,7 +183,7 @@ impl<'a> Resolver<'a> {
         self.declare(&decl.name);
         self.define(&decl.name);
 
-        self.resolve_function(decl)
+        self.resolve_function(&decl.expr)
     }
 
     fn visit_if_stmt(
@@ -201,13 +210,13 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(value)
     }
 
-    fn resolve_function(&mut self, decl: &FunDecl) -> ResolveResult {
+    fn resolve_function(&mut self, fun_expr: &FunExpr) -> ResolveResult {
         self.begin_scope();
-        for param in decl.params() {
+        for param in &fun_expr.params {
             self.declare(param);
             self.define(param);
         }
-        self.resolve_statements(decl.body())?;
+        self.resolve_statements(&fun_expr.body)?;
         self.end_scope();
 
         VOID_OK
@@ -240,7 +249,7 @@ impl<'a> expr::VisitorMut<ResolveResult> for Resolver<'a> {
             expr @ Expr::Variable(name) => self.visit_variable_expr(expr, name),
             expr @ Expr::Assign { name, value } => self.visit_assign(expr, name, value),
             #[cfg(feature = "lambda")]
-            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone()),
+            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr),
         }
     }
 }
