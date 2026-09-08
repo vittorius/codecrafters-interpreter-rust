@@ -21,6 +21,7 @@ use crate::error::RuntimeError;
 use crate::interpreter::Interpreter;
 use crate::parser::ParseError;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::Scanner;
 
 mod ast_printer;
@@ -34,6 +35,7 @@ mod interpreter;
 mod lox;
 mod native;
 mod parser;
+mod resolver;
 mod rpn_ast_printer;
 mod scanner;
 mod stmt;
@@ -228,11 +230,13 @@ fn repl() -> Result<(), ExitValue> {
         Ok(())
     }
 
+    let mut interpreter = Interpreter::new();
+    let mut resolver = Resolver::new(&mut interpreter);
+    let mut source = String::new();
+
     const PROMPT: &str = "> ";
     let mut history = Vec::<String>::new();
     let mut history_pos: usize = 0;
-    let mut interpreter = Interpreter::new();
-    let mut source = String::new();
 
     let _raw_mode_guard = RawModeGuard::new()?;
 

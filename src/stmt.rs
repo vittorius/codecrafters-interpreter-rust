@@ -1,14 +1,13 @@
-use crate::{
-    environment::Env,
-    expr::Expr,
-    stmt::fun_decl::FunDecl,
-    token::Token,
-};
+use crate::{environment::Env, expr::Expr, stmt::fun_decl::FunDecl, token::Token};
 
 pub mod fun_decl;
 
-pub trait Visitor<R> {
+pub trait VisitorEnv<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
+}
+
+pub trait VisitorMut<R> {
+    fn visit_stmt(&mut self, stmt: &Stmt) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -42,8 +41,12 @@ pub enum Stmt {
 }
 
 impl Stmt {
-    pub fn accept<R>(&self, visitor: &impl Visitor<R>, env: Env) -> R {
+    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: Env) -> R {
         visitor.visit_stmt(self, env)
+    }
+
+    pub fn accept_visitor_mut<R>(&self, visitor: &mut impl VisitorMut<R>) -> R {
+        visitor.visit_stmt(self)
     }
 
     pub fn boxed(self) -> Box<Self> {

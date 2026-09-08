@@ -2,7 +2,7 @@
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
-    expr::{Expr, Visitor},
+    expr::{Expr, VisitorEnv},
 };
 
 pub struct RpnAstPrinter<'a> {
@@ -19,14 +19,14 @@ impl<'a> RpnAstPrinter<'a> {
     }
 
     fn format_unary(&self, name: &str, expr: &'a Expr, env: Env) -> String {
-        format!("{} {}", expr.accept(self, env), name)
+        format!("{} {}", expr.accept_visitor_env(self, env), name)
     }
 
     fn format_binary(&self, name: &str, left: &'a Expr, right: &'a Expr, env: Env) -> String {
         format!(
             "{} {} {}",
-            left.accept(self, clone_env(&env)),
-            right.accept(self, env),
+            left.accept_visitor_env(self, clone_env(&env)),
+            right.accept_visitor_env(self, env),
             name
         )
     }
@@ -34,9 +34,9 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = String::from("(");
         for arg in arguments {
-            s.push_str(&format!("{} ", arg.accept(self, clone_env(&env))));
+            s.push_str(&format!("{} ", arg.accept_visitor_env(self, clone_env(&env))));
         }
-        s.push_str(&format!("{})", callee.accept(self, clone_env(&env))));
+        s.push_str(&format!("{})", callee.accept_visitor_env(self, clone_env(&env))));
         s
     }
 
@@ -57,7 +57,7 @@ impl<'a> RpnAstPrinter<'a> {
     }
 
     fn format_assign(&self, name: &str, value: &'a Expr, env: Env) -> String {
-        format!("{} {} <-", name, value.accept(self, env))
+        format!("{} {} <-", name, value.accept_visitor_env(self, env))
     }
     #[cfg(feature = "lambda")]
     fn format_lambda(&self, fun_expr: &FunExpr) -> String {
@@ -70,7 +70,7 @@ impl<'a> RpnAstPrinter<'a> {
     }
 }
 
-impl Visitor<String> for RpnAstPrinter<'_> {
+impl VisitorEnv<String> for RpnAstPrinter<'_> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
             Expr::Binary {
@@ -87,7 +87,7 @@ impl Visitor<String> for RpnAstPrinter<'_> {
             Expr::Conditional { cond, left, right } => {
                 self.format_conditional(cond, left, right, env)
             }
-            Expr::Grouping(expr) => expr.accept(self, env),
+            Expr::Grouping(expr) => expr.accept_visitor_env(self, env),
             Expr::Literal(value) => value.to_string(),
             Expr::Logical {
                 left,

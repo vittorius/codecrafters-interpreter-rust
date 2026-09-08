@@ -7,10 +7,12 @@ use crate::{
 
 pub mod fun_expr;
 
-// pub use fun_expr::*;
-
-pub trait Visitor<R> {
+pub trait VisitorEnv<R> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> R;
+}
+
+pub trait VisitorMut<R> {
+    fn visit_expr(&mut self, expr: &Expr) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -57,8 +59,12 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn accept<R>(&self, visitor: &impl Visitor<R>, env: Env) -> R {
+    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: Env) -> R {
         visitor.visit_expr(self, env)
+    }
+
+    pub fn accept_visitor_mut<R>(&self, visitor: &mut impl VisitorMut<R>) -> R {
+        visitor.visit_expr(self)
     }
 
     pub fn boxed(self) -> Box<Self> {

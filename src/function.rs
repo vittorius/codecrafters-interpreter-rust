@@ -10,6 +10,9 @@ use crate::{
     value::Value,
 };
 
+// TODO: use const generics to separate function and lambda implementation details
+// Or, have 2 different types for function and lambda and move call default impl
+// to the Callable trait body
 #[derive(Debug)]
 pub struct Function {
     name: Option<Token>,

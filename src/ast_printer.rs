@@ -2,7 +2,7 @@
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
-    expr::{Expr, Visitor},
+    expr::{Expr, VisitorEnv},
 };
 
 pub struct AstPrinter<'a> {
@@ -19,22 +19,22 @@ impl<'a> AstPrinter<'a> {
     }
 
     fn parenthesize_unary(&self, name: &str, expr: &Expr, env: Env) -> String {
-        format!("({} {})", name, expr.accept(self, env))
+        format!("({} {})", name, expr.accept_visitor_env(self, env))
     }
 
     fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: Env) -> String {
         format!(
             "({} {} {})",
             name,
-            left.accept(self, clone_env(&env)),
-            right.accept(self, env)
+            left.accept_visitor_env(self, clone_env(&env)),
+            right.accept_visitor_env(self, env)
         )
     }
 
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
-        let mut s = format!("({}", callee.accept(self, clone_env(&env)));
+        let mut s = format!("({}", callee.accept_visitor_env(self, clone_env(&env)));
         for arg in arguments {
-            s.push_str(&format!(" {}", arg.accept(self, clone_env(&env))));
+            s.push_str(&format!(" {}", arg.accept_visitor_env(self, clone_env(&env))));
         }
         s.push(')');
         s
@@ -43,14 +43,14 @@ impl<'a> AstPrinter<'a> {
     fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> String {
         format!(
             "(?: {} {} {})",
-            cond.accept(self, clone_env(&env)),
-            left.accept(self, clone_env(&env)),
-            right.accept(self, env)
+            cond.accept_visitor_env(self, clone_env(&env)),
+            left.accept_visitor_env(self, clone_env(&env)),
+            right.accept_visitor_env(self, env)
         )
     }
 
     fn parenthesize_assign(&self, name: &str, value: &Expr, env: Env) -> String {
-        format!("(<- {} {})", name, value.accept(self, env))
+        format!("(<- {} {})", name, value.accept_visitor_env(self, env))
     }
 
     #[cfg(feature = "lambda")]
@@ -64,7 +64,7 @@ impl<'a> AstPrinter<'a> {
     }
 }
 
-impl Visitor<String> for AstPrinter<'_> {
+impl VisitorEnv<String> for AstPrinter<'_> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
             Expr::Binary {

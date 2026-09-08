@@ -57,8 +57,12 @@ impl Interpreter {
         clone_env(&self.global_env)
     }
 
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
+        todo!()
+    }
+
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
-        stmt.accept(self, env)
+        stmt.accept_visitor_env(self, env)
     }
 
     pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
@@ -73,7 +77,7 @@ impl Interpreter {
     }
 
     fn evaluate(&self, expr: &Expr, env: Env) -> ExprResult {
-        expr.accept(self, env)
+        expr.accept_visitor_env(self, env)
     }
 
     fn is_truthy(val: &Value) -> bool {
@@ -97,6 +101,10 @@ impl Interpreter {
 
     fn error(token: &Token, message: &str) -> ExprResult {
         Err(RuntimeError::new(token, message))
+    }
+
+    fn visit_grouping(&self, expr: &Expr, env: Env) -> ExprResult {
+        self.evaluate(expr, env)
     }
 
     fn visit_literal(literal: &token::Literal) -> ExprResult {
@@ -235,6 +243,10 @@ impl Interpreter {
         Ok(Value::Callable(Rc::new(function)))
     }
 
+    fn visit_expression_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
+        self.evaluate(expr, env).and(VOID_OK)
+    }
+
     fn visit_function_stmt(&self, decl: FunDecl, env: Env) -> StmtResult {
         let function = Function::new(decl, clone_env(&env));
         env.borrow_mut().define(
@@ -303,7 +315,7 @@ impl Interpreter {
     }
 }
 
-impl expr::Visitor<ExprResult> for Interpreter {
+impl expr::VisitorEnv<ExprResult> for Interpreter {
     fn visit_expr(&self, expr: &Expr, env: Env) -> ExprResult {
         match expr {
             Expr::Binary {
@@ -320,7 +332,7 @@ impl expr::Visitor<ExprResult> for Interpreter {
             Expr::Conditional { cond, left, right } => {
                 self.visit_conditional(cond, left, right, env)
             }
-            Expr::Grouping(expr) => self.evaluate(expr, env),
+            Expr::Grouping(expr) => self.visit_grouping(expr, env),
             Expr::Literal(literal) => Self::visit_literal(literal),
             Expr::Logical {
                 left,
@@ -339,10 +351,10 @@ impl expr::Visitor<ExprResult> for Interpreter {
     }
 }
 
-impl stmt::Visitor<StmtResult> for Interpreter {
+impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
-            Stmt::Expression(expr) => self.evaluate(expr, env).and(VOID_OK),
+            Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
             Stmt::Function(decl) => self.visit_function_stmt(decl.clone(), env),
             Stmt::If {
                 condition,
