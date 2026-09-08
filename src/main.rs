@@ -234,7 +234,7 @@ fn repl() -> Result<(), ExitValue> {
     let mut interpreter = Interpreter::new();
     let mut source = String::new();
 
-    let _raw_mode_guard = RawModeGuard::new();
+    let _raw_mode_guard = RawModeGuard::new()?;
 
     loop {
         print!("{}", PROMPT);
