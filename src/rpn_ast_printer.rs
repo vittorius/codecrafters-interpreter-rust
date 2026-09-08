@@ -40,6 +40,7 @@ impl<'a> RpnAstPrinter<'a> {
         s
     }
 
+    #[cfg(feature = "conditional-op")]
     fn format_conditional(
         &self,
         cond: &'a Expr,
@@ -82,6 +83,7 @@ impl Visitor<String> for RpnAstPrinter<'_> {
                 paren,
                 arguments,
             } => self.format_call(callee, arguments, env),
+            #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
                 self.format_conditional(cond, left, right, env)
             }

@@ -202,6 +202,7 @@ impl Interpreter {
         }
     }
 
+    #[cfg(feature = "conditional-op")]
     fn visit_conditional(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
             self.evaluate(left, env)
@@ -315,6 +316,7 @@ impl expr::Visitor<ExprResult> for Interpreter {
                 paren,
                 arguments,
             } => self.visit_call(callee, paren, arguments, env),
+            #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
                 self.visit_conditional(cond, left, right, env)
             }

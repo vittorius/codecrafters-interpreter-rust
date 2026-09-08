@@ -77,6 +77,7 @@ impl Visitor<String> for AstPrinter<'_> {
                 paren,
                 arguments,
             } => self.parenthesize_call(callee, arguments, env),
+            #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
                 self.parenthesize_ternary(cond, left, right, env)
             }

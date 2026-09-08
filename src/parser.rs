@@ -404,7 +404,10 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> ExprResult {
+        #[cfg(feature = "conditional-op")]
         let expr = self.conditional()?;
+        #[cfg(not(feature = "conditional-op"))]
+        let expr = self.or()?;
 
         if self.match_next(TT::EQUAL) {
             return if let Expr::Variable(name) = expr {
@@ -421,6 +424,7 @@ impl Parser {
         Ok(expr)
     }
 
+    #[cfg(feature = "conditional-op")]
     fn conditional(&mut self) -> ExprResult {
         let cond = self.or()?;
 

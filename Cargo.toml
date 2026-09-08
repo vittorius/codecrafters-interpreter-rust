@@ -15,6 +15,7 @@ thiserror = "1.0.38"                             # error handling
 elided_lifetimes_in_paths = "warn"
 
 [features]
+conditional-op = []
 init-vars = []
 str-cmp = []
 str-num-concat = []
