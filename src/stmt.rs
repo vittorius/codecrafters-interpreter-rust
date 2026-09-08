@@ -31,7 +31,7 @@ pub enum Stmt {
         value: Expr,
     },
     Var {
-        token: Token,
+        name: Token,
         initializer: Option<Expr>,
     },
     While {

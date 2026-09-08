@@ -238,7 +238,7 @@ impl Parser {
         self.consume(TT::SEMICOLON, "Expect ';' after variable declaration.")?;
 
         Ok(Stmt::Var {
-            token: name,
+            name,
             initializer,
         })
     }

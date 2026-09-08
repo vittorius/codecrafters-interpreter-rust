@@ -13,7 +13,7 @@ use crate::{
     value::Value::{self, Callable},
 };
 
-type Void = (); // right now, trying to follow the book, maybe remove it later
+pub type Void = (); // right now, trying to follow the book, maybe remove it later
 const VOID_OK: StmtResult = Ok(());
 
 pub type Result = std::result::Result<Void, RuntimeError>;
@@ -210,7 +210,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable(&self, name: &Token, env: Env) -> ExprResult {
+    fn visit_variable_expr(&self, name: &Token, env: Env) -> ExprResult {
         match env.borrow().get(name) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
@@ -234,7 +234,7 @@ impl Interpreter {
         Ok(Value::Callable(Rc::new(function)))
     }
 
-    fn visit_function_statement(&self, decl: FunDecl, env: Env) -> StmtResult {
+    fn visit_function_stmt(&self, decl: FunDecl, env: Env) -> StmtResult {
         let function = Function::new(decl, clone_env(&env));
         env.borrow_mut().define(
             function
@@ -247,7 +247,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_if_statement(
+    fn visit_if_stmt(
         &self,
         condition: &Expr,
         then_branch: &Stmt,
@@ -262,19 +262,35 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_print_statement(&self, expr: &Expr, env: Env) -> StmtResult {
+    fn visit_print_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
         println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
         VOID_OK
     }
 
-    fn visit_return_statement(&self, expr: &Expr, env: Env) -> StmtResult {
+    fn visit_return_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
         let value = self.evaluate(expr, clone_env(&env))?;
         env.borrow_mut().return_from_fn(value);
 
         VOID_OK
     }
 
-    fn visit_while_statement(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
+    fn visit_variable_stmt(
+        &self,
+        name: &Token,
+        initializer: &Option<Expr>,
+        env: Env,
+    ) -> StmtResult {
+        let value = match initializer {
+            Some(expr) => self.evaluate(expr, clone_env(&env))?,
+            None => Value::Nil,
+        };
+
+        env.borrow_mut().define(name.lexeme.clone(), value);
+
+        VOID_OK
+    }
+
+    fn visit_while_stmt(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
         while Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
             self.execute(body, clone_env(&env))?;
             if env.borrow().is_returning_from_fn() {
@@ -310,7 +326,7 @@ impl expr::Visitor<ExprResult> for Interpreter {
                 right,
             } => self.visit_logical(left, operator, right, env),
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
-            Expr::Variable(name) => self.visit_variable(name, env),
+            Expr::Variable(name) => self.visit_variable_expr(name, env),
             Expr::Assign { name, value } => {
                 let value = self.evaluate(value, clone_env(&env))?;
                 self.visit_assign(name, value, env)
@@ -325,34 +341,20 @@ impl stmt::Visitor<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.evaluate(expr, env).and(VOID_OK),
-            Stmt::Function(decl) => self.visit_function_statement(decl.clone(), env),
+            Stmt::Function(decl) => self.visit_function_stmt(decl.clone(), env),
             Stmt::If {
                 condition,
                 then_branch,
                 else_branch,
-            } => self.visit_if_statement(condition, then_branch, else_branch, clone_env(&env)),
-            Stmt::Print(expr) => self.visit_print_statement(expr, env),
-
-            Stmt::Return { keyword, value } => self.visit_return_statement(value, env),
-            Stmt::Var { token, initializer } => {
-                let value = match initializer {
-                    Some(expr) => self.evaluate(expr, clone_env(&env))?,
-                    None => Value::Nil,
-                };
-
-                env.borrow_mut().define(token.lexeme.clone(), value);
-
-                VOID_OK
-            }
-            Stmt::While { condition, body } => self.visit_while_statement(condition, body, env),
-            Stmt::Block(statements) => {
-                self.execute_block(
-                    statements,
-                    BareEnv::with_enclosing(clone_env(&env)).wrapped(),
-                )?;
-
-                VOID_OK
-            }
+            } => self.visit_if_stmt(condition, then_branch, else_branch, clone_env(&env)),
+            Stmt::Print(expr) => self.visit_print_stmt(expr, env),
+            Stmt::Return { keyword, value } => self.visit_return_stmt(value, env),
+            Stmt::Var { name, initializer } => self.visit_variable_stmt(name, initializer, env),
+            Stmt::While { condition, body } => self.visit_while_stmt(condition, body, env),
+            Stmt::Block(statements) => self.execute_block(
+                statements,
+                BareEnv::with_enclosing(clone_env(&env)).wrapped(),
+            ),
         }
     }
 }
