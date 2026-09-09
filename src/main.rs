@@ -223,7 +223,6 @@ fn repl() -> Result<(), ExitValue> {
     }
 
     let mut interpreter = Interpreter::new();
-    let mut resolver = Resolver::new(&mut interpreter);
     let mut source = String::new();
 
     const PROMPT: &str = "> ";

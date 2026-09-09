@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
 
@@ -55,6 +55,7 @@ impl BareEnv {
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
     // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
+    // TODO: revisit having &str as the key here instead of a &Token
     pub fn get(&self, name: &Token) -> Option<Value> {
         self.values.get(&name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
@@ -63,6 +64,20 @@ impl BareEnv {
                 None
             }
         })
+    }
+
+    // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
+    // TODO: revisit having &str as the key here instead of a &Token
+    pub fn get_at(&self, distance: usize, name: &Token) -> Option<Value> {
+        if distance == 0 {
+            self.get(name)
+        } else {
+            self.ancestor(NonZeroUsize::new(distance).expect("The distance must be non-zero"))
+                .borrow()
+                .values
+                .get(&name.lexeme)
+                .cloned()
+        }
     }
 
     pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
@@ -100,6 +115,26 @@ impl BareEnv {
 
     pub fn clear_return_from_fn(&mut self) -> Option<Value> {
         self.return_value.take()
+    }
+
+    fn ancestor(&self, distance: NonZeroUsize) -> Env {
+        let mut env = clone_env(
+            self.enclosing
+                .as_ref()
+                .expect("Enclosing env must be present (trusting the resolver)"),
+        );
+
+        for _ in NonZeroUsize::MIN..distance {
+            let env_clone = clone_env(
+                env.borrow()
+                    .enclosing
+                    .as_ref()
+                    .expect("Enclosing env must be present (trusting the resolver)"),
+            );
+            env = env_clone;
+        }
+
+        env
     }
 }
 

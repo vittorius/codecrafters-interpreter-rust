@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 #[cfg(feature = "lambda")]
 use crate::expr::fun_expr::FunExpr;
@@ -23,6 +23,7 @@ type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter {
     env: Env,
+    locals: HashMap<*const Expr, usize>,
 }
 
 impl Interpreter {
@@ -32,6 +33,7 @@ impl Interpreter {
             .define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
         Self {
             env,
+            locals: HashMap::new(),
         }
     }
 
@@ -56,7 +58,7 @@ impl Interpreter {
     }
 
     pub fn resolve(&mut self, expr: &Expr, depth: usize) {
-        todo!()
+        self.locals.insert(expr as *const Expr, depth);
     }
 
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
@@ -217,8 +219,8 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable_expr(&self, name: &Token, env: Env) -> ExprResult {
-        match env.borrow().get(name) {
+    fn visit_variable_expr(&self, expr: &Expr, name: &Token, env: Env) -> ExprResult {
+        match self.lookup_variable(expr, name, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
                 Value::Nil => Self::error(
@@ -228,6 +230,14 @@ impl Interpreter {
                 _ => Ok(value),
             },
             None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
+        }
+    }
+
+    fn lookup_variable(&self, expr: &Expr, name: &Token, env: Env) -> Option<Value> {
+        if let Some(distance) = self.locals.get(&(expr as *const Expr)) {
+            env.borrow().get_at(*distance, name)
+        } else {
+            self.globals().borrow().get(name)
         }
     }
 
@@ -338,7 +348,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
                 right,
             } => self.visit_logical(left, operator, right, env),
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
-            Expr::Variable(name) => self.visit_variable_expr(name, env),
+            expr @ Expr::Variable(name) => self.visit_variable_expr(expr, name, env),
             Expr::Assign { name, value } => {
                 let value = self.evaluate(value, clone_env(&env))?;
                 self.visit_assign(name, value, env)
