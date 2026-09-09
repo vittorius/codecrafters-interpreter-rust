@@ -23,7 +23,6 @@ type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter {
     env: Env,
-    global_env: Env,
 }
 
 impl Interpreter {
@@ -32,7 +31,6 @@ impl Interpreter {
         env.borrow_mut()
             .define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
         Self {
-            global_env: clone_env(&env),
             env,
         }
     }
@@ -54,7 +52,7 @@ impl Interpreter {
     }
 
     pub fn globals(&self) -> Env {
-        clone_env(&self.global_env)
+        clone_env(&self.env)
     }
 
     pub fn resolve(&mut self, expr: &Expr, depth: usize) {
