@@ -22,8 +22,8 @@ impl From<ResolveError> for String {
     }
 }
 
-type ResolveResult = std::result::Result<Void, ResolveError>;
-const VOID_OK: ResolveResult = Ok(());
+type ResolutionResult = std::result::Result<Void, ResolveError>;
+const VOID_OK: ResolutionResult = Ok(());
 
 pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
@@ -38,7 +38,7 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    pub fn resolve_statements(&mut self, statements: &[Stmt]) -> ResolveResult {
+    pub fn resolve_statements(&mut self, statements: &[Stmt]) -> ResolutionResult {
         for stmt in statements {
             stmt.accept_visitor_mut(self)?;
         }
@@ -46,7 +46,7 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn error(token: &Token, message: &str) -> ResolveResult {
+    fn error(token: &Token, message: &str) -> ResolutionResult {
         Err(ResolveError::new(token, message))
     }
 
@@ -72,7 +72,7 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn resolve_expr(&mut self, expr: &Expr) -> ResolveResult {
+    fn resolve_expr(&mut self, expr: &Expr) -> ResolutionResult {
         expr.accept_visitor_mut(self)
     }
 
@@ -85,12 +85,12 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn visit_binary(&mut self, left: &Expr, right: &Expr) -> ResolveResult {
+    fn visit_binary(&mut self, left: &Expr, right: &Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_call(&mut self, callee: &Expr, arguments: &[Expr]) -> ResolveResult {
+    fn visit_call(&mut self, callee: &Expr, arguments: &[Expr]) -> ResolutionResult {
         self.resolve_expr(callee)?;
 
         for arg in arguments {
@@ -101,30 +101,30 @@ impl<'a> Resolver<'a> {
     }
 
     #[cfg(feature = "conditional-op")]
-    fn visit_conditional(&mut self, cond: &Expr, left: &Expr, right: &Expr) -> ResolveResult {
+    fn visit_conditional(&mut self, cond: &Expr, left: &Expr, right: &Expr) -> ResolutionResult {
         self.resolve_expr(cond)?;
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_grouping(&mut self, expr: &Expr) -> ResolveResult {
+    fn visit_grouping(&mut self, expr: &Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_literal(literal: &Literal) -> ResolveResult {
+    fn visit_literal(literal: &Literal) -> ResolutionResult {
         VOID_OK
     }
 
-    fn visit_logical(&mut self, left: &Expr, right: &Expr) -> ResolveResult {
+    fn visit_logical(&mut self, left: &Expr, right: &Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_unary(&mut self, right: &Expr) -> ResolveResult {
+    fn visit_unary(&mut self, right: &Expr) -> ResolutionResult {
         self.resolve_expr(right)
     }
 
-    fn visit_variable_expr(&mut self, expr: &Expr, name: &Token) -> ResolveResult {
+    fn visit_variable_expr(&mut self, expr: &Expr, name: &Token) -> ResolutionResult {
         if let Some(scope) = self.scopes.last()
             && let Some(initialized) = scope.get(&name.lexeme)
             && !*initialized
@@ -137,22 +137,22 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn visit_assign(&mut self, expr: &Expr, name: &Token, value: &Expr) -> ResolveResult {
+    fn visit_assign(&mut self, expr: &Expr, name: &Token, value: &Expr) -> ResolutionResult {
         self.resolve_expr(value)?;
         self.resolve_local(expr, name);
 
         VOID_OK
     }
     
-    fn visit_function_expr(&mut self, fun_expr: &FunExpr) -> ResolveResult {
+    fn visit_function_expr(&mut self, fun_expr: &FunExpr) -> ResolutionResult {
         self.resolve_function(fun_expr)
     }
 
-    fn resolve_stmt(&mut self, stmt: &Stmt) -> ResolveResult {
+    fn resolve_stmt(&mut self, stmt: &Stmt) -> ResolutionResult {
         stmt.accept_visitor_mut(self)
     }
 
-    fn visit_var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> ResolveResult {
+    fn visit_var_stmt(&mut self, name: &Token, initializer: &Option<Expr>) -> ResolutionResult {
         self.declare(name);
         if let Some(initializer) = initializer {
             self.resolve_expr(initializer)?;
@@ -162,12 +162,12 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> ResolveResult {
+    fn visit_while_stmt(&mut self, condition: &Expr, body: &Stmt) -> ResolutionResult {
         self.resolve_expr(condition)?;
         self.resolve_stmt(body)
     }
 
-    fn visit_block(&mut self, statements: &[Stmt]) -> ResolveResult {
+    fn visit_block(&mut self, statements: &[Stmt]) -> ResolutionResult {
         self.begin_scope();
         self.resolve_statements(statements)?;
         self.end_scope();
@@ -175,11 +175,11 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_expression_stmt(&mut self, expr: &Expr) -> ResolveResult {
+    fn visit_expression_stmt(&mut self, expr: &Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_function_stmt(&mut self, decl: &FunDecl) -> ResolveResult {
+    fn visit_function_stmt(&mut self, decl: &FunDecl) -> ResolutionResult {
         self.declare(&decl.name);
         self.define(&decl.name);
 
@@ -191,7 +191,7 @@ impl<'a> Resolver<'a> {
         condition: &Expr,
         then_branch: &Stmt,
         else_branch: &Option<Box<Stmt>>,
-    ) -> ResolveResult {
+    ) -> ResolutionResult {
         self.resolve_expr(condition)?;
         self.resolve_stmt(then_branch)?;
 
@@ -202,15 +202,15 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_print_stmt(&mut self, expr: &Expr) -> ResolveResult {
+    fn visit_print_stmt(&mut self, expr: &Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_return_stmt(&mut self, value: &Expr) -> ResolveResult {
+    fn visit_return_stmt(&mut self, value: &Expr) -> ResolutionResult {
         self.resolve_expr(value)
     }
 
-    fn resolve_function(&mut self, fun_expr: &FunExpr) -> ResolveResult {
+    fn resolve_function(&mut self, fun_expr: &FunExpr) -> ResolutionResult {
         self.begin_scope();
         for param in &fun_expr.params {
             self.declare(param);
@@ -223,8 +223,8 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> expr::VisitorMut<ResolveResult> for Resolver<'a> {
-    fn visit_expr(&mut self, expr: &crate::expr::Expr) -> ResolveResult {
+impl<'a> expr::VisitorMut<ResolutionResult> for Resolver<'a> {
+    fn visit_expr(&mut self, expr: &crate::expr::Expr) -> ResolutionResult {
         match expr {
             Expr::Binary {
                 left,
@@ -254,8 +254,8 @@ impl<'a> expr::VisitorMut<ResolveResult> for Resolver<'a> {
     }
 }
 
-impl<'a> stmt::VisitorMut<ResolveResult> for Resolver<'a> {
-    fn visit_stmt(&mut self, stmt: &stmt::Stmt) -> ResolveResult {
+impl<'a> stmt::VisitorMut<ResolutionResult> for Resolver<'a> {
+    fn visit_stmt(&mut self, stmt: &stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
             Stmt::Function(decl) => self.visit_function_stmt(decl),
