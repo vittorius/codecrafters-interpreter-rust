@@ -241,8 +241,15 @@ impl Interpreter {
         }
     }
 
-    fn visit_assign(&self, name: &Token, value: Value, env: Env) -> ExprResult {
-        env.borrow_mut().assign(name, value)
+    fn visit_assign(&self, name: &Token, expr: &Expr, env: Env) -> ExprResult {
+        let value = self.evaluate(expr, clone_env(&env))?;
+
+        let distance = self.locals.get(&(expr as *const Expr));
+        if let Some(distance) = distance {
+            env.borrow_mut().assign_at(*distance, name, value)
+        } else {
+            self.globals().borrow_mut().assign(name, value)
+        }
     }
 
     #[cfg(feature = "lambda")]
@@ -349,10 +356,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
             } => self.visit_logical(left, operator, right, env),
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
             expr @ Expr::Variable(name) => self.visit_variable_expr(expr, name, env),
-            Expr::Assign { name, value } => {
-                let value = self.evaluate(value, clone_env(&env))?;
-                self.visit_assign(name, value, env)
-            }
+            Expr::Assign { name, value } => self.visit_assign(name, value, env),
             #[cfg(feature = "lambda")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
         }

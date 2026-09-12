@@ -83,14 +83,11 @@ impl BareEnv {
     pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 
-        match self.values.entry(name.lexeme.to_owned()) {
+        // TODO: try using .contains_key() to avoid premature cloning of `name.lexeme`
+        match self.values.entry(name.lexeme.clone()) {
             Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.insert(value);
-                Ok(self
-                    .values
-                    .get(&name.lexeme)
-                    .expect("A value for this key must be just inserted")
-                    .clone()) // we treat Values as true "value objects" (see comment on the Value enum)
+                occupied_entry.insert(value.clone());
+                Ok(value)
             }
             Entry::Vacant(vacant_entry) => {
                 if let Some(enclosing) = &mut self.enclosing {
@@ -102,6 +99,23 @@ impl BareEnv {
                     ))
                 }
             }
+        }
+    }
+
+    pub fn assign_at(
+        &mut self,
+        distance: usize,
+        name: &Token,
+        value: Value,
+    ) -> Result<Value, RuntimeError> {
+        if distance == 0 {
+            self.assign(name, value)
+        } else {
+            self.ancestor(NonZeroUsize::new(distance).expect("The distance must be non-zero"))
+                .borrow_mut()
+                .values
+                .insert(name.lexeme.clone(), value.clone());
+            Ok(value)
         }
     }
 
