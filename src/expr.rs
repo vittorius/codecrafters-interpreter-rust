@@ -12,7 +12,7 @@ pub trait VisitorEnv<R> {
 }
 
 pub trait VisitorMut<R> {
-    fn visit_expr(&mut self, expr: &Expr) -> R;
+    fn visit_expr(&mut self, expr: &mut Expr) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -20,6 +20,11 @@ pub trait VisitorMut<R> {
 // If it's not a tree of boxed Exprs than it should've been a Vec or arena
 // of Expr and the expression tree will be populated with references to it.
 // It's deemed an overkill for our use-case, so we're going away with Box.
+//
+// As for `depth` in Variable and Assign variants: since we clone our function declarations
+// because they must outlive their source code for the sake of REPL, we cannot rely on Expr
+// identity or structural equality (like in the book where Expr is a hash key). We do what
+// the book already mentions: store the resolution information in the parse tree directly.
 #[derive(Debug, Clone)]
 pub enum Expr {
     Binary {
@@ -49,10 +54,14 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
-    Variable(Token), // token is the variable's name
+    Variable {
+        name: Token,
+        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
+    },
     Assign {
         name: Token,
         value: Box<Expr>,
+        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
     },
     #[cfg(feature = "lambda")]
     Lambda(FunExpr),
@@ -63,7 +72,7 @@ impl Expr {
         visitor.visit_expr(self, env)
     }
 
-    pub fn accept_visitor_mut<R>(&self, visitor: &mut impl VisitorMut<R>) -> R {
+    pub fn accept_visitor_mut<R>(&mut self, visitor: &mut impl VisitorMut<R>) -> R {
         visitor.visit_expr(self)
     }
 

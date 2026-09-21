@@ -18,7 +18,7 @@ impl Callable for ClockFunction {
         0
     }
 
-    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult {
+    fn call(&self, _interpreter: &Interpreter, _arguments: &[Value], _env: Env) -> CallResult {
         Ok(Value::Num(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

@@ -89,7 +89,7 @@ impl BareEnv {
                 occupied_entry.insert(value.clone());
                 Ok(value)
             }
-            Entry::Vacant(vacant_entry) => {
+            Entry::Vacant(_) => {
                 if let Some(enclosing) = &mut self.enclosing {
                     enclosing.borrow_mut().assign(name, value)
                 } else {

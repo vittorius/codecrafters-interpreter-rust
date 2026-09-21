@@ -34,7 +34,10 @@ impl<'a> AstPrinter<'a> {
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, clone_env(&env)));
         for arg in arguments {
-            s.push_str(&format!(" {}", arg.accept_visitor_env(self, clone_env(&env))));
+            s.push_str(&format!(
+                " {}",
+                arg.accept_visitor_env(self, clone_env(&env))
+            ));
         }
         s.push(')');
         s
@@ -73,9 +76,7 @@ impl VisitorEnv<String> for AstPrinter<'_> {
                 right,
             } => self.parenthesize_binary(&operator.lexeme, left, right, env),
             Expr::Call {
-                callee,
-                paren,
-                arguments,
+                callee, arguments, ..
             } => self.parenthesize_call(callee, arguments, env),
             #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
@@ -91,8 +92,8 @@ impl VisitorEnv<String> for AstPrinter<'_> {
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }
-            Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.parenthesize_assign(&name.lexeme, value, env),
+            Expr::Variable { name, .. } => name.lexeme.to_owned(),
+            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
             #[cfg(feature = "lambda")]
             Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
         }
@@ -134,6 +135,7 @@ mod tests {
     fn test_assignment_expression() {
         let expr = Expr::Assign {
             name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
+            depth: None,
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
                 operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),

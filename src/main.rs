@@ -1,4 +1,4 @@
-#![allow(dead_code, unused_variables)]
+#![allow(dead_code)]
 
 use std::env;
 use std::fs;
@@ -17,9 +17,7 @@ use crossterm::terminal;
 
 use crate::ast_printer::AstPrinter;
 use crate::console::RawModeGuard;
-use crate::error::RuntimeError;
 use crate::interpreter::Interpreter;
-use crate::parser::ParseError;
 use crate::parser::Parser;
 use crate::resolver::Resolver;
 use crate::scanner::ScanError;
@@ -53,7 +51,7 @@ enum ExitValue {
 }
 
 impl From<io::Error> for ExitValue {
-    fn from(value: io::Error) -> Self {
+    fn from(_value: io::Error) -> Self {
         ExitValue::RuntimeError
     }
 }
@@ -179,7 +177,7 @@ fn run(source: &str) -> ExitValue {
 
     let mut parser = Parser::new(tokens);
 
-    let statements = match parser.parse() {
+    let mut statements = match parser.parse() {
         Ok(res) => res,
         Err(err) => {
             eprintln!("{err}");
@@ -187,7 +185,14 @@ fn run(source: &str) -> ExitValue {
         }
     };
 
-    let interpreter = Interpreter::new();
+    let mut interpreter = Interpreter::new();
+
+    let mut resolver = Resolver::new(&mut interpreter);
+    if let Err(err) = resolver.resolve_statements(&mut statements) {
+        eprintln!("{err}");
+        return ExitValue::RuntimeError;
+    }
+
     match interpreter.interpret(&statements) {
         Ok(_) => ExitValue::Success,
         Err(err) => {
@@ -202,10 +207,10 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
     let tokens = scanner.scan_tokens()?;
 
     let mut parser = Parser::new(tokens);
-    let statements = parser.parse()?;
+    let mut statements = parser.parse()?;
 
     let mut resolver = Resolver::new(interpreter);
-    resolver.resolve_statements(&statements)?;
+    resolver.resolve_statements(&mut statements)?;
 
     interpreter.interpret(&statements)?;
 

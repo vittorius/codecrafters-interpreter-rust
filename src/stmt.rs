@@ -7,7 +7,7 @@ pub trait VisitorEnv<R> {
 }
 
 pub trait VisitorMut<R> {
-    fn visit_stmt(&mut self, stmt: &Stmt) -> R;
+    fn visit_stmt(&mut self, stmt: &mut Stmt) -> R;
 }
 
 // These variants own their Exprs because the latter ones
@@ -45,7 +45,7 @@ impl Stmt {
         visitor.visit_stmt(self, env)
     }
 
-    pub fn accept_visitor_mut<R>(&self, visitor: &mut impl VisitorMut<R>) -> R {
+    pub fn accept_visitor_mut<R>(&mut self, visitor: &mut impl VisitorMut<R>) -> R {
         visitor.visit_stmt(self)
     }
 

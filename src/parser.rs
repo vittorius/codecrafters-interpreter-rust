@@ -411,9 +411,10 @@ impl Parser {
         let expr = self.or()?;
 
         if self.match_next(TT::EQUAL) {
-            return if let Expr::Variable(name) = expr {
+            return if let Expr::Variable { name, .. } = expr {
                 Ok(Expr::Assign {
                     name,
+                    depth: None,
                     value: self.assignment()?.boxed(),
                 })
             } else {
@@ -687,7 +688,10 @@ impl Parser {
         }
 
         if self.match_next(TT::IDENTIFIER) {
-            return Ok(Expr::Variable(self.previous().clone()));
+            return Ok(Expr::Variable {
+                name: self.previous().clone(),
+                depth: None,
+            });
         }
 
         if self.match_next(TT::LEFT_PAREN) {

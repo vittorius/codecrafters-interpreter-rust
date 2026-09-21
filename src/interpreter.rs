@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 #[cfg(feature = "lambda")]
 use crate::expr::fun_expr::FunExpr;
@@ -23,7 +23,6 @@ type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter {
     env: Env,
-    locals: HashMap<*const Expr, usize>,
 }
 
 impl Interpreter {
@@ -31,10 +30,7 @@ impl Interpreter {
         let env = BareEnv::new().wrapped();
         env.borrow_mut()
             .define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
-        Self {
-            env,
-            locals: HashMap::new(),
-        }
+        Self { env }
     }
 
     pub fn interpret(&self, statements: &[Stmt]) -> Result {
@@ -55,10 +51,6 @@ impl Interpreter {
 
     pub fn globals(&self) -> Env {
         clone_env(&self.env)
-    }
-
-    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
-        self.locals.insert(expr as *const Expr, depth);
     }
 
     fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
@@ -219,8 +211,8 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable_expr(&self, expr: &Expr, name: &Token, env: Env) -> ExprResult {
-        match self.lookup_variable(expr, name, env) {
+    fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: Env) -> ExprResult {
+        match self.lookup_variable(name, depth, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
                 Value::Nil => Self::error(
@@ -233,19 +225,24 @@ impl Interpreter {
         }
     }
 
-    fn lookup_variable(&self, expr: &Expr, name: &Token, env: Env) -> Option<Value> {
-        if let Some(distance) = self.locals.get(&(expr as *const Expr)) {
+    fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: Env) -> Option<Value> {
+        if let Some(distance) = depth {
             env.borrow().get_at(*distance, name)
         } else {
             self.globals().borrow().get(name)
         }
     }
 
-    fn visit_assign(&self, name: &Token, expr: &Expr, env: Env) -> ExprResult {
-        let value = self.evaluate(expr, clone_env(&env))?;
+    fn visit_assign(
+        &self,
+        name: &Token,
+        depth: &Option<usize>,
+        value: &Expr,
+        env: Env,
+    ) -> ExprResult {
+        let value = self.evaluate(value, clone_env(&env))?;
 
-        let distance = self.locals.get(&(expr as *const Expr));
-        if let Some(distance) = distance {
+        if let Some(distance) = depth {
             env.borrow_mut().assign_at(*distance, name, value)
         } else {
             self.globals().borrow_mut().assign(name, value)
@@ -355,8 +352,8 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
                 right,
             } => self.visit_logical(left, operator, right, env),
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
-            expr @ Expr::Variable(name) => self.visit_variable_expr(expr, name, env),
-            Expr::Assign { name, value } => self.visit_assign(name, value, env),
+            Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
+            Expr::Assign { name, depth, value } => self.visit_assign(name, depth, value, env),
             #[cfg(feature = "lambda")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
         }
@@ -367,6 +364,9 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
             Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
+            // Cloning function decl here prevents from using Expr pointers ("references") as keys in local variable lookup resolution.
+            // On the other hand, we have to clone function decl to make it live inside the environment and outlive the interpreter
+            // invocations with new source code inputs in order for REPL to work.
             Stmt::Function(decl) => self.visit_function_stmt(decl.clone(), env),
             Stmt::If {
                 condition,
@@ -374,7 +374,7 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
                 else_branch,
             } => self.visit_if_stmt(condition, then_branch, else_branch, clone_env(&env)),
             Stmt::Print(expr) => self.visit_print_stmt(expr, env),
-            Stmt::Return { keyword, value } => self.visit_return_stmt(value, env),
+            Stmt::Return { value, .. } => self.visit_return_stmt(value, env),
             Stmt::Var { name, initializer } => self.visit_variable_stmt(name, initializer, env),
             Stmt::While { condition, body } => self.visit_while_stmt(condition, body, env),
             Stmt::Block(statements) => self.execute_block(

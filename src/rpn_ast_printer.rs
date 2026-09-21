@@ -34,9 +34,15 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = String::from("(");
         for arg in arguments {
-            s.push_str(&format!("{} ", arg.accept_visitor_env(self, clone_env(&env))));
+            s.push_str(&format!(
+                "{} ",
+                arg.accept_visitor_env(self, clone_env(&env))
+            ));
         }
-        s.push_str(&format!("{})", callee.accept_visitor_env(self, clone_env(&env))));
+        s.push_str(&format!(
+            "{})",
+            callee.accept_visitor_env(self, clone_env(&env))
+        ));
         s
     }
 
@@ -79,9 +85,7 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
                 right,
             } => self.format_binary(&operator.lexeme, left, right, env),
             Expr::Call {
-                callee,
-                paren,
-                arguments,
+                callee, arguments, ..
             } => self.format_call(callee, arguments, env),
             #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
@@ -95,8 +99,8 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
                 right,
             } => self.format_binary(&operator.lexeme, left, right, env),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
-            Expr::Variable(name) => name.lexeme.to_owned(),
-            Expr::Assign { name, value } => self.format_assign(&name.lexeme, value, env),
+            Expr::Variable { name, .. } => name.lexeme.to_owned(),
+            Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
             #[cfg(feature = "lambda")]
             Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
         }
@@ -143,6 +147,7 @@ mod tests {
     fn test_assignment_expression() {
         let expr = Expr::Assign {
             name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
+            depth: None,
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
                 operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),

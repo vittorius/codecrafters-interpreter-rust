@@ -48,7 +48,7 @@ impl Callable for Function {
         self.fun_expr.params.len()
     }
 
-    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult {
+    fn call(&self, interpreter: &Interpreter, arguments: &[Value], _env: Env) -> CallResult {
         let env = BareEnv::for_fn(clone_env(&self.closure)).wrapped();
 
         for (i, p) in self.fun_expr.params.iter().enumerate() {
