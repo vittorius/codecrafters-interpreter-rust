@@ -44,7 +44,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct ParseError(pub String);
+pub struct ParseError(String);
 
 impl From<ParseError> for String {
     fn from(value: ParseError) -> Self {

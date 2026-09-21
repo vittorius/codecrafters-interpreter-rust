@@ -176,7 +176,7 @@ fn run(source: &str) -> ExitValue {
 
     let statements = match parser.parse() {
         Ok(res) => res,
-        Err(ParseError(err)) => {
+        Err(err) => {
             eprintln!("{err}");
             return ExitValue::SyntaxError;
         }
@@ -185,7 +185,7 @@ fn run(source: &str) -> ExitValue {
     let interpreter = Interpreter::new();
     match interpreter.interpret(&statements) {
         Ok(_) => ExitValue::Success,
-        Err(RuntimeError(err)) => {
+        Err(err) => {
             eprintln!("{err}");
             ExitValue::RuntimeError
         }

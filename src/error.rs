@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
 use crate::{lox, token::Token};
 
 #[derive(Debug)]
-pub struct RuntimeError(pub String);
+pub struct RuntimeError(String);
 
 impl RuntimeError {
     pub fn new(token: &Token, message: &str) -> Self {
@@ -12,6 +14,12 @@ impl RuntimeError {
 impl From<RuntimeError> for String {
     fn from(value: RuntimeError) -> Self {
         value.0
+    }
+}
+
+impl Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
