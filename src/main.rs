@@ -91,19 +91,24 @@ fn main() -> ExitCode {
             "run" => run(&source).into(),
             _ => {
                 eprintln!("Unknown command: {}", command);
-                ExitValue::Usage.into()
+                usage(&args[0]).into()
             }
         }
     } else {
-        eprintln!(
-            r#"
-            Usage: {0} (tokenize | parse | evaluate | run) <filename>
-                   {0} repl
-            "#,
-            args[0]
-        );
-        ExitValue::Usage.into()
+        usage(&args[0]).into()
     }
+}
+
+fn usage(bin_name: &str) -> ExitValue {
+    eprintln!(
+        r#"
+Usage: {0} (tokenize | parse | evaluate | run) <filename>
+       {0} repl
+"#,
+        bin_name
+    );
+
+    ExitValue::Usage
 }
 
 fn tokenize(source: &str) -> ExitValue {
