@@ -31,7 +31,7 @@ impl Display for ResolveError {
 enum FunctionType {
     None,
     Function,
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     Lambda,
 }
 
@@ -173,7 +173,7 @@ impl Resolver {
         VOID_OK
     }
 
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     fn visit_function_expr(&mut self, fun_expr: &mut FunExpr) -> ResolutionResult {
         self.resolve_function(fun_expr, FunctionType::Lambda)
     }
@@ -279,7 +279,7 @@ impl expr::VisitorMut<ResolutionResult> for Resolver {
             Expr::Unary { right, .. } => self.visit_unary(right),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
             Expr::Assign { name, depth, value } => self.visit_assign(name, depth, value),
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr),
         }
     }

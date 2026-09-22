@@ -29,7 +29,7 @@ impl Function {
         }
     }
 
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     pub fn new_lambda(fun_expr: FunExpr, closure: Env) -> Self {
         Self {
             name: None,
@@ -71,7 +71,7 @@ impl Callable for Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if cfg!(feature = "lambda") {
+        if cfg!(feature = "lambdas") {
             write!(f, "<fn {}", self.name().unwrap_or("lambda"))
         } else {
             write!(

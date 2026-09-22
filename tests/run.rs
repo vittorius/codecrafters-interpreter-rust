@@ -82,7 +82,7 @@ mod init_vars_tests {
     }
 }
 
-#[cfg(feature = "lambda")]
+#[cfg(feature = "lambdas")]
 mod lambda_tests {
     use super::*;
 

@@ -1,4 +1,4 @@
-#[cfg(feature = "lambda")]
+#[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
@@ -67,7 +67,7 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_assign(&self, name: &str, value: &'a Expr, env: Env) -> String {
         format!("{} {} <-", name, value.accept_visitor_env(self, env))
     }
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     fn format_lambda(&self, fun_expr: &FunExpr) -> String {
         let mut s = String::from("(");
         for param in fun_expr.params.iter() {
@@ -103,7 +103,7 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable { name, .. } => name.lexeme.to_owned(),
             Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
         }
     }

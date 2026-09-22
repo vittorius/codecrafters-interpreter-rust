@@ -1,4 +1,4 @@
-#[cfg(feature = "lambda")]
+#[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
@@ -57,7 +57,7 @@ impl<'a> AstPrinter<'a> {
         format!("(<- {} {})", name, value.accept_visitor_env(self, env))
     }
 
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     fn parenthesize_lambda(&self, fun_expr: &FunExpr) -> String {
         let mut s = String::from("lambda");
         for param in fun_expr.params.iter() {
@@ -95,7 +95,7 @@ impl VisitorEnv<String> for AstPrinter<'_> {
             }
             Expr::Variable { name, .. } => name.lexeme.to_owned(),
             Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
         }
     }

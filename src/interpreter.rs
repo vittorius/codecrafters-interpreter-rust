@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-#[cfg(feature = "lambda")]
+#[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::{BareEnv, Env, clone_env},
@@ -249,7 +249,7 @@ impl Interpreter {
         }
     }
 
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     fn visit_function_expr(&self, fun_expr: FunExpr, env: Env) -> ExprResult {
         let function = Function::new_lambda(fun_expr, clone_env(&env));
         Ok(Value::Callable(Rc::new(function)))
@@ -354,7 +354,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
             Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
             Expr::Assign { name, depth, value } => self.visit_assign(name, depth, value, env),
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
         }
     }

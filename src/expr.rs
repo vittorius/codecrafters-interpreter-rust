@@ -1,4 +1,4 @@
-#[cfg(feature = "lambda")]
+#[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     environment::Env,
@@ -63,7 +63,7 @@ pub enum Expr {
         value: Box<Expr>,
         depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
     },
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     Lambda(FunExpr),
 }
 

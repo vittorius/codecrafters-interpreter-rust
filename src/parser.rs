@@ -74,7 +74,7 @@ pub struct Parser {
 
 enum FunctionKind {
     Function,
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     Lambda,
 }
 
@@ -82,7 +82,7 @@ impl Display for FunctionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             FunctionKind::Function => write!(f, "function"),
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             FunctionKind::Lambda => write!(f, "lambda"),
         }
     }
@@ -195,7 +195,7 @@ impl Parser {
 
     fn declaration(&mut self) -> StmtResult {
         if self.match_next(TT::FUN) {
-            if cfg!(feature = "lambda") && !self.check(TT::IDENTIFIER) {
+            if cfg!(feature = "lambdas") && !self.check(TT::IDENTIFIER) {
                 Err(Self::mk_error(
                     self.previous(),
                     "Lambda functions are forbidden in statements",
@@ -465,16 +465,16 @@ impl Parser {
     }
 
     fn and(&mut self) -> ExprResult {
-        #[cfg(feature = "lambda")]
+        #[cfg(feature = "lambdas")]
         let mut expr = self.fun_expr()?;
-        #[cfg(not(feature = "lambda"))]
+        #[cfg(not(feature = "lambdas"))]
         let mut expr = self.equality()?;
 
         while self.match_next(TT::AND) {
             let operator = self.previous().clone();
-            #[cfg(feature = "lambda")]
+            #[cfg(feature = "lambdas")]
             let right = self.fun_expr()?.boxed();
-            #[cfg(not(feature = "lambda"))]
+            #[cfg(not(feature = "lambdas"))]
             let right = self.equality()?.boxed();
 
             expr = Expr::Logical {
@@ -487,7 +487,7 @@ impl Parser {
         Ok(expr)
     }
 
-    #[cfg(feature = "lambda")]
+    #[cfg(feature = "lambdas")]
     fn fun_expr(&mut self) -> ExprResult {
         if self.match_next(TT::FUN) {
             let (params, body) = self.function_body(FunctionKind::Lambda)?;
@@ -501,12 +501,12 @@ impl Parser {
         &mut self,
         kind: FunctionKind,
     ) -> std::result::Result<(FunParams, FunBody), ParseError> {
-        #[cfg(feature = "lambda")]
+        #[cfg(feature = "lambdas")]
         self.consume(
             TT::LEFT_PAREN,
             &format!("Expect '(' before {} parameters", FunctionKind::Lambda),
         )?;
-        #[cfg(not(feature = "lambda"))]
+        #[cfg(not(feature = "lambdas"))]
         self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
 
         let mut params = Vec::<Token>::new();
