@@ -1,5 +1,5 @@
 // TODO: move inside the 'interpreter' module
- 
+
 use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};

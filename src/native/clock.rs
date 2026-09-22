@@ -1,11 +1,11 @@
 use std::{
     fmt::Display,
+    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
     callable::{CallResult, Callable},
-    environment::Env,
     interpreter::Interpreter,
     value::Value,
 };
@@ -18,7 +18,7 @@ impl Callable for ClockFunction {
         0
     }
 
-    fn call(&self, _interpreter: &Interpreter, _arguments: &[Value], _env: Env) -> CallResult {
+    fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
         Ok(Value::Num(
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

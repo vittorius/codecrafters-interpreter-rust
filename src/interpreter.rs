@@ -185,19 +185,19 @@ impl Interpreter {
             .map(|arg| self.evaluate(arg, clone_env(&env)))
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        if let Callable(function) = callee {
-            if arguments.len() != function.arity() {
+        if let Callable(callable) = callee {
+            if arguments.len() != callable.arity() {
                 return Self::error(
                     paren,
                     &format!(
                         "Expected {} arguments but got {}.",
-                        function.arity(),
+                        callable.arity(),
                         arguments.len()
                     ),
                 );
             }
 
-            function.call(self, &arguments, env)
+            callable.call(self, &arguments)
         } else {
             Self::error(paren, "Can only call functions and classes.")
         }

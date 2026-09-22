@@ -1,6 +1,6 @@
 // TODO: move inside the 'interpreter' module
 
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
@@ -50,7 +50,7 @@ impl Callable for Function {
         self.fun_expr.params.len()
     }
 
-    fn call(&self, interpreter: &Interpreter, arguments: &[Value], _env: Env) -> CallResult {
+    fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
         let env = BareEnv::with_enclosing(clone_env(&self.closure)).wrapped();
 
         for (i, p) in self.fun_expr.params.iter().enumerate() {

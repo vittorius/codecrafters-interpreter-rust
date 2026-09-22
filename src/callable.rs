@@ -1,12 +1,15 @@
 // TODO: move inside the 'interpreter' module
 
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
-use crate::{environment::Env, error::RuntimeError, interpreter::Interpreter, value::Value};
+use crate::{error::RuntimeError, interpreter::Interpreter, value::Value};
 
 pub type CallResult = Result<Value, RuntimeError>;
 
 pub trait Callable: Debug + Display {
     fn arity(&self) -> usize;
-    fn call(&self, interpreter: &Interpreter, arguments: &[Value], env: Env) -> CallResult;
+    fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult;
 }

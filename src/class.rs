@@ -1,8 +1,14 @@
 // TODO: move inside the 'interpreter' module
 
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
-use crate::{callable::Callable, token::Token};
+use crate::{
+    callable::{CallResult, Callable},
+    instance::Instance,
+    interpreter::Interpreter,
+    token::Token,
+    value::Value,
+};
 
 #[derive(Debug)]
 pub struct Class {
@@ -23,15 +29,10 @@ impl Display for Class {
 
 impl Callable for Class {
     fn arity(&self) -> usize {
-        todo!()
+        0
     }
 
-    fn call(
-        &self,
-        interpreter: &crate::interpreter::Interpreter,
-        arguments: &[crate::value::Value],
-        env: crate::environment::Env,
-    ) -> crate::callable::CallResult {
-        todo!()
+    fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
+        Ok(Value::Object(Instance::new(Rc::clone(&self))))
     }
 }

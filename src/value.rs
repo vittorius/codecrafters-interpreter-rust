@@ -1,6 +1,6 @@
 use std::{fmt::Display, rc::Rc};
 
-use crate::callable::Callable;
+use crate::{callable::Callable, instance::Instance};
 
 // TODO: there could be an enum Object { Value, Ref }
 // and Ref can hold stings and class objects, others go into Value.
@@ -18,6 +18,7 @@ pub enum Value {
     Num(f64),
     Bool(bool),
     Callable(Rc<dyn Callable>), // cloning a callable just returns a pointer to it ("ref object" behavior)
+    Object(Instance),
     Nil,
 }
 
@@ -28,6 +29,7 @@ impl Display for Value {
             Value::Num(value) => write!(f, "{value}"),
             Value::Bool(value) => write!(f, "{value}"),
             Value::Callable(callable) => write!(f, "{callable}"),
+            Value::Object(instance) => write!(f, "{instance}"),
             Value::Nil => write!(f, "nil"),
         }
     }
