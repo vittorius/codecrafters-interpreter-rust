@@ -188,7 +188,7 @@ fn run(source: &str) -> ExitValue {
     let mut resolver = Resolver::new();
     if let Err(err) = resolver.resolve_statements(&mut statements) {
         eprintln!("{err}");
-        return ExitValue::RuntimeError;
+        return ExitValue::SyntaxError;
     }
 
     match interpreter.interpret(&statements) {
