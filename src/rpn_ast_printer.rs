@@ -57,11 +57,15 @@ impl<'a> RpnAstPrinter<'a> {
         env: Env,
     ) -> String {
         format!(
-            "?: {} {} {}",
+            "{} {} {} ?:",
             cond.accept_visitor_env(self, clone_env(&env)),
             left.accept_visitor_env(self, clone_env(&env)),
             right.accept_visitor_env(self, env),
         )
+    }
+
+    fn format_get(&self, object: &'a Expr, name: &str, env: Env) -> String {
+        format!("{} {} .", object.accept_visitor_env(self, env), name)
     }
 
     fn format_assign(&self, name: &str, value: &'a Expr, env: Env) -> String {
@@ -73,7 +77,7 @@ impl<'a> RpnAstPrinter<'a> {
         for param in fun_expr.params.iter() {
             s.push_str(&format!("{} ", param.lexeme));
         }
-        s.push_str(&format!("{})", "lambda"));
+        s.push_str(&format!("{})", "\\->"));
         s
     }
 }
@@ -81,6 +85,7 @@ impl<'a> RpnAstPrinter<'a> {
 impl VisitorEnv<String> for RpnAstPrinter<'_> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
+            Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
             Expr::Binary {
                 left,
                 operator,
@@ -93,7 +98,10 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
             Expr::Conditional { cond, left, right } => {
                 self.format_conditional(cond, left, right, env)
             }
+            Expr::Get { object, name } => self.format_get(object, &name.lexeme, env),
             Expr::Grouping(expr) => expr.accept_visitor_env(self, env),
+            #[cfg(feature = "lambdas")]
+            Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
             Expr::Literal(value) => value.to_string(),
             Expr::Logical {
                 left,
@@ -102,9 +110,6 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
             } => self.format_binary(&operator.lexeme, left, right, env),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable { name, .. } => name.lexeme.to_owned(),
-            Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
-            #[cfg(feature = "lambdas")]
-            Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
         }
     }
 }

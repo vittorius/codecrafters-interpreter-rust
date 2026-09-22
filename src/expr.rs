@@ -43,6 +43,10 @@ pub enum Expr {
         paren: Token,
         arguments: Vec<Expr>,
     },
+    Get {
+        object: Box<Expr>,
+        name: Token,
+    },
     #[cfg(feature = "conditional-op")]
     Conditional {
         cond: Box<Expr>,

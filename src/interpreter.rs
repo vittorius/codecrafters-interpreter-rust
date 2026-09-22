@@ -109,7 +109,13 @@ impl Interpreter {
         })
     }
 
-    fn visit_logical_expr(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
+    fn visit_logical_expr(
+        &self,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
+        env: Env,
+    ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
 
         if operator.token_type == TT::OR {
@@ -136,7 +142,13 @@ impl Interpreter {
         }
     }
 
-    fn visit_binary_expr(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
+    fn visit_binary_expr(
+        &self,
+        left: &Expr,
+        operator: &Token,
+        right: &Expr,
+        env: Env,
+    ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
         let right = self.evaluate(right, clone_env(&env))?;
 
@@ -177,7 +189,13 @@ impl Interpreter {
         }
     }
 
-    fn visit_call_expr(&self, callee: &Expr, paren: &Token, arguments: &[Expr], env: Env) -> ExprResult {
+    fn visit_call_expr(
+        &self,
+        callee: &Expr,
+        paren: &Token,
+        arguments: &[Expr],
+        env: Env,
+    ) -> ExprResult {
         let callee = self.evaluate(callee, clone_env(&env))?;
 
         let arguments = arguments
@@ -204,11 +222,27 @@ impl Interpreter {
     }
 
     #[cfg(feature = "conditional-op")]
-    fn visit_conditional_expr(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> ExprResult {
+    fn visit_conditional_expr(
+        &self,
+        cond: &Expr,
+        left: &Expr,
+        right: &Expr,
+        env: Env,
+    ) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
             self.evaluate(left, env)
         } else {
             self.evaluate(right, env)
+        }
+    }
+
+    fn visit_get_expr(&self, object: &Expr, name: &Token, env: Env) -> ExprResult {
+        let object = self.evaluate(object, env)?;
+
+        if let Value::Object(instance) = object {
+            instance.get(name)
+        } else {
+            Self::error(name, "Only instances have properties.")
         }
     }
 
@@ -357,6 +391,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
             Expr::Conditional { cond, left, right } => {
                 self.visit_conditional_expr(cond, left, right, env)
             }
+            Expr::Get { object, name } => self.visit_get_expr(object, name, env),
             Expr::Grouping(expr) => self.visit_grouping_expr(expr, env),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),

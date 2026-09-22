@@ -149,7 +149,11 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(right)
     }
 
-    fn visit_call_expr(&mut self, callee: &'a mut Expr, arguments: &'a mut [Expr]) -> ResolutionResult {
+    fn visit_call_expr(
+        &mut self,
+        callee: &'a mut Expr,
+        arguments: &'a mut [Expr],
+    ) -> ResolutionResult {
         self.resolve_expr(callee)?;
 
         for arg in arguments {
@@ -169,6 +173,10 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(cond)?;
         self.resolve_expr(left)?;
         self.resolve_expr(right)
+    }
+
+    fn visit_get_expr(&mut self, object: &'a mut Expr) -> ResolutionResult {
+        self.resolve_expr(object)
     }
 
     fn visit_grouping_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
@@ -332,7 +340,10 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
                 callee, arguments, ..
             } => self.visit_call_expr(callee, arguments),
             #[cfg(feature = "conditional-op")]
-            Expr::Conditional { cond, left, right } => self.visit_conditional_expr(cond, left, right),
+            Expr::Conditional { cond, left, right } => {
+                self.visit_conditional_expr(cond, left, right)
+            }
+            Expr::Get { object, .. } => self.visit_get_expr(object),
             Expr::Grouping(expr) => self.visit_grouping_expr(expr),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr),

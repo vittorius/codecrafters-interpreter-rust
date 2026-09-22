@@ -53,6 +53,10 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
+    fn parenthesize_get(&self, object: &Expr, name: &str, env: Env) -> String {
+        format!("(. {} {})", object.accept_visitor_env(self, env), name)
+    }
+
     fn parenthesize_assign(&self, name: &str, value: &Expr, env: Env) -> String {
         format!("(<- {} {})", name, value.accept_visitor_env(self, env))
     }
@@ -71,6 +75,7 @@ impl<'a> AstPrinter<'a> {
 impl VisitorEnv<String> for AstPrinter<'_> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> String {
         match expr {
+            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
             Expr::Binary {
                 left,
                 operator,
@@ -83,7 +88,10 @@ impl VisitorEnv<String> for AstPrinter<'_> {
             Expr::Conditional { cond, left, right } => {
                 self.parenthesize_ternary(cond, left, right, env)
             }
+            Expr::Get { object, name } => self.parenthesize_get(object, &name.lexeme, env),
             Expr::Grouping(expr) => self.parenthesize_unary("group", expr, env),
+            #[cfg(feature = "lambdas")]
+            Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
             Expr::Literal(value) => value.to_string(),
             Expr::Logical {
                 left,
@@ -94,9 +102,6 @@ impl VisitorEnv<String> for AstPrinter<'_> {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }
             Expr::Variable { name, .. } => name.lexeme.to_owned(),
-            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
-            #[cfg(feature = "lambdas")]
-            Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
         }
     }
 }

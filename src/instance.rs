@@ -1,17 +1,31 @@
 // TODO: move inside the 'interpreter' module
 
-use std::{fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
-use crate::class::Class;
+use crate::{class::Class, error::RuntimeError, token::Token, value::Value};
+
+// TODO: use Result<&Value, RuntimeError> to delegate cloning to the caller code and replicate HashMap API
+type PropertyAccessResult = std::result::Result<Value, RuntimeError>;
 
 #[derive(Debug, Clone)]
 pub struct Instance {
     class: Rc<Class>,
+    fields: HashMap<String, Value>,
 }
 
 impl Instance {
     pub fn new(class: Rc<Class>) -> Self {
-        Self { class }
+        Self {
+            class,
+            fields: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, name: &Token) -> PropertyAccessResult {
+        self.fields
+            .get(&name.lexeme)
+            .cloned()
+            .ok_or(RuntimeError::new(name, "Only instances have properties."))
     }
 }
 

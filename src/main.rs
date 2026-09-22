@@ -29,17 +29,18 @@ mod environment;
 mod error;
 mod expr;
 mod function;
+mod instance;
 mod interpreter;
 mod lox;
 mod native;
 mod parser;
 mod resolver;
+#[cfg(feature = "rpn-ast-printer")]
 mod rpn_ast_printer;
 mod scanner;
 mod stmt;
 mod token;
 mod value;
-mod instance;
 
 #[repr(u8)]
 enum ExitValue {

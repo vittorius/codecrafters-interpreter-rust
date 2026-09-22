@@ -28,7 +28,7 @@
 //! term           → factor ( ( "-" | "+" ) factor )* ;
 //! factor         → unary ( ( "/" | "*" ) unary )* ;
 //! unary          → ( "!" | "-" ) unary | call ;
-//! call           → primary ( "(" arguments? ")" )* ;
+//! call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 //! arguments      → expression ( "," expression )* ;
 //! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
 
@@ -647,6 +647,12 @@ impl Parser {
         loop {
             if self.match_next(TT::LEFT_PAREN) {
                 expr = self.finish_call(expr)?;
+            } else if self.match_next(TT::DOT) {
+                let name = self.consume(TT::IDENTIFIER, "Expect property name after '.'.")?;
+                expr = Expr::Get {
+                    object: expr.boxed(),
+                    name,
+                }
             } else {
                 break;
             }
