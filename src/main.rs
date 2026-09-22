@@ -186,7 +186,7 @@ fn run(source: &str) -> ExitValue {
     let interpreter = Interpreter::new();
 
     let mut resolver = Resolver::new();
-    if let Err(err) = resolver.resolve_statements(&mut statements) {
+    if let Err(err) = resolver.resolve(&mut statements) {
         eprintln!("{err}");
         return ExitValue::SyntaxError;
     }
@@ -208,7 +208,7 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
     let mut statements = parser.parse()?;
 
     let mut resolver = Resolver::new();
-    resolver.resolve_statements(&mut statements)?;
+    resolver.resolve(&mut statements)?;
 
     interpreter.interpret(&statements)?;
 

@@ -11,8 +11,8 @@ pub trait VisitorEnv<R> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> R;
 }
 
-pub trait VisitorMut<R> {
-    fn visit_expr(&mut self, expr: &mut Expr) -> R;
+pub trait VisitorMut<'a, R> {
+    fn visit_expr(&mut self, expr: &'a mut Expr) -> R;
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -72,7 +72,7 @@ impl Expr {
         visitor.visit_expr(self, env)
     }
 
-    pub fn accept_visitor_mut<R>(&mut self, visitor: &mut impl VisitorMut<R>) -> R {
+    pub fn accept_visitor_mut<'a, R>(&'a mut self, visitor: &mut impl VisitorMut<'a, R>) -> R {
         visitor.visit_expr(self)
     }
 

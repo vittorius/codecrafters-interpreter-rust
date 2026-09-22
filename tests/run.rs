@@ -55,6 +55,63 @@ fn assert_run_runtime_error(source: &str, expected_stderr_substring: &str) {
     );
 }
 
+#[cfg(feature = "err-unused-vars")]
+mod err_unused_vars_tests {
+    use super::*;
+
+    #[test]
+    fn test_unused_top_level_variable_is_resolve_error() {
+        assert_run_parse_error("\nvar unused = 1;", "Unused variable\n[line 2]");
+    }
+
+    #[test]
+    fn test_read_top_level_variable_is_used() {
+        assert_run_success("var value = 1; print value;", "1\n");
+    }
+
+    #[test]
+    fn test_unused_block_local_variable_is_resolve_error() {
+        assert_run_parse_error("{\nvar unused = 1;\n}", "Unused variable\n[line 2]");
+    }
+
+    #[test]
+    fn test_read_block_local_variable_is_used() {
+        assert_run_success("{ var value = 1; print value; }", "1\n");
+    }
+
+    #[test]
+    fn test_assignment_without_read_does_not_count_as_use() {
+        assert_run_parse_error("var value = 1; value = 2;", "Unused variable\n[line 1]");
+    }
+
+    #[test]
+    fn test_read_from_nested_block_marks_outer_variable_used() {
+        assert_run_success(
+            r#"{
+                var value = "used";
+                { print value; }
+            }"#,
+            "used\n",
+        );
+    }
+
+    #[test]
+    fn test_unused_function_parameter_is_resolve_error() {
+        assert_run_parse_error(
+            "fun print_one(unused) { print 1; } print_one(2);",
+            "Unused variable\n[line 1]",
+        );
+    }
+
+    #[test]
+    fn test_parameter_read_from_nested_block_is_used() {
+        assert_run_success(
+            "fun print_value(value) { { print value; } } print_value(2);",
+            "2\n",
+        );
+    }
+}
+
 #[cfg(feature = "init-vars")]
 mod init_vars_tests {
     use super::*;

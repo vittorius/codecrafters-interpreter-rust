@@ -1,9 +1,10 @@
-use std::{collections::HashMap, fmt::Display, mem};
+use std::{fmt::Display, mem};
 
 use crate::{
     expr::{self, Expr, fun_expr::FunExpr},
     interpreter::Void,
     lox,
+    resolver::scope::Scope,
     stmt::{self, Stmt, fun_decl::FunDecl},
     token::{Literal, Token},
 };
@@ -38,12 +39,14 @@ enum FunctionType {
 type ResolutionResult = std::result::Result<Void, ResolveError>;
 const VOID_OK: ResolutionResult = Ok(());
 
-pub struct Resolver {
-    scopes: Vec<HashMap<String, bool>>,
+mod scope;
+
+pub struct Resolver<'a> {
+    scopes: Vec<Scope<'a>>, // as a stack
     current_function: FunctionType,
 }
 
-impl Resolver {
+impl<'a> Resolver<'a> {
     pub fn new() -> Self {
         Self {
             scopes: Vec::new(),
@@ -51,7 +54,19 @@ impl Resolver {
         }
     }
 
-    pub fn resolve_statements(&mut self, statements: &mut [Stmt]) -> ResolutionResult {
+    pub fn resolve(&mut self, statements: &'a mut [Stmt]) -> ResolutionResult {
+        #[cfg(feature = "err-unused-vars")]
+        self.begin_scope();
+
+        self.resolve_statements(statements)?;
+
+        #[cfg(feature = "err-unused-vars")]
+        self.end_scope()?;
+
+        VOID_OK
+    }
+
+    fn resolve_statements(&mut self, statements: &'a mut [Stmt]) -> ResolutionResult {
         for stmt in statements {
             stmt.accept_visitor_mut(self)?;
         }
@@ -64,52 +79,77 @@ impl Resolver {
     }
 
     fn begin_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.scopes.push(Scope::new());
     }
 
-    fn end_scope(&mut self) {
+    fn end_scope(&mut self) -> ResolutionResult {
+        #[cfg(feature = "err-unused-vars")]
+        {
+            let last_scope = self.scopes.pop();
+            if let Some(last_scope) = last_scope
+                && let Some(token) = last_scope.first_unused()
+            {
+                return Self::error(token, "Unused variable");
+            }
+        }
+
+        #[cfg(not(feature = "err-unused-vars"))]
         self.scopes.pop();
+
+        VOID_OK
     }
 
-    fn declare(&mut self, name: &Token) -> ResolutionResult {
-        if let Some(scope) = self.scopes.last_mut() {
-            if scope.contains_key(&name.lexeme) {
+    fn last_scope_mut(&mut self) -> Option<&mut Scope<'a>> {
+        self.scopes.last_mut()
+    }
+
+    fn declare(&mut self, name: &'a Token) -> ResolutionResult {
+        if let Some(scope) = self.last_scope_mut() {
+            if scope.is_declared(name) {
                 return Self::error(name, "Already a variable with this name in this scope.");
             } else {
-                scope.insert(name.lexeme.clone(), false);
+                scope.declare(name);
             }
         }
 
         VOID_OK
     }
 
-    fn define(&mut self, name: &Token) {
-        if let Some(scope) = self.scopes.last_mut()
-            && let Some(initialized) = scope.get_mut(&name.lexeme)
+    fn define(&mut self, name: &'a Token) {
+        if let Some(scope) = self.last_scope_mut()
+            && scope.is_declared(name)
         {
-            *initialized = true
+            scope.define(name);
         }
     }
 
-    fn resolve_expr(&mut self, expr: &mut Expr) -> ResolutionResult {
+    fn resolve_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         expr.accept_visitor_mut(self)
     }
 
-    fn resolve_local(&mut self, name: &Token, depth: &mut Option<usize>) {
-        for (i, scope) in self.scopes.iter().rev().enumerate() {
-            if scope.contains_key(&name.lexeme) {
+    fn resolve_local(&mut self, name: &Token, depth: &mut Option<usize>, is_read: bool) {
+        for (i, scope) in self.scopes.iter_mut().rev().enumerate() {
+            if scope.is_declared(name) {
+                #[cfg(feature = "err-unused-vars")]
+                if is_read {
+                    scope.mark_used(name);
+                }
+
+                #[cfg(not(feature = "err-unused-vars"))]
+                let _ = is_read;
+
                 depth.replace(i);
                 return;
             }
         }
     }
 
-    fn visit_binary(&mut self, left: &mut Expr, right: &mut Expr) -> ResolutionResult {
+    fn visit_binary(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_call(&mut self, callee: &mut Expr, arguments: &mut [Expr]) -> ResolutionResult {
+    fn visit_call(&mut self, callee: &'a mut Expr, arguments: &'a mut [Expr]) -> ResolutionResult {
         self.resolve_expr(callee)?;
 
         for arg in arguments {
@@ -122,16 +162,16 @@ impl Resolver {
     #[cfg(feature = "conditional-op")]
     fn visit_conditional(
         &mut self,
-        cond: &mut Expr,
-        left: &mut Expr,
-        right: &mut Expr,
+        cond: &'a mut Expr,
+        left: &'a mut Expr,
+        right: &'a mut Expr,
     ) -> ResolutionResult {
         self.resolve_expr(cond)?;
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_grouping(&mut self, expr: &mut Expr) -> ResolutionResult {
+    fn visit_grouping(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
@@ -139,50 +179,58 @@ impl Resolver {
         VOID_OK
     }
 
-    fn visit_logical(&mut self, left: &mut Expr, right: &mut Expr) -> ResolutionResult {
+    fn visit_logical(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_unary(&mut self, right: &mut Expr) -> ResolutionResult {
+    fn visit_unary(&mut self, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(right)
     }
 
-    fn visit_variable_expr(&mut self, name: &Token, depth: &mut Option<usize>) -> ResolutionResult {
+    fn visit_variable_expr(
+        &mut self,
+        name: &'a Token,
+        depth: &mut Option<usize>,
+    ) -> ResolutionResult {
         if let Some(scope) = self.scopes.last()
-            && let Some(initialized) = scope.get(&name.lexeme)
-            && !*initialized
+            && scope.is_declared(name)
+            && !scope.is_defined(name)
         {
-            Self::error(name, "Can't read local variable in its own initializer.")
-        } else {
-            self.resolve_local(name, depth);
-
-            VOID_OK
+            return Self::error(name, "Can't read local variable in its own initializer.");
         }
+
+        self.resolve_local(name, depth, true);
+
+        VOID_OK
     }
 
     fn visit_assign(
         &mut self,
         name: &Token,
         depth: &mut Option<usize>,
-        value: &mut Expr,
+        value: &'a mut Expr,
     ) -> ResolutionResult {
         self.resolve_expr(value)?;
-        self.resolve_local(name, depth);
+        self.resolve_local(name, depth, false);
 
         VOID_OK
     }
 
     #[cfg(feature = "lambdas")]
-    fn visit_function_expr(&mut self, fun_expr: &mut FunExpr) -> ResolutionResult {
+    fn visit_function_expr(&mut self, fun_expr: &'a mut FunExpr) -> ResolutionResult {
         self.resolve_function(fun_expr, FunctionType::Lambda)
     }
 
-    fn resolve_stmt(&mut self, stmt: &mut Stmt) -> ResolutionResult {
+    fn resolve_stmt(&mut self, stmt: &'a mut Stmt) -> ResolutionResult {
         stmt.accept_visitor_mut(self)
     }
 
-    fn visit_var_stmt(&mut self, name: &Token, initializer: &mut Option<Expr>) -> ResolutionResult {
+    fn visit_var_stmt(
+        &mut self,
+        name: &'a Token,
+        initializer: &'a mut Option<Expr>,
+    ) -> ResolutionResult {
         self.declare(name)?;
         if let Some(initializer) = initializer {
             self.resolve_expr(initializer)?;
@@ -192,24 +240,28 @@ impl Resolver {
         VOID_OK
     }
 
-    fn visit_while_stmt(&mut self, condition: &mut Expr, body: &mut Stmt) -> ResolutionResult {
+    fn visit_while_stmt(
+        &mut self,
+        condition: &'a mut Expr,
+        body: &'a mut Stmt,
+    ) -> ResolutionResult {
         self.resolve_expr(condition)?;
         self.resolve_stmt(body)
     }
 
-    fn visit_block(&mut self, statements: &mut [Stmt]) -> ResolutionResult {
+    fn visit_block(&mut self, statements: &'a mut [Stmt]) -> ResolutionResult {
         self.begin_scope();
         self.resolve_statements(statements)?;
-        self.end_scope();
+        self.end_scope()?;
 
         VOID_OK
     }
 
-    fn visit_expression_stmt(&mut self, expr: &mut Expr) -> ResolutionResult {
+    fn visit_expression_stmt(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_function_stmt(&mut self, decl: &mut FunDecl) -> ResolutionResult {
+    fn visit_function_stmt(&mut self, decl: &'a mut FunDecl) -> ResolutionResult {
         self.declare(&decl.name)?;
         self.define(&decl.name);
 
@@ -218,9 +270,9 @@ impl Resolver {
 
     fn visit_if_stmt(
         &mut self,
-        condition: &mut Expr,
-        then_branch: &mut Stmt,
-        else_branch: &mut Option<Box<Stmt>>,
+        condition: &'a mut Expr,
+        then_branch: &'a mut Stmt,
+        else_branch: &'a mut Option<Box<Stmt>>,
     ) -> ResolutionResult {
         self.resolve_expr(condition)?;
         self.resolve_stmt(then_branch)?;
@@ -232,11 +284,11 @@ impl Resolver {
         VOID_OK
     }
 
-    fn visit_print_stmt(&mut self, expr: &mut Expr) -> ResolutionResult {
+    fn visit_print_stmt(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_return_stmt(&mut self, keyword: &Token, value: &mut Expr) -> ResolutionResult {
+    fn visit_return_stmt(&mut self, keyword: &Token, value: &'a mut Expr) -> ResolutionResult {
         match self.current_function {
             FunctionType::None => Self::error(keyword, "Can't return from top-level code."),
             _ => self.resolve_expr(value),
@@ -245,7 +297,7 @@ impl Resolver {
 
     fn resolve_function(
         &mut self,
-        fun_expr: &mut FunExpr,
+        fun_expr: &'a mut FunExpr,
         fun_type: FunctionType,
     ) -> ResolutionResult {
         let enclosing_function = mem::replace(&mut self.current_function, fun_type);
@@ -256,7 +308,7 @@ impl Resolver {
             self.define(param);
         }
         self.resolve_statements(&mut fun_expr.body)?;
-        self.end_scope();
+        self.end_scope()?;
 
         self.current_function = enclosing_function;
 
@@ -264,8 +316,8 @@ impl Resolver {
     }
 }
 
-impl expr::VisitorMut<ResolutionResult> for Resolver {
-    fn visit_expr(&mut self, expr: &mut Expr) -> ResolutionResult {
+impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
+    fn visit_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         match expr {
             Expr::Binary { left, right, .. } => self.visit_binary(left, right),
             Expr::Call {
@@ -285,8 +337,8 @@ impl expr::VisitorMut<ResolutionResult> for Resolver {
     }
 }
 
-impl stmt::VisitorMut<ResolutionResult> for Resolver {
-    fn visit_stmt(&mut self, stmt: &mut stmt::Stmt) -> ResolutionResult {
+impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
+    fn visit_stmt(&mut self, stmt: &'a mut stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
             Stmt::Function(decl) => self.visit_function_stmt(decl),
