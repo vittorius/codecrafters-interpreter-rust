@@ -1,7 +1,8 @@
 //! Lox grammar:
 //!
 //! program        → declaration* EOF ;
-//! declaration    → funDecl | varDecl | statement ;
+//! declaration    → classDecl | funDecl | varDecl | statement ;
+//! classDecl      → "class" IDENTIFIER "{" function* "}" ;
 //! funDecl        → "fun" function ;
 //! function       → IDENTIFIER "(" parameters? ")" block ;
 //! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
@@ -74,6 +75,7 @@ pub struct Parser {
 
 enum FunctionKind {
     Function,
+    Method,
     #[cfg(feature = "lambdas")]
     Lambda,
 }
@@ -82,6 +84,7 @@ impl Display for FunctionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             FunctionKind::Function => write!(f, "function"),
+            FunctionKind::Method => write!(f, "method"),
             #[cfg(feature = "lambdas")]
             FunctionKind::Lambda => write!(f, "lambda"),
         }
@@ -194,7 +197,9 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> StmtResult {
-        if self.match_next(TT::FUN) {
+        if self.match_next(TT::CLASS) {
+            self.class_declaration()
+        } else if self.match_next(TT::FUN) {
             if cfg!(feature = "lambdas") && !self.check(TT::IDENTIFIER) {
                 Err(Self::mk_error(
                     self.previous(),
@@ -215,6 +220,23 @@ impl Parser {
             // for "print" statement missing an expression, for example
             self.statement()
         }
+    }
+
+    fn class_declaration(&mut self) -> StmtResult {
+        let name = self.consume(TT::IDENTIFIER, "Expect class name.")?;
+        self.consume(TT::LEFT_BRACE, "Expect '{' before class body.")?;
+
+        let mut methods = Vec::new();
+        while !self.check(TT::RIGHT_BRACE) && !self.is_at_end() {
+            let Stmt::Function(fun_decl) = self.function(FunctionKind::Method)? else {
+                unreachable!("Function declaration must produce function expression.")
+            };
+            methods.push(fun_decl);
+        }
+
+        self.consume(TT::RIGHT_BRACE, "Expect '}' after class body.")?;
+
+        Ok(Stmt::Class { name, methods })
     }
 
     fn function(&mut self, kind: FunctionKind) -> StmtResult {

@@ -7,6 +7,7 @@ use crate::{
 
 pub mod fun_expr;
 
+// TODO: experiment with turning this into a consuming visitor
 pub trait VisitorEnv<R> {
     fn visit_expr(&self, expr: &Expr, env: Env) -> R;
 }

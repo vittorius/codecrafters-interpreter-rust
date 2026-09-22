@@ -23,6 +23,7 @@ use crate::scanner::Scanner;
 
 mod ast_printer;
 mod callable;
+mod class;
 mod console;
 mod environment;
 mod error;

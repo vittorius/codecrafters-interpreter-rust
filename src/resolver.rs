@@ -257,6 +257,13 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
+    fn visit_class_stmt(&mut self, name: &'a Token) -> ResolutionResult {
+        self.declare(name)?;
+        self.define(name);
+
+        VOID_OK
+    }
+
     fn visit_expression_stmt(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
@@ -352,6 +359,7 @@ impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Stmt::Var { name, initializer } => self.visit_var_stmt(name, initializer),
             Stmt::While { condition, body } => self.visit_while_stmt(condition, body),
             Stmt::Block(statements) => self.visit_block(statements),
+            Stmt::Class { name, .. } => self.visit_class_stmt(name),
         }
     }
 }

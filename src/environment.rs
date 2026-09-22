@@ -1,3 +1,5 @@
+// TODO: move inside the 'interpreter' module
+ 
 use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
@@ -74,7 +76,7 @@ impl BareEnv {
         // TODO: try using .contains_key() to avoid premature cloning of `name.lexeme`
         match self.values.entry(name.lexeme.clone()) {
             Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.insert(value.clone());
+                occupied_entry.insert(value.clone()); // TODO: avoid this clone making the caller do this
                 Ok(value)
             }
             Entry::Vacant(_) => {

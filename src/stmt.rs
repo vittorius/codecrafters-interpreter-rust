@@ -2,6 +2,7 @@ use crate::{environment::Env, expr::Expr, stmt::fun_decl::FunDecl, token::Token}
 
 pub mod fun_decl;
 
+// TODO: experiment with turning this into a consuming visitor
 pub trait VisitorEnv<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> R;
 }
@@ -38,6 +39,10 @@ pub enum Stmt {
         body: Box<Stmt>,
     },
     Block(Vec<Stmt>),
+    Class {
+        name: Token,
+        methods: Vec<FunDecl>,
+    }
 }
 
 impl Stmt {

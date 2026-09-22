@@ -1,3 +1,5 @@
+// TODO: move inside the 'interpreter' module
+
 use std::fmt::Display;
 
 use crate::{
@@ -15,7 +17,7 @@ use crate::{
 // to the Callable trait body
 #[derive(Debug)]
 pub struct Function {
-    name: Option<Token>,
+    name: Option<Token>, // optional because it may be a lambda
     fun_expr: FunExpr,
     closure: Env,
 }

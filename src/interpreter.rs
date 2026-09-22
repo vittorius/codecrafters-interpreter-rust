@@ -3,6 +3,7 @@ use std::rc::Rc;
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
+    class::Class,
     environment::{BareEnv, Env, clone_env},
     error::RuntimeError,
     expr::{self, Expr},
@@ -325,6 +326,17 @@ impl Interpreter {
 
         VOID_OK
     }
+
+    // Two-stage variable binding process allows references to the class inside its own methods.
+    fn visit_class_stmt(&self, name: Token, _methods: &[FunDecl], env: Env) -> StmtResult {
+        // TODO: improve interfaces of all Env methods involved here to reduce the number of .clone()-s
+        env.borrow_mut().define(name.lexeme.clone(), Value::Nil);
+        let class = Class::new(name.clone());
+        env.borrow_mut()
+            .assign(&name, Value::Callable(Rc::new(class)))?;
+
+        VOID_OK
+    }
 }
 
 impl expr::VisitorEnv<ExprResult> for Interpreter {
@@ -381,6 +393,7 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
                 statements,
                 BareEnv::with_enclosing(clone_env(&env)).wrapped(),
             ),
+            Stmt::Class { name, methods } => self.visit_class_stmt(name.clone(), methods, env),
         }
     }
 }

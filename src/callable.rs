@@ -1,3 +1,5 @@
+// TODO: move inside the 'interpreter' module
+
 use std::fmt::{Debug, Display};
 
 use crate::{environment::Env, error::RuntimeError, interpreter::Interpreter, value::Value};
