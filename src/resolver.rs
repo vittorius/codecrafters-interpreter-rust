@@ -144,12 +144,12 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn visit_binary(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
+    fn visit_binary_expr(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_call(&mut self, callee: &'a mut Expr, arguments: &'a mut [Expr]) -> ResolutionResult {
+    fn visit_call_expr(&mut self, callee: &'a mut Expr, arguments: &'a mut [Expr]) -> ResolutionResult {
         self.resolve_expr(callee)?;
 
         for arg in arguments {
@@ -160,7 +160,7 @@ impl<'a> Resolver<'a> {
     }
 
     #[cfg(feature = "conditional-op")]
-    fn visit_conditional(
+    fn visit_conditional_expr(
         &mut self,
         cond: &'a mut Expr,
         left: &'a mut Expr,
@@ -171,20 +171,20 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(right)
     }
 
-    fn visit_grouping(&mut self, expr: &'a mut Expr) -> ResolutionResult {
+    fn visit_grouping_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(expr)
     }
 
-    fn visit_literal(_literal: &Literal) -> ResolutionResult {
+    fn visit_literal_expr(_literal: &Literal) -> ResolutionResult {
         VOID_OK
     }
 
-    fn visit_logical(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
+    fn visit_logical_expr(&mut self, left: &'a mut Expr, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(left)?;
         self.resolve_expr(right)
     }
 
-    fn visit_unary(&mut self, right: &'a mut Expr) -> ResolutionResult {
+    fn visit_unary_expr(&mut self, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(right)
     }
 
@@ -205,7 +205,7 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_assign(
+    fn visit_assign_expr(
         &mut self,
         name: &Token,
         depth: &mut Option<usize>,
@@ -226,7 +226,7 @@ impl<'a> Resolver<'a> {
         stmt.accept_visitor_mut(self)
     }
 
-    fn visit_var_stmt(
+    fn visit_variable_stmt(
         &mut self,
         name: &'a Token,
         initializer: &'a mut Option<Expr>,
@@ -326,20 +326,20 @@ impl<'a> Resolver<'a> {
 impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         match expr {
-            Expr::Binary { left, right, .. } => self.visit_binary(left, right),
+            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value),
+            Expr::Binary { left, right, .. } => self.visit_binary_expr(left, right),
             Expr::Call {
                 callee, arguments, ..
-            } => self.visit_call(callee, arguments),
+            } => self.visit_call_expr(callee, arguments),
             #[cfg(feature = "conditional-op")]
-            Expr::Conditional { cond, left, right } => self.visit_conditional(cond, left, right),
-            Expr::Grouping(expr) => self.visit_grouping(expr),
-            Expr::Literal(literal) => Self::visit_literal(literal),
-            Expr::Logical { left, right, .. } => self.visit_logical(left, right),
-            Expr::Unary { right, .. } => self.visit_unary(right),
-            Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
-            Expr::Assign { name, depth, value } => self.visit_assign(name, depth, value),
+            Expr::Conditional { cond, left, right } => self.visit_conditional_expr(cond, left, right),
+            Expr::Grouping(expr) => self.visit_grouping_expr(expr),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr),
+            Expr::Literal(literal) => Self::visit_literal_expr(literal),
+            Expr::Logical { left, right, .. } => self.visit_logical_expr(left, right),
+            Expr::Unary { right, .. } => self.visit_unary_expr(right),
+            Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
         }
     }
 }
@@ -347,6 +347,8 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
 impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_stmt(&mut self, stmt: &'a mut stmt::Stmt) -> ResolutionResult {
         match stmt {
+            Stmt::Block(statements) => self.visit_block(statements),
+            Stmt::Class { name, .. } => self.visit_class_stmt(name),
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
             Stmt::Function(decl) => self.visit_function_stmt(decl),
             Stmt::If {
@@ -356,10 +358,8 @@ impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             } => self.visit_if_stmt(condition, then_branch, else_branch),
             Stmt::Print(expr) => self.visit_print_stmt(expr),
             Stmt::Return { keyword, value } => self.visit_return_stmt(keyword, value),
-            Stmt::Var { name, initializer } => self.visit_var_stmt(name, initializer),
+            Stmt::Var { name, initializer } => self.visit_variable_stmt(name, initializer),
             Stmt::While { condition, body } => self.visit_while_stmt(condition, body),
-            Stmt::Block(statements) => self.visit_block(statements),
-            Stmt::Class { name, .. } => self.visit_class_stmt(name),
         }
     }
 }

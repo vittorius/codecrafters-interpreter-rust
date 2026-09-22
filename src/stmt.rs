@@ -18,6 +18,11 @@ pub trait VisitorMut<'a, R> {
 // temporary values that are dropped right after they are built.
 #[derive(Debug, Clone)]
 pub enum Stmt {
+    Block(Vec<Stmt>),
+    Class {
+        name: Token,
+        methods: Vec<FunDecl>,
+    },
     Expression(Expr),
     Function(FunDecl),
     If {
@@ -38,11 +43,6 @@ pub enum Stmt {
         condition: Expr,
         body: Box<Stmt>,
     },
-    Block(Vec<Stmt>),
-    Class {
-        name: Token,
-        methods: Vec<FunDecl>,
-    }
 }
 
 impl Stmt {

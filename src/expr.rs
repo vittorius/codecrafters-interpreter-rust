@@ -28,6 +28,11 @@ pub trait VisitorMut<'a, R> {
 // the book already mentions: store the resolution information in the parse tree directly.
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Assign {
+        name: Token,
+        value: Box<Expr>,
+        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
+    },
     Binary {
         left: Box<Expr>,
         operator: Token,
@@ -45,6 +50,8 @@ pub enum Expr {
         right: Box<Expr>,
     },
     Grouping(Box<Expr>),
+    #[cfg(feature = "lambdas")]
+    Lambda(FunExpr),
     Literal(token::Literal),
     Logical {
         left: Box<Expr>,
@@ -59,13 +66,6 @@ pub enum Expr {
         name: Token,
         depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
     },
-    Assign {
-        name: Token,
-        value: Box<Expr>,
-        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
-    },
-    #[cfg(feature = "lambdas")]
-    Lambda(FunExpr),
 }
 
 impl Expr {

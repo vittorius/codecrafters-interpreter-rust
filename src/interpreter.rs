@@ -96,11 +96,11 @@ impl Interpreter {
         Err(RuntimeError::new(token, message))
     }
 
-    fn visit_grouping(&self, expr: &Expr, env: Env) -> ExprResult {
+    fn visit_grouping_expr(&self, expr: &Expr, env: Env) -> ExprResult {
         self.evaluate(expr, env)
     }
 
-    fn visit_literal(literal: &token::Literal) -> ExprResult {
+    fn visit_literal_expr(literal: &token::Literal) -> ExprResult {
         Ok(match literal {
             token::Literal::Str(s) => Value::Str(s.clone()),
             token::Literal::Num(n) => Value::Num(*n),
@@ -109,7 +109,7 @@ impl Interpreter {
         })
     }
 
-    fn visit_logical(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
+    fn visit_logical_expr(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
 
         if operator.token_type == TT::OR {
@@ -125,7 +125,7 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_unary(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
+    fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
@@ -136,7 +136,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_binary(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
+    fn visit_binary_expr(&self, left: &Expr, operator: &Token, right: &Expr, env: Env) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
         let right = self.evaluate(right, clone_env(&env))?;
 
@@ -177,7 +177,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_call(&self, callee: &Expr, paren: &Token, arguments: &[Expr], env: Env) -> ExprResult {
+    fn visit_call_expr(&self, callee: &Expr, paren: &Token, arguments: &[Expr], env: Env) -> ExprResult {
         let callee = self.evaluate(callee, clone_env(&env))?;
 
         let arguments = arguments
@@ -204,7 +204,7 @@ impl Interpreter {
     }
 
     #[cfg(feature = "conditional-op")]
-    fn visit_conditional(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> ExprResult {
+    fn visit_conditional_expr(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
             self.evaluate(left, env)
         } else {
@@ -234,7 +234,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_assign(
+    fn visit_assign_expr(
         &self,
         name: &Token,
         depth: &Option<usize>,
@@ -342,32 +342,32 @@ impl Interpreter {
 impl expr::VisitorEnv<ExprResult> for Interpreter {
     fn visit_expr(&self, expr: &Expr, env: Env) -> ExprResult {
         match expr {
+            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value, env),
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.visit_binary(left, operator, right, env),
+            } => self.visit_binary_expr(left, operator, right, env),
             Expr::Call {
                 callee,
                 paren,
                 arguments,
-            } => self.visit_call(callee, paren, arguments, env),
+            } => self.visit_call_expr(callee, paren, arguments, env),
             #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
-                self.visit_conditional(cond, left, right, env)
+                self.visit_conditional_expr(cond, left, right, env)
             }
-            Expr::Grouping(expr) => self.visit_grouping(expr, env),
-            Expr::Literal(literal) => Self::visit_literal(literal),
+            Expr::Grouping(expr) => self.visit_grouping_expr(expr, env),
+            #[cfg(feature = "lambdas")]
+            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
+            Expr::Literal(literal) => Self::visit_literal_expr(literal),
             Expr::Logical {
                 left,
                 operator,
                 right,
-            } => self.visit_logical(left, operator, right, env),
-            Expr::Unary { operator, right } => self.visit_unary(operator, right, env),
+            } => self.visit_logical_expr(left, operator, right, env),
+            Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
-            Expr::Assign { name, depth, value } => self.visit_assign(name, depth, value, env),
-            #[cfg(feature = "lambdas")]
-            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
         }
     }
 }
@@ -375,6 +375,11 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
 impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
         match stmt {
+            Stmt::Block(statements) => self.execute_block(
+                statements,
+                BareEnv::with_enclosing(clone_env(&env)).wrapped(),
+            ),
+            Stmt::Class { name, methods } => self.visit_class_stmt(name.clone(), methods, env),
             Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
             // Cloning function decl here prevents from using Expr pointers ("references") as keys in local variable lookup resolution.
             // On the other hand, we have to clone function decl to make it live inside the environment and outlive the interpreter
@@ -389,11 +394,6 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
             Stmt::Return { value, .. } => self.visit_return_stmt(value, env),
             Stmt::Var { name, initializer } => self.visit_variable_stmt(name, initializer, env),
             Stmt::While { condition, body } => self.visit_while_stmt(condition, body, env),
-            Stmt::Block(statements) => self.execute_block(
-                statements,
-                BareEnv::with_enclosing(clone_env(&env)).wrapped(),
-            ),
-            Stmt::Class { name, methods } => self.visit_class_stmt(name.clone(), methods, env),
         }
     }
 }
