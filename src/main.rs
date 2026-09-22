@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::env;
 use std::fs;
 use std::io;
@@ -185,9 +183,9 @@ fn run(source: &str) -> ExitValue {
         }
     };
 
-    let mut interpreter = Interpreter::new();
+    let interpreter = Interpreter::new();
 
-    let mut resolver = Resolver::new(&mut interpreter);
+    let mut resolver = Resolver::new();
     if let Err(err) = resolver.resolve_statements(&mut statements) {
         eprintln!("{err}");
         return ExitValue::RuntimeError;
@@ -209,7 +207,7 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
     let mut parser = Parser::new(tokens);
     let mut statements = parser.parse()?;
 
-    let mut resolver = Resolver::new(interpreter);
+    let mut resolver = Resolver::new();
     resolver.resolve_statements(&mut statements)?;
 
     interpreter.interpret(&statements)?;

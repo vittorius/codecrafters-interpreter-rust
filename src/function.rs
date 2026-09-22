@@ -49,7 +49,7 @@ impl Callable for Function {
     }
 
     fn call(&self, interpreter: &Interpreter, arguments: &[Value], _env: Env) -> CallResult {
-        let env = BareEnv::for_fn(clone_env(&self.closure)).wrapped();
+        let env = BareEnv::with_enclosing(clone_env(&self.closure)).wrapped();
 
         for (i, p) in self.fun_expr.params.iter().enumerate() {
             env.borrow_mut()

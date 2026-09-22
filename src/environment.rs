@@ -13,7 +13,6 @@ pub struct BareEnv {
     values: HashMap<String, Value>,
     enclosing: Option<Env>,
     return_value: Option<Value>,
-    is_fn: bool,
 }
 
 impl BareEnv {
@@ -22,23 +21,12 @@ impl BareEnv {
             values: HashMap::new(),
             enclosing: None,
             return_value: None,
-            is_fn: false,
         }
     }
 
     pub fn with_enclosing(enclosing: Env) -> Self {
         Self {
             enclosing: Some(enclosing),
-            is_fn: false,
-            values: HashMap::new(),
-            return_value: None,
-        }
-    }
-
-    pub fn for_fn(closure: Env) -> Self {
-        Self {
-            enclosing: Some(closure),
-            is_fn: true,
             values: HashMap::new(),
             return_value: None,
         }

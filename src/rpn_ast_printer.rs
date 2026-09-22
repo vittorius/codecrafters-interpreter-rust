@@ -5,10 +5,12 @@ use crate::{
     expr::{Expr, VisitorEnv},
 };
 
+#[allow(dead_code)]
 pub struct RpnAstPrinter<'a> {
     expr: &'a Expr,
 }
 
+#[allow(dead_code)]
 impl<'a> RpnAstPrinter<'a> {
     pub fn new(expr: &'a Expr) -> Self {
         Self { expr }

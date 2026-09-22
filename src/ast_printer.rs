@@ -43,6 +43,7 @@ impl<'a> AstPrinter<'a> {
         s
     }
 
+    #[cfg(feature = "conditional-op")]
     fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> String {
         format!(
             "(?: {} {} {})",

@@ -74,7 +74,6 @@ pub struct Parser {
 
 enum FunctionKind {
     Function,
-    Method,
     #[cfg(feature = "lambda")]
     Lambda,
 }
@@ -83,7 +82,6 @@ impl Display for FunctionKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
             FunctionKind::Function => write!(f, "function"),
-            FunctionKind::Method => write!(f, "method"),
             #[cfg(feature = "lambda")]
             FunctionKind::Lambda => write!(f, "lambda"),
         }

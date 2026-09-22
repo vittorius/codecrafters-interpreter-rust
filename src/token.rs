@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, sync::LazyLock};
+use std::fmt::Display;
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -53,30 +53,6 @@ pub enum TokenType {
 
     EOF,
 }
-
-// TODO: refactor using phf crate
-static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
-    use TokenType as TT;
-
-    HashMap::from([
-        ("and", TT::AND),
-        ("class", TT::CLASS),
-        ("else", TT::ELSE),
-        ("false", TT::FALSE),
-        ("for", TT::FOR),
-        ("fun", TT::FUN),
-        ("if", TT::IF),
-        ("nil", TT::NIL),
-        ("or", TT::OR),
-        ("print", TT::PRINT),
-        ("return", TT::RETURN),
-        ("super", TT::SUPER),
-        ("this", TT::THIS),
-        ("true", TT::TRUE),
-        ("var", TT::VAR),
-        ("while", TT::WHILE),
-    ])
-});
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

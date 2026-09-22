@@ -2,7 +2,7 @@ use std::{collections::HashMap, fmt::Display, mem};
 
 use crate::{
     expr::{self, Expr, fun_expr::FunExpr},
-    interpreter::{Interpreter, Void},
+    interpreter::Void,
     lox,
     stmt::{self, Stmt, fun_decl::FunDecl},
     token::{Literal, Token},
@@ -38,16 +38,14 @@ enum FunctionType {
 type ResolutionResult = std::result::Result<Void, ResolveError>;
 const VOID_OK: ResolutionResult = Ok(());
 
-pub struct Resolver<'a> {
-    interpreter: &'a mut Interpreter,
+pub struct Resolver {
     scopes: Vec<HashMap<String, bool>>,
     current_function: FunctionType,
 }
 
-impl<'a> Resolver<'a> {
-    pub fn new(interpreter: &'a mut Interpreter) -> Self {
+impl Resolver {
+    pub fn new() -> Self {
         Self {
-            interpreter,
             scopes: Vec::new(),
             current_function: FunctionType::None,
         }
@@ -266,7 +264,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> expr::VisitorMut<ResolutionResult> for Resolver<'a> {
+impl expr::VisitorMut<ResolutionResult> for Resolver {
     fn visit_expr(&mut self, expr: &mut Expr) -> ResolutionResult {
         match expr {
             Expr::Binary { left, right, .. } => self.visit_binary(left, right),
@@ -287,7 +285,7 @@ impl<'a> expr::VisitorMut<ResolutionResult> for Resolver<'a> {
     }
 }
 
-impl<'a> stmt::VisitorMut<ResolutionResult> for Resolver<'a> {
+impl stmt::VisitorMut<ResolutionResult> for Resolver {
     fn visit_stmt(&mut self, stmt: &mut stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
