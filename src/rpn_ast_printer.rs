@@ -33,8 +33,17 @@ impl<'a> RpnAstPrinter<'a> {
         )
     }
 
+    fn format_set(&self, object: &Expr, name: &str, value: &Expr, env: Env) -> String {
+        format!(
+            "{}.{} {} =",
+            object.accept_visitor_env(self, clone_env(&env)),
+            name,
+            value.accept_visitor_env(self, env)
+        )
+    }
+
     fn format_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
-        let mut s = String::from("(");
+        let mut s = String::from("");
         for arg in arguments {
             s.push_str(&format!(
                 "{} ",
@@ -42,7 +51,7 @@ impl<'a> RpnAstPrinter<'a> {
             ));
         }
         s.push_str(&format!(
-            "{})",
+            "{} ()",
             callee.accept_visitor_env(self, clone_env(&env))
         ));
         s
@@ -108,6 +117,11 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
                 operator,
                 right,
             } => self.format_binary(&operator.lexeme, left, right, env),
+            Expr::Set {
+                object,
+                name,
+                value,
+            } => self.format_set(object, &name.lexeme, value, env),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable { name, .. } => name.lexeme.to_owned(),
         }

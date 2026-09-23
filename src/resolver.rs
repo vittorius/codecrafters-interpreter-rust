@@ -192,6 +192,11 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(right)
     }
 
+    fn visit_set_expr(&mut self, object: &'a mut Expr, value: &'a mut Expr) -> ResolutionResult {
+        self.resolve_expr(value)?;
+        self.resolve_expr(object)
+    }
+
     fn visit_unary_expr(&mut self, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(right)
     }
@@ -349,6 +354,7 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr),
             Expr::Literal(literal) => Self::visit_literal_expr(literal),
             Expr::Logical { left, right, .. } => self.visit_logical_expr(left, right),
+            Expr::Set { object, value, .. } => self.visit_set_expr(object, value),
             Expr::Unary { right, .. } => self.visit_unary_expr(right),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
         }

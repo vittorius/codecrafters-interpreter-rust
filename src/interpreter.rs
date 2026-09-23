@@ -11,7 +11,7 @@ use crate::{
     native::ClockFunction,
     stmt::{self, Stmt, fun_decl::FunDecl},
     token::{self, Token, TokenType as TT},
-    value::Value::{self, Callable},
+    value::Value::{self, Callable, Object},
 };
 
 pub type Void = (); // right now, trying to follow the book, maybe remove it later
@@ -129,6 +129,19 @@ impl Interpreter {
         }
 
         self.evaluate(right, env)
+    }
+
+    fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: Env) -> ExprResult {
+        let object = self.evaluate(object, clone_env(&env))?;
+
+        if let Object(mut instance) = object {
+            let value = self.evaluate(value, env)?;
+            instance.set(name.clone(), value.clone());
+
+            Ok(value)
+        } else {
+            Self::error(name, "Only instances have fields.")
+        }
     }
 
     fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
@@ -401,6 +414,11 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
                 operator,
                 right,
             } => self.visit_logical_expr(left, operator, right, env),
+            Expr::Set {
+                object,
+                name,
+                value,
+            } => self.visit_set_expr(object, name, value, env),
             Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
         }

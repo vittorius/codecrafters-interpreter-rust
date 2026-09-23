@@ -17,7 +17,7 @@
 //! block          → "{" declaration* "}" ;
 //! expression     → comma ;
 //! comma          → assignment ("," assignment)* ;
-//! assignment     → IDENTIFIER "=" assignment | conditional ;
+//! assignment     → ( call "."  )? IDENTIFIER "=" assignment | conditional ;
 //! conditional    → logic_or ("?" logic_or ":" conditional)? ;
 //! logic_or       → logic_and ( "or" logic_and )* ;
 //! logic_and      → funExpr ( "and" funExpr )* ;
@@ -431,15 +431,32 @@ impl Parser {
         let expr = self.or()?;
 
         if self.match_next(TT::EQUAL) {
-            return if let Expr::Variable { name, .. } = expr {
-                Ok(Expr::Assign {
+            // return if let Expr::Variable { name, .. } = expr {
+            //     Ok(Expr::Assign {
+            //         name,
+            //         depth: None,
+            //         value: self.assignment()?.boxed(),
+            //     })
+            // } else {
+            //     let equals = self.previous();
+            //     Err(Self::mk_error(equals, "Invalid assignment target."))
+            // };
+
+            return match expr {
+                Expr::Variable { name, .. } => Ok(Expr::Assign {
                     name,
                     depth: None,
                     value: self.assignment()?.boxed(),
-                })
-            } else {
-                let equals = self.previous();
-                Err(Self::mk_error(equals, "Invalid assignment target."))
+                }),
+                Expr::Get { object, name } => Ok(Expr::Set {
+                    object,
+                    name,
+                    value: self.assignment()?.boxed(),
+                }),
+                _ => {
+                    let equals = self.previous();
+                    Err(Self::mk_error(equals, "Invalid assignment target."))
+                }
             };
         }
 

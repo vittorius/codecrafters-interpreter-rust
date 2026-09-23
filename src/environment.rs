@@ -70,6 +70,7 @@ impl BareEnv {
         }
     }
 
+    // TODO: consume `name` and make the caller .clone()
     pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 
@@ -92,6 +93,7 @@ impl BareEnv {
         }
     }
 
+    // TODO: consume `name` and make the caller .clone()
     pub fn assign_at(
         &mut self,
         distance: usize,

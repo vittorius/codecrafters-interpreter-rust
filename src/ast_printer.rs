@@ -30,6 +30,15 @@ impl<'a> AstPrinter<'a> {
             right.accept_visitor_env(self, env)
         )
     }
+    
+    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: Env) -> String {
+        format!(
+            "(= {}.{} {})",
+            object.accept_visitor_env(self, clone_env(&env)),
+            name,
+            value.accept_visitor_env(self, env)
+        )
+    }
 
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, clone_env(&env)));
@@ -98,6 +107,11 @@ impl VisitorEnv<String> for AstPrinter<'_> {
                 operator,
                 right,
             } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            Expr::Set {
+                object,
+                name,
+                value,
+            } => self.parenthesize_set(object, &name.lexeme, value, env),
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }
