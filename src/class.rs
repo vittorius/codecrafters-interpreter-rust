@@ -1,6 +1,6 @@
 // TODO: move inside the 'interpreter' module
 
-use std::{fmt::Display, rc::Rc};
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
@@ -33,6 +33,8 @@ impl Callable for Class {
     }
 
     fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
-        Ok(Value::Object(Instance::new(Rc::clone(&self))))
+        Ok(Value::Object(Rc::new(RefCell::new(Instance::new(
+            Rc::clone(&self),
+        )))))
     }
 }

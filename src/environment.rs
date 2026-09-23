@@ -44,8 +44,10 @@ impl BareEnv {
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
-    // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
-    // TODO: revisit having &str as the key here instead of a &Token
+    // 
+    // NOTE: it's not possible to return Option<&Value> because &Value cannot outlive the output of enclosing.borrow().
+    // The environment could be HashMap<String, Rc<RefCell<Value>>> but it seems more natural to move the
+    // value/reference duality to the Value itself (see Value definition.)
     pub fn get(&self, name: &Token) -> Option<Value> {
         self.values.get(&name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
@@ -56,7 +58,7 @@ impl BareEnv {
         })
     }
 
-    // TODO: return Option<&Value> or Option<Rc<Value>> to keep Values owned by the Env only
+    // NOTE: see the `get` method note about not returning Option<&Value> here.
     // TODO: revisit having &str as the key here instead of a &Token
     pub fn get_at(&self, distance: usize, name: &Token) -> Option<Value> {
         if distance == 0 {
@@ -71,6 +73,7 @@ impl BareEnv {
     }
 
     // TODO: consume `name` and make the caller .clone()
+    // TODO: return Result<(), RuntimeError> here and make the caller mess with Value cloning
     pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
         use std::collections::hash_map::Entry;
 

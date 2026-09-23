@@ -92,8 +92,12 @@ impl Interpreter {
         }
     }
 
+    fn mk_error(token: &Token, message: &str) -> RuntimeError {
+        RuntimeError::new(token, message)
+    }
+
     fn error(token: &Token, message: &str) -> ExprResult {
-        Err(RuntimeError::new(token, message))
+        Err(Self::mk_error(token, message))
     }
 
     fn visit_grouping_expr(&self, expr: &Expr, env: Env) -> ExprResult {
@@ -134,9 +138,9 @@ impl Interpreter {
     fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: Env) -> ExprResult {
         let object = self.evaluate(object, clone_env(&env))?;
 
-        if let Object(mut instance) = object {
+        if let Object(instance) = object {
             let value = self.evaluate(value, env)?;
-            instance.set(name.clone(), value.clone());
+            instance.borrow_mut().set(name.clone(), value.clone());
 
             Ok(value)
         } else {
@@ -253,7 +257,9 @@ impl Interpreter {
         let object = self.evaluate(object, env)?;
 
         if let Value::Object(instance) = object {
-            instance.get(name)
+            instance.borrow().get(name).ok_or_else(|| {
+                Self::mk_error(name, &format!("Undefined property '{}'.", name.lexeme))
+            })
         } else {
             Self::error(name, "Only instances have properties.")
         }
