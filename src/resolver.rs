@@ -32,6 +32,7 @@ impl Display for ResolveError {
 enum FunctionType {
     None,
     Function,
+    Method,
     #[cfg(feature = "lambdas")]
     Lambda,
 }
@@ -270,9 +271,17 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_class_stmt(&mut self, name: &'a Token) -> ResolutionResult {
+    fn visit_class_stmt(
+        &mut self,
+        name: &'a Token,
+        methods: &'a mut [FunDecl],
+    ) -> ResolutionResult {
         self.declare(name)?;
         self.define(name);
+
+        for method in methods {
+            self.resolve_function(&mut method.expr, FunctionType::Method)?;
+        }
 
         VOID_OK
     }
@@ -365,7 +374,7 @@ impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_stmt(&mut self, stmt: &'a mut stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Block(statements) => self.visit_block(statements),
-            Stmt::Class { name, .. } => self.visit_class_stmt(name),
+            Stmt::Class { name, methods } => self.visit_class_stmt(name, methods),
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
             Stmt::Function(decl) => self.visit_function_stmt(decl),
             Stmt::If {

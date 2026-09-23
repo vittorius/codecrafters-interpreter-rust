@@ -17,6 +17,8 @@ pub enum VarStatus {
     Used,
 }
 
+// It's lifetime is shorter than the interpreted piece of source (var name tokens),
+// so we can use references in it.
 pub struct Scope<'a> {
     vars: HashMap<&'a str, VarData<'a>>,
 }

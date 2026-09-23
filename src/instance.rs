@@ -21,7 +21,13 @@ impl Instance {
     // Returning Option<Value> as it's more Rust-idiomatic (same as in BareEnv::get()).
     // NOTE: we return Value here for the same reason as in BareEnv::get(), see notes there.
     pub fn get(&self, name: &Token) -> Option<Value> {
-        self.fields.get(&name.lexeme).cloned()
+        if let Some(field) = self.fields.get(&name.lexeme) {
+            Some(field.clone())
+        } else {
+            self.class
+                .find_method(&name.lexeme)
+                .map(|method| Value::Callable(method))
+        }
     }
 
     pub fn set(&mut self, name: Token, value: Value) {

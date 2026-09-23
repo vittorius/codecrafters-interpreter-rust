@@ -21,6 +21,7 @@ use crate::resolver::Resolver;
 use crate::scanner::ScanError;
 use crate::scanner::Scanner;
 
+// mod playground;
 mod ast_printer;
 mod callable;
 mod class;

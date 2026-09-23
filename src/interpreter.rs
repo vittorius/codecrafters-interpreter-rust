@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
@@ -381,10 +381,24 @@ impl Interpreter {
     }
 
     // Two-stage variable binding process allows references to the class inside its own methods.
-    fn visit_class_stmt(&self, name: Token, _methods: &[FunDecl], env: Env) -> StmtResult {
+    fn visit_class_stmt(&self, name: Token, methods: Vec<FunDecl>, env: Env) -> StmtResult {
         // TODO: improve interfaces of all Env methods involved here to reduce the number of .clone()-s
         env.borrow_mut().define(name.lexeme.clone(), Value::Nil);
-        let class = Class::new(name.clone());
+
+        let mut class_methods = HashMap::<String, Rc<Function>>::new();
+
+        for method in methods {
+            let function = Function::new(method, clone_env(&env));
+            class_methods.insert(
+                function
+                    .name()
+                    .expect("Method always has a name")
+                    .to_owned(),
+                Rc::new(function),
+            );
+        }
+
+        let class = Class::new(name.clone(), class_methods);
         env.borrow_mut()
             .assign(&name, Value::Callable(Rc::new(class)))?;
 
@@ -438,7 +452,11 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
                 statements,
                 BareEnv::with_enclosing(clone_env(&env)).wrapped(),
             ),
-            Stmt::Class { name, methods } => self.visit_class_stmt(name.clone(), methods, env),
+            Stmt::Class { name, methods } => {
+                // TODO: cloning the entire vector here, not good.
+                // Again, let's experiment with consuming Visitor for Interpreter later.
+                self.visit_class_stmt(name.clone(), methods.clone(), env)
+            }
             Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
             // Cloning function decl here prevents from using Expr pointers ("references") as keys in local variable lookup resolution.
             // On the other hand, we have to clone function decl to make it live inside the environment and outlive the interpreter

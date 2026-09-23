@@ -1,9 +1,10 @@
 // TODO: move inside the 'interpreter' module
 
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
+    function::Function,
     instance::Instance,
     interpreter::Interpreter,
     token::Token,
@@ -13,11 +14,16 @@ use crate::{
 #[derive(Debug)]
 pub struct Class {
     name: Token,
+    methods: HashMap<String, Rc<Function>>,
 }
 
 impl Class {
-    pub fn new(name: Token) -> Self {
-        Self { name }
+    pub fn new(name: Token, methods: HashMap<String, Rc<Function>>) -> Self {
+        Self { name, methods }
+    }
+
+    pub fn find_method(&self, name: &str) -> Option<Rc<Function>> {
+        self.methods.get(name).map(Rc::clone)
     }
 }
 
