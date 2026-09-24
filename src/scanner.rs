@@ -6,6 +6,13 @@ use crate::{
     token::{Literal, Token, TokenType},
 };
 
+pub static THIS: LazyLock<Token> = LazyLock::new(|| Token {
+    token_type: TokenType::THIS,
+    lexeme: String::from("this"),
+    literal: None,
+    line: 0,
+});
+
 // TODO: refactor using phf crate
 static KEYWORDS: LazyLock<HashMap<&str, TokenType>> = LazyLock::new(|| {
     use TokenType as TT;

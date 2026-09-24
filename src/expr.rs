@@ -67,6 +67,10 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    This {
+        keyword: Token,       // "this" keyword
+        depth: Option<usize>, // same as for local variables
+    },
     Unary {
         operator: Token,
         right: Box<Expr>,

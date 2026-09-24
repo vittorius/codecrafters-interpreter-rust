@@ -30,7 +30,7 @@ impl<'a> AstPrinter<'a> {
             right.accept_visitor_env(self, env)
         )
     }
-    
+
     fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: Env) -> String {
         format!(
             "(= {}.{} {})",
@@ -112,10 +112,11 @@ impl VisitorEnv<String> for AstPrinter<'_> {
                 name,
                 value,
             } => self.parenthesize_set(object, &name.lexeme, value, env),
+            Expr::This { keyword, .. } => keyword.lexeme.clone(),
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }
-            Expr::Variable { name, .. } => name.lexeme.to_owned(),
+            Expr::Variable { name, .. } => name.lexeme.clone(),
         }
     }
 }

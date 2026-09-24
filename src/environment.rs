@@ -6,18 +6,22 @@ use crate::{error::RuntimeError, token::Token, value::Value};
 
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
 // for multiple child environments where it can be potentially mutated (e.g. Binary expression)
+// TODO: rename into EnvShared
 pub type Env = Rc<RefCell<BareEnv>>;
 
 // Env owns its variable names (hence String keys) to make a true REPL:
 // variable definitions that survive the line of source they were derived from.
 #[derive(Debug)]
+// TODO: rename into Env
 pub struct BareEnv {
     values: HashMap<String, Value>,
     enclosing: Option<Env>,
     return_value: Option<Value>,
 }
 
+// TODO: rename into Env
 impl BareEnv {
+    // TODO: delete this method and move its logic to `wrapped`
     pub fn new() -> Self {
         Self {
             values: HashMap::new(),
@@ -34,6 +38,7 @@ impl BareEnv {
         }
     }
 
+    // TODO: rename to `new_shared`
     pub fn wrapped(self) -> Env {
         Rc::new(RefCell::new(self))
     }
@@ -41,6 +46,11 @@ impl BareEnv {
     pub fn define(&mut self, name: String, value: Value) {
         self.values.insert(name, value);
     }
+
+    // TODO: use when BareEnv is renamed to Env
+    // pub fn clone_shared(env: &Env) -> Env {
+    //     Rc::clone(&env)
+    // }
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.

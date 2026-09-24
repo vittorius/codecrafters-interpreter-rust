@@ -30,7 +30,7 @@
 //! unary          → ( "!" | "-" ) unary | call ;
 //! call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 //! arguments      → expression ( "," expression )* ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "this" | "(" expression ")" | IDENTIFIER ;
 
 use std::fmt::Display;
 
@@ -713,12 +713,21 @@ impl Parser {
         if self.match_next(TT::FALSE) {
             return Ok(Expr::Literal(Literal::Bool(false)));
         };
+
         if self.match_next(TT::TRUE) {
             return Ok(Expr::Literal(Literal::Bool(true)));
         };
+
         if self.match_next(TT::NIL) {
             return Ok(Expr::Literal(Literal::Nil));
         };
+
+        if self.match_next(TT::THIS) {
+            return Ok(Expr::This {
+                keyword: self.previous().clone(),
+                depth: None,
+            });
+        }
 
         if self.match_next_any(&[TT::NUMBER, TT::STRING]) {
             return Ok(Expr::Literal(

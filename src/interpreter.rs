@@ -148,6 +148,11 @@ impl Interpreter {
         }
     }
 
+    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: Env) -> ExprResult {
+        self.lookup_variable(keyword, depth, env)
+            .ok_or_else(|| unreachable!("'this' should be always defined by resolver."))
+    }
+
     fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
@@ -439,6 +444,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
                 name,
                 value,
             } => self.visit_set_expr(object, name, value, env),
+            Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth, env),
             Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
         }

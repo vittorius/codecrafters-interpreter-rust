@@ -56,6 +56,11 @@ impl<'a> Scope<'a> {
             .is_some_and(|v| v.status == VarStatus::Defined)
     }
 
+    pub fn declare_and_define(&mut self, name: &'a Token) {
+        self.declare(name);
+        self.define(name);
+    }
+
     #[cfg(feature = "err-unused-vars")]
     pub fn mark_used(&mut self, name: &Token) {
         if let Some(var_data) = self.vars.get_mut(name.lexeme.as_str()) {

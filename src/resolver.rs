@@ -5,6 +5,7 @@ use crate::{
     interpreter::Void,
     lox,
     resolver::scope::Scope,
+    scanner::{self},
     stmt::{self, Stmt, fun_decl::FunDecl},
     token::{Literal, Token},
 };
@@ -86,9 +87,12 @@ impl<'a> Resolver<'a> {
     fn end_scope(&mut self) -> ResolutionResult {
         #[cfg(feature = "err-unused-vars")]
         {
+            use crate::token::TokenType;
+
             let last_scope = self.scopes.pop();
             if let Some(last_scope) = last_scope
                 && let Some(token) = last_scope.first_unused()
+                && token.token_type != TokenType::THIS
             {
                 return Self::error(token, "Unused variable");
             }
@@ -198,6 +202,16 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(object)
     }
 
+    fn visit_this_expr(
+        &mut self,
+        keyword: &'a Token,
+        depth: &mut Option<usize>,
+    ) -> ResolutionResult {
+        self.resolve_local(keyword, depth, true);
+
+        VOID_OK
+    }
+
     fn visit_unary_expr(&mut self, right: &'a mut Expr) -> ResolutionResult {
         self.resolve_expr(right)
     }
@@ -279,9 +293,16 @@ impl<'a> Resolver<'a> {
         self.declare(name)?;
         self.define(name);
 
+        self.begin_scope();
+        self.last_scope_mut()
+            .expect("Just opened a new scope")
+            .declare_and_define(&scanner::THIS);
+
         for method in methods {
             self.resolve_function(&mut method.expr, FunctionType::Method)?;
         }
+
+        self.end_scope()?;
 
         VOID_OK
     }
@@ -364,6 +385,7 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Expr::Literal(literal) => Self::visit_literal_expr(literal),
             Expr::Logical { left, right, .. } => self.visit_logical_expr(left, right),
             Expr::Set { object, value, .. } => self.visit_set_expr(object, value),
+            Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth),
             Expr::Unary { right, .. } => self.visit_unary_expr(right),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
         }

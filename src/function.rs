@@ -6,6 +6,7 @@ use crate::{
     callable::{CallResult, Callable},
     environment::{BareEnv, Env, clone_env},
     expr::fun_expr::FunExpr,
+    instance::InstanceShared,
     interpreter::Interpreter,
     stmt::fun_decl::FunDecl,
     token::Token,
@@ -22,7 +23,10 @@ pub struct Function {
     closure: Env,
 }
 
+// TODO: type FunctionShared
+
 impl Function {
+    // FIXME: store shared FunDecl in the Function
     pub fn new(decl: FunDecl, closure: Env) -> Self {
         Self {
             name: Some(decl.name),
@@ -42,6 +46,29 @@ impl Function {
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|t| t.lexeme.as_str())
+    }
+
+    // TODO: return FunctionShared; or think if we need it here
+    // or the Function-using code is better to decide whether to wrap in Rc
+    // pub fn into_shared(self) -> Rc<Self> {
+    //    Rc::new()
+    // }
+
+    pub fn bind(&self, instance: InstanceShared) -> Self {
+        let mut env = BareEnv::with_enclosing(clone_env(&self.closure));
+        env.define("this".to_owned(), Value::Object(instance));
+        // FIXME: reject cloning in favor of shared function declarations that must be kept shared in runtime
+        Function::new(
+            FunDecl {
+                name: self
+                    .name
+                    .as_ref()
+                    .cloned()
+                    .expect("Regular function always has a name"),
+                expr: self.fun_expr.clone(),
+            },
+            env.wrapped(),
+        )
     }
 }
 

@@ -122,8 +122,9 @@ impl VisitorEnv<String> for RpnAstPrinter<'_> {
                 name,
                 value,
             } => self.format_set(object, &name.lexeme, value, env),
+            Expr::This { keyword, .. } => keyword.lexeme.clone(),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
-            Expr::Variable { name, .. } => name.lexeme.to_owned(),
+            Expr::Variable { name, .. } => name.lexeme.clone(),
         }
     }
 }

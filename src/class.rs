@@ -1,6 +1,6 @@
 // TODO: move inside the 'interpreter' module
 
-use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc};
+use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
@@ -10,6 +10,8 @@ use crate::{
     token::Token,
     value::Value,
 };
+
+// TODO: type ClassShared
 
 #[derive(Debug)]
 pub struct Class {
@@ -39,8 +41,6 @@ impl Callable for Class {
     }
 
     fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
-        Ok(Value::Object(Rc::new(RefCell::new(Instance::new(
-            Rc::clone(&self),
-        )))))
+        Ok(Value::Object(Instance::new_shared(Rc::clone(&self))))
     }
 }
