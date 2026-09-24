@@ -135,7 +135,13 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: EnvShared) -> ExprResult {
+    fn visit_set_expr(
+        &self,
+        object: &Expr,
+        name: &Token,
+        value: &Expr,
+        env: EnvShared,
+    ) -> ExprResult {
         let object = self.evaluate(object, clone_env(&env))?;
 
         if let Object(instance) = object {
@@ -148,7 +154,12 @@ impl Interpreter {
         }
     }
 
-    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: EnvShared) -> ExprResult {
+    fn visit_this_expr(
+        &self,
+        keyword: &Token,
+        depth: &Option<usize>,
+        env: EnvShared,
+    ) -> ExprResult {
         self.lookup_variable(keyword, depth, env)
             .ok_or_else(|| unreachable!("'this' should be always defined by resolver."))
     }
@@ -270,7 +281,12 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: EnvShared) -> ExprResult {
+    fn visit_variable_expr(
+        &self,
+        name: &Token,
+        depth: &Option<usize>,
+        env: EnvShared,
+    ) -> ExprResult {
         match self.lookup_variable(name, depth, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
@@ -284,11 +300,16 @@ impl Interpreter {
         }
     }
 
-    fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: EnvShared) -> Option<Value> {
+    fn lookup_variable(
+        &self,
+        name: &Token,
+        depth: &Option<usize>,
+        env: EnvShared,
+    ) -> Option<Value> {
         if let Some(distance) = depth {
-            env.borrow().get_at(*distance, name)
+            env.borrow().get_at(*distance, &name.lexeme)
         } else {
-            self.globals().borrow().get(name)
+            self.globals().borrow().get(&name.lexeme)
         }
     }
 
@@ -454,10 +475,9 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
 impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: EnvShared) -> StmtResult {
         match stmt {
-            Stmt::Block(statements) => self.execute_block(
-                statements,
-                Env::with_enclosing(clone_env(&env)).wrapped(),
-            ),
+            Stmt::Block(statements) => {
+                self.execute_block(statements, Env::with_enclosing(clone_env(&env)).wrapped())
+            }
             Stmt::Class { name, methods } => {
                 // TODO: cloning the entire vector here, not good.
                 // Again, let's experiment with consuming Visitor for Interpreter later.

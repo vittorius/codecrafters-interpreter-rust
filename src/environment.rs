@@ -60,11 +60,8 @@ impl Env {
     // It's not possible to return Option<&Value> because &Value cannot outlive the output of enclosing.borrow().
     // The environment could be HashMap<String, Rc<RefCell<Value>>> but it seems more natural to move the
     // value/reference duality to the Value itself (see Value definition.)
-    //
-    // TODO: revisit having &str as the key here instead of a &Token.
-    // This will help when defining/getting "this"
-    pub fn get(&self, name: &Token) -> Option<Value> {
-        self.values.get(&name.lexeme).cloned().or_else(|| {
+    pub fn get(&self, name: &str) -> Option<Value> {
+        self.values.get(name).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
                 enclosing.borrow().get(name)
             } else {
@@ -74,16 +71,14 @@ impl Env {
     }
 
     // See the `get` method note about not returning Option<&Value> here.
-    // TODO: revisit having &str as the key here instead of a &Token.
-    // This will help when defining/getting "this"
-    pub fn get_at(&self, distance: usize, name: &Token) -> Option<Value> {
+    pub fn get_at(&self, distance: usize, name: &str) -> Option<Value> {
         if distance == 0 {
             self.get(name)
         } else {
             self.ancestor(NonZeroUsize::new(distance).expect("The distance must be non-zero"))
                 .borrow()
                 .values
-                .get(&name.lexeme)
+                .get(name)
                 .cloned()
         }
     }

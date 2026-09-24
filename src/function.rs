@@ -8,7 +8,6 @@ use crate::{
     expr::fun_expr::FunExpr,
     instance::InstanceShared,
     interpreter::Interpreter,
-    scanner,
     stmt::fun_decl::FunDecl,
     token::Token,
     value::Value,
@@ -75,6 +74,13 @@ impl Function {
             self.is_initializer,
         )
     }
+
+    fn this_in_initializer(&self) -> Value {
+        self.closure
+            .borrow()
+            .get_at(0, "this")
+            .expect("'this' is always defined if a function is a class initializer")
+    }
 }
 
 impl Callable for Function {
@@ -94,28 +100,19 @@ impl Callable for Function {
         interpreter.execute_block(&self.fun_expr.body, clone_env(&env))?;
 
         if self.is_initializer {
-            Ok(self
-                .closure
-                .borrow()
-                .get_at(0, &scanner::THIS) // FIXME: should be just .get_at(0, "this")
-                .expect("'this' is always defined if a function is a class initializer"))
+            // no `return` statement
+            Ok(self.this_in_initializer())
         } else if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
-            // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
-            // AND there was an actual return value stored in the env.
-            // Return the `return` value and clear the "returning" env state.
+            // `return` statement
+            // if self.is_initializer {
+            //     Ok(self.this_in_initializer())
+            // } else {
+                // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
+                // and there was an actual return value stored in the env.
+                // Return the `return` value and clear the "returning" env state.
 
-            if self.is_initializer {
-                self.closure
-                    .borrow()
-                    .get_at(0, &scanner::THIS)
-                    .ok_or_else(|| {
-                        unreachable!(
-                            "'this' is always defined if a function is a class initializer"
-                        )
-                    })
-            } else {
                 Ok(return_value.clone())
-            }
+            // }
         } else {
             Ok(Value::Nil)
         }
