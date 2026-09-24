@@ -38,6 +38,11 @@ enum FunctionType {
     Lambda,
 }
 
+enum ClassType {
+    None,
+    Class,
+}
+
 type ResolutionResult = std::result::Result<Void, ResolveError>;
 const VOID_OK: ResolutionResult = Ok(());
 
@@ -46,6 +51,7 @@ mod scope;
 pub struct Resolver<'a> {
     scopes: Vec<Scope<'a>>, // as a stack
     current_function: FunctionType,
+    current_class: ClassType,
 }
 
 impl<'a> Resolver<'a> {
@@ -53,6 +59,7 @@ impl<'a> Resolver<'a> {
         Self {
             scopes: Vec::new(),
             current_function: FunctionType::None,
+            current_class: ClassType::None,
         }
     }
 
@@ -207,9 +214,14 @@ impl<'a> Resolver<'a> {
         keyword: &'a Token,
         depth: &mut Option<usize>,
     ) -> ResolutionResult {
-        self.resolve_local(keyword, depth, true);
+        match self.current_class {
+            ClassType::None => Self::error(keyword, "Can't use 'this' outside of a class."),
+            _ => {
+                self.resolve_local(keyword, depth, true);
 
-        VOID_OK
+                VOID_OK
+            }
+        }
     }
 
     fn visit_unary_expr(&mut self, right: &'a mut Expr) -> ResolutionResult {
@@ -290,6 +302,8 @@ impl<'a> Resolver<'a> {
         name: &'a Token,
         methods: &'a mut [FunDecl],
     ) -> ResolutionResult {
+        let enclosing_class = mem::replace(&mut self.current_class, ClassType::Class);
+
         self.declare(name)?;
         self.define(name);
 
@@ -303,6 +317,8 @@ impl<'a> Resolver<'a> {
         }
 
         self.end_scope()?;
+
+        self.current_class = enclosing_class;
 
         VOID_OK
     }
