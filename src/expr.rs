@@ -1,7 +1,7 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::Env,
+    environment::EnvShared,
     token::{self, Token},
 };
 
@@ -9,7 +9,7 @@ pub mod fun_expr;
 
 // TODO: experiment with turning this into a consuming visitor
 pub trait VisitorEnv<R> {
-    fn visit_expr(&self, expr: &Expr, env: Env) -> R;
+    fn visit_expr(&self, expr: &Expr, env: EnvShared) -> R;
 }
 
 pub trait VisitorMut<'a, R> {
@@ -82,7 +82,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: Env) -> R {
+    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: EnvShared) -> R {
         visitor.visit_expr(self, env)
     }
 

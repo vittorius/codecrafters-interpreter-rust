@@ -1,7 +1,7 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::{BareEnv, Env, clone_env},
+    environment::{Env, EnvShared, clone_env},
     expr::{Expr, VisitorEnv},
 };
 
@@ -15,14 +15,14 @@ impl<'a> AstPrinter<'a> {
     }
 
     pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr, BareEnv::new().wrapped())
+        self.visit_expr(self.expr, Env::new().wrapped())
     }
 
-    fn parenthesize_unary(&self, name: &str, expr: &Expr, env: Env) -> String {
+    fn parenthesize_unary(&self, name: &str, expr: &Expr, env: EnvShared) -> String {
         format!("({} {})", name, expr.accept_visitor_env(self, env))
     }
 
-    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: Env) -> String {
+    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: EnvShared) -> String {
         format!(
             "({} {} {})",
             name,
@@ -31,7 +31,7 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: Env) -> String {
+    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: EnvShared) -> String {
         format!(
             "(= {}.{} {})",
             object.accept_visitor_env(self, clone_env(&env)),
@@ -40,7 +40,7 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: Env) -> String {
+    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: EnvShared) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, clone_env(&env)));
         for arg in arguments {
             s.push_str(&format!(
@@ -53,7 +53,7 @@ impl<'a> AstPrinter<'a> {
     }
 
     #[cfg(feature = "conditional-op")]
-    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: Env) -> String {
+    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: EnvShared) -> String {
         format!(
             "(?: {} {} {})",
             cond.accept_visitor_env(self, clone_env(&env)),
@@ -62,11 +62,11 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_get(&self, object: &Expr, name: &str, env: Env) -> String {
+    fn parenthesize_get(&self, object: &Expr, name: &str, env: EnvShared) -> String {
         format!("(. {} {})", object.accept_visitor_env(self, env), name)
     }
 
-    fn parenthesize_assign(&self, name: &str, value: &Expr, env: Env) -> String {
+    fn parenthesize_assign(&self, name: &str, value: &Expr, env: EnvShared) -> String {
         format!("(<- {} {})", name, value.accept_visitor_env(self, env))
     }
 
@@ -82,7 +82,7 @@ impl<'a> AstPrinter<'a> {
 }
 
 impl VisitorEnv<String> for AstPrinter<'_> {
-    fn visit_expr(&self, expr: &Expr, env: Env) -> String {
+    fn visit_expr(&self, expr: &Expr, env: EnvShared) -> String {
         match expr {
             Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
             Expr::Binary {

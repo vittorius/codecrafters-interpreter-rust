@@ -4,7 +4,7 @@ use std::{fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
-    environment::{BareEnv, Env, clone_env},
+    environment::{Env, EnvShared, clone_env},
     expr::fun_expr::FunExpr,
     instance::InstanceShared,
     interpreter::Interpreter,
@@ -21,7 +21,7 @@ use crate::{
 pub struct Function {
     name: Option<Token>, // optional because it may be a lambda
     fun_expr: FunExpr,
-    closure: Env,
+    closure: EnvShared,
     is_initializer: bool,
 }
 
@@ -29,7 +29,7 @@ pub struct Function {
 
 impl Function {
     // FIXME: store shared FunDecl in the Function
-    pub fn new(decl: FunDecl, closure: Env, is_initializer: bool) -> Self {
+    pub fn new(decl: FunDecl, closure: EnvShared, is_initializer: bool) -> Self {
         Self {
             name: Some(decl.name),
             fun_expr: decl.expr,
@@ -39,7 +39,7 @@ impl Function {
     }
 
     #[cfg(feature = "lambdas")]
-    pub fn new_lambda(fun_expr: FunExpr, closure: Env) -> Self {
+    pub fn new_lambda(fun_expr: FunExpr, closure: EnvShared) -> Self {
         Self {
             name: None,
             fun_expr,
@@ -59,7 +59,7 @@ impl Function {
     // }
 
     pub fn bind(&self, instance: InstanceShared) -> Self {
-        let mut env = BareEnv::with_enclosing(clone_env(&self.closure));
+        let mut env = Env::with_enclosing(clone_env(&self.closure));
         env.define("this".to_owned(), Value::Object(instance));
         // FIXME: reject cloning in favor of shared function declarations that must be kept shared in runtime
         Function::new(
@@ -84,7 +84,7 @@ impl Callable for Function {
 
     // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
-        let env = BareEnv::with_enclosing(clone_env(&self.closure)).wrapped();
+        let env = Env::with_enclosing(clone_env(&self.closure)).wrapped();
 
         for (i, p) in self.fun_expr.params.iter().enumerate() {
             env.borrow_mut()

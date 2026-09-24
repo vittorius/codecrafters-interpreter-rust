@@ -9,20 +9,20 @@ use crate::{error::RuntimeError, token::Token, value::Value};
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
 // for multiple child environments where it can be potentially mutated (e.g. Binary expression)
 // TODO: rename into EnvShared
-pub type Env = Rc<RefCell<BareEnv>>;
+pub type EnvShared = Rc<RefCell<Env>>;
 
 // Env owns its variable names (hence String keys) to make a true REPL:
 // variable definitions that survive the line of source they were derived from.
 #[derive(Debug)]
 // TODO: rename into Env
-pub struct BareEnv {
+pub struct Env {
     values: HashMap<String, Value>,
-    enclosing: Option<Env>,
+    enclosing: Option<EnvShared>,
     return_value: Option<Value>,
 }
 
 // TODO: rename into Env
-impl BareEnv {
+impl Env {
     // TODO: delete this method and move its logic to `wrapped`
     pub fn new() -> Self {
         Self {
@@ -32,7 +32,7 @@ impl BareEnv {
         }
     }
 
-    pub fn with_enclosing(enclosing: Env) -> Self {
+    pub fn with_enclosing(enclosing: EnvShared) -> Self {
         Self {
             enclosing: Some(enclosing),
             values: HashMap::new(),
@@ -41,7 +41,7 @@ impl BareEnv {
     }
 
     // TODO: rename to `new_shared`
-    pub fn wrapped(self) -> Env {
+    pub fn wrapped(self) -> EnvShared {
         Rc::new(RefCell::new(self))
     }
 
@@ -143,7 +143,7 @@ impl BareEnv {
         self.return_value.take()
     }
 
-    fn ancestor(&self, distance: NonZeroUsize) -> Env {
+    fn ancestor(&self, distance: NonZeroUsize) -> EnvShared {
         let mut env = clone_env(
             self.enclosing
                 .as_ref()
@@ -166,11 +166,11 @@ impl BareEnv {
 
 // This function is added for the same explicitness as comes with calling Rc::clone
 // but hiding the implementation details (`Rc`) a bit.
-pub fn clone_env(env: &Env) -> Env {
+pub fn clone_env(env: &EnvShared) -> EnvShared {
     Rc::clone(env)
 }
 
-impl Drop for BareEnv {
+impl Drop for Env {
     fn drop(&mut self) {
         if let Some(enclosing) = &self.enclosing
             && let Some(return_value) = self.return_value.take()

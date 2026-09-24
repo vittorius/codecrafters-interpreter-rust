@@ -4,7 +4,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::expr::fun_expr::FunExpr;
 use crate::{
     class::Class,
-    environment::{BareEnv, Env, clone_env},
+    environment::{Env, EnvShared, clone_env},
     error::RuntimeError,
     expr::{self, Expr},
     function::Function,
@@ -23,12 +23,12 @@ type StmtResult = std::result::Result<Void, RuntimeError>;
 type ExprResult = std::result::Result<Value, RuntimeError>;
 
 pub struct Interpreter {
-    env: Env,
+    env: EnvShared,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let env = BareEnv::new().wrapped();
+        let env = Env::new().wrapped();
         env.borrow_mut()
             .define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
         Self { env }
@@ -50,15 +50,15 @@ impl Interpreter {
             .map(|v| v.to_string())
     }
 
-    pub fn globals(&self) -> Env {
+    pub fn globals(&self) -> EnvShared {
         clone_env(&self.env)
     }
 
-    fn execute(&self, stmt: &Stmt, env: Env) -> StmtResult {
+    fn execute(&self, stmt: &Stmt, env: EnvShared) -> StmtResult {
         stmt.accept_visitor_env(self, env)
     }
 
-    pub fn execute_block(&self, statements: &[Stmt], env: Env) -> StmtResult {
+    pub fn execute_block(&self, statements: &[Stmt], env: EnvShared) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, clone_env(&env))?;
             if env.borrow().is_returning_from_fn() {
@@ -69,7 +69,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn evaluate(&self, expr: &Expr, env: Env) -> ExprResult {
+    fn evaluate(&self, expr: &Expr, env: EnvShared) -> ExprResult {
         expr.accept_visitor_env(self, env)
     }
 
@@ -100,7 +100,7 @@ impl Interpreter {
         Err(Self::mk_error(token, message))
     }
 
-    fn visit_grouping_expr(&self, expr: &Expr, env: Env) -> ExprResult {
+    fn visit_grouping_expr(&self, expr: &Expr, env: EnvShared) -> ExprResult {
         self.evaluate(expr, env)
     }
 
@@ -118,7 +118,7 @@ impl Interpreter {
         left: &Expr,
         operator: &Token,
         right: &Expr,
-        env: Env,
+        env: EnvShared,
     ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
 
@@ -135,7 +135,7 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: Env) -> ExprResult {
+    fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: EnvShared) -> ExprResult {
         let object = self.evaluate(object, clone_env(&env))?;
 
         if let Object(instance) = object {
@@ -148,12 +148,12 @@ impl Interpreter {
         }
     }
 
-    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: Env) -> ExprResult {
+    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: EnvShared) -> ExprResult {
         self.lookup_variable(keyword, depth, env)
             .ok_or_else(|| unreachable!("'this' should be always defined by resolver."))
     }
 
-    fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: Env) -> ExprResult {
+    fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: EnvShared) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
@@ -169,7 +169,7 @@ impl Interpreter {
         left: &Expr,
         operator: &Token,
         right: &Expr,
-        env: Env,
+        env: EnvShared,
     ) -> ExprResult {
         let left = self.evaluate(left, clone_env(&env))?;
         let right = self.evaluate(right, clone_env(&env))?;
@@ -216,7 +216,7 @@ impl Interpreter {
         callee: &Expr,
         paren: &Token,
         arguments: &[Expr],
-        env: Env,
+        env: EnvShared,
     ) -> ExprResult {
         let callee = self.evaluate(callee, clone_env(&env))?;
 
@@ -249,7 +249,7 @@ impl Interpreter {
         cond: &Expr,
         left: &Expr,
         right: &Expr,
-        env: Env,
+        env: EnvShared,
     ) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, clone_env(&env))?) {
             self.evaluate(left, env)
@@ -258,7 +258,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_get_expr(&self, object: &Expr, name: &Token, env: Env) -> ExprResult {
+    fn visit_get_expr(&self, object: &Expr, name: &Token, env: EnvShared) -> ExprResult {
         let object = self.evaluate(object, env)?;
 
         if let Value::Object(instance) = object {
@@ -270,7 +270,7 @@ impl Interpreter {
         }
     }
 
-    fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: Env) -> ExprResult {
+    fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: EnvShared) -> ExprResult {
         match self.lookup_variable(name, depth, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
@@ -284,7 +284,7 @@ impl Interpreter {
         }
     }
 
-    fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: Env) -> Option<Value> {
+    fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: EnvShared) -> Option<Value> {
         if let Some(distance) = depth {
             env.borrow().get_at(*distance, name)
         } else {
@@ -297,7 +297,7 @@ impl Interpreter {
         name: &Token,
         depth: &Option<usize>,
         value: &Expr,
-        env: Env,
+        env: EnvShared,
     ) -> ExprResult {
         let value = self.evaluate(value, clone_env(&env))?;
 
@@ -309,16 +309,16 @@ impl Interpreter {
     }
 
     #[cfg(feature = "lambdas")]
-    fn visit_function_expr(&self, fun_expr: FunExpr, env: Env) -> ExprResult {
+    fn visit_function_expr(&self, fun_expr: FunExpr, env: EnvShared) -> ExprResult {
         let function = Function::new_lambda(fun_expr, clone_env(&env));
         Ok(Value::Callable(Rc::new(function)))
     }
 
-    fn visit_expression_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
+    fn visit_expression_stmt(&self, expr: &Expr, env: EnvShared) -> StmtResult {
         self.evaluate(expr, env).and(VOID_OK)
     }
 
-    fn visit_function_stmt(&self, decl: FunDecl, env: Env) -> StmtResult {
+    fn visit_function_stmt(&self, decl: FunDecl, env: EnvShared) -> StmtResult {
         let function = Function::new(decl, clone_env(&env), false);
         env.borrow_mut().define(
             function
@@ -336,7 +336,7 @@ impl Interpreter {
         condition: &Expr,
         then_branch: &Stmt,
         else_branch: &Option<Box<Stmt>>,
-        env: Env,
+        env: EnvShared,
     ) -> StmtResult {
         if Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
             self.execute(then_branch, env)?;
@@ -346,12 +346,12 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_print_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
+    fn visit_print_stmt(&self, expr: &Expr, env: EnvShared) -> StmtResult {
         println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
         VOID_OK
     }
 
-    fn visit_return_stmt(&self, expr: &Option<Expr>, env: Env) -> StmtResult {
+    fn visit_return_stmt(&self, expr: &Option<Expr>, env: EnvShared) -> StmtResult {
         let return_value = if let Some(expr) = expr {
             self.evaluate(expr, clone_env(&env))?
         } else {
@@ -366,7 +366,7 @@ impl Interpreter {
         &self,
         name: &Token,
         initializer: &Option<Expr>,
-        env: Env,
+        env: EnvShared,
     ) -> StmtResult {
         let value = match initializer {
             Some(expr) => self.evaluate(expr, clone_env(&env))?,
@@ -378,7 +378,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_while_stmt(&self, condition: &Expr, body: &Stmt, env: Env) -> StmtResult {
+    fn visit_while_stmt(&self, condition: &Expr, body: &Stmt, env: EnvShared) -> StmtResult {
         while Self::is_truthy(&self.evaluate(condition, clone_env(&env))?) {
             self.execute(body, clone_env(&env))?;
             if env.borrow().is_returning_from_fn() {
@@ -390,7 +390,7 @@ impl Interpreter {
     }
 
     // Two-stage variable binding process allows references to the class inside its own methods.
-    fn visit_class_stmt(&self, name: Token, methods: Vec<FunDecl>, env: Env) -> StmtResult {
+    fn visit_class_stmt(&self, name: Token, methods: Vec<FunDecl>, env: EnvShared) -> StmtResult {
         // TODO: improve interfaces of all Env methods involved here to reduce the number of .clone()-s
         env.borrow_mut().define(name.lexeme.clone(), Value::Nil);
 
@@ -412,7 +412,7 @@ impl Interpreter {
 }
 
 impl expr::VisitorEnv<ExprResult> for Interpreter {
-    fn visit_expr(&self, expr: &Expr, env: Env) -> ExprResult {
+    fn visit_expr(&self, expr: &Expr, env: EnvShared) -> ExprResult {
         match expr {
             Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value, env),
             Expr::Binary {
@@ -452,11 +452,11 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
 }
 
 impl stmt::VisitorEnv<StmtResult> for Interpreter {
-    fn visit_stmt(&self, stmt: &Stmt, env: Env) -> StmtResult {
+    fn visit_stmt(&self, stmt: &Stmt, env: EnvShared) -> StmtResult {
         match stmt {
             Stmt::Block(statements) => self.execute_block(
                 statements,
-                BareEnv::with_enclosing(clone_env(&env)).wrapped(),
+                Env::with_enclosing(clone_env(&env)).wrapped(),
             ),
             Stmt::Class { name, methods } => {
                 // TODO: cloning the entire vector here, not good.
