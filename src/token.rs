@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::LazyLock};
 
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -137,3 +137,11 @@ impl Display for Token {
         )
     }
 }
+
+// Have to keep this for the err-unused-vars feature
+pub static THIS: LazyLock<Token> = LazyLock::new(|| Token {
+    token_type: TokenType::THIS,
+    lexeme: String::from("this"),
+    literal: None,
+    line: 0,
+});

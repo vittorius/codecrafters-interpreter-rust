@@ -1,13 +1,7 @@
 use std::{fmt::Display, mem};
 
 use crate::{
-    expr::{self, Expr, fun_expr::FunExpr},
-    interpreter::Void,
-    lox,
-    resolver::scope::Scope,
-    scanner::{self},
-    stmt::{self, Stmt, fun_decl::FunDecl},
-    token::{Literal, Token},
+    expr::{self, Expr, fun_expr::FunExpr}, interpreter::Void, lox, resolver::scope::Scope, stmt::{self, Stmt, fun_decl::FunDecl}, token::{self, Literal, Token},
 };
 
 pub struct ResolveError(String);
@@ -311,7 +305,7 @@ impl<'a> Resolver<'a> {
         self.begin_scope();
         self.last_scope_mut()
             .expect("Just opened a new scope")
-            .declare_and_define(&scanner::THIS);
+            .declare_and_define(&token::THIS);
 
         for method_decl in methods {
             let fun_type = if method_decl.name.lexeme == "init" {
