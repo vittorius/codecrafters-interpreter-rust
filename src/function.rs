@@ -100,19 +100,14 @@ impl Callable for Function {
         interpreter.execute_block(&self.fun_expr.body, clone_env(&env))?;
 
         if self.is_initializer {
-            // no `return` statement
+            // always return 'this' from an initializer
             Ok(self.this_in_initializer())
         } else if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
-            // `return` statement
-            // if self.is_initializer {
-            //     Ok(self.this_in_initializer())
-            // } else {
-                // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
-                // and there was an actual return value stored in the env.
-                // Return the `return` value and clear the "returning" env state.
+            // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
+            // and there was an actual return value stored in the env.
+            // Return the `return` value and clear the "returning" env state.
 
-                Ok(return_value.clone())
-            // }
+            Ok(return_value.clone())
         } else {
             Ok(Value::Nil)
         }
