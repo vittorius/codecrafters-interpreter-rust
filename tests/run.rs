@@ -110,6 +110,23 @@ mod err_unused_vars_tests {
             "2\n",
         );
     }
+
+    #[test]
+    fn test_this_is_not_considered_unused() {
+        assert_run_success(
+            r#"
+            class C {
+                my_method() {
+                  print "no this involved";
+                }
+            }
+
+            var call_me = C().my_method;
+            call_me();
+            "#,
+            "no this involved\n",
+        );
+    }
 }
 
 #[cfg(feature = "init-vars")]
