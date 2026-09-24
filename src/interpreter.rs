@@ -319,7 +319,7 @@ impl Interpreter {
     }
 
     fn visit_function_stmt(&self, decl: FunDecl, env: Env) -> StmtResult {
-        let function = Function::new(decl, clone_env(&env));
+        let function = Function::new(decl, clone_env(&env), false);
         env.borrow_mut().define(
             function
                 .name()
@@ -351,9 +351,13 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_return_stmt(&self, expr: &Expr, env: Env) -> StmtResult {
-        let value = self.evaluate(expr, clone_env(&env))?;
-        env.borrow_mut().return_from_fn(value);
+    fn visit_return_stmt(&self, expr: &Option<Expr>, env: Env) -> StmtResult {
+        let return_value = if let Some(expr) = expr {
+            self.evaluate(expr, clone_env(&env))?
+        } else {
+            Value::Nil // return; implicitly returns nil
+        };
+        env.borrow_mut().return_from_fn(return_value);
 
         VOID_OK
     }
@@ -392,15 +396,11 @@ impl Interpreter {
 
         let mut class_methods = HashMap::<String, Rc<Function>>::new();
 
-        for method in methods {
-            let function = Function::new(method, clone_env(&env));
-            class_methods.insert(
-                function
-                    .name()
-                    .expect("Method always has a name")
-                    .to_owned(),
-                Rc::new(function),
-            );
+        for method_decl in methods {
+            // FIXME: avoid this cloning
+            let method_name = method_decl.name.lexeme.clone();
+            let function = Function::new(method_decl, clone_env(&env), &method_name == "init");
+            class_methods.insert(method_name, Rc::new(function));
         }
 
         let class = Class::new(name.clone(), class_methods);

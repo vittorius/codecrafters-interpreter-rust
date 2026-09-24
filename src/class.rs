@@ -37,10 +37,22 @@ impl Display for Class {
 
 impl Callable for Class {
     fn arity(&self) -> usize {
-        0
+        if let Some(initializer) = self.find_method("init") {
+            initializer.arity()
+        } else {
+            0
+        }
     }
 
-    fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
-        Ok(Value::Object(Instance::new_shared(Rc::clone(&self))))
+    // using Rc<Self> here as a receiver type to make the 'self' reference escape into newly created Instance
+    fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
+        let instance = Instance::new_shared(Rc::clone(&self));
+
+        if let Some(initializer) = self.find_method("init") {
+            let initializer = Rc::new(initializer.bind(Rc::clone(&instance)));
+            initializer.call(interpreter, arguments)?;
+        }
+
+        Ok(Value::Object(instance))
     }
 }

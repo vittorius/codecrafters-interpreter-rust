@@ -33,7 +33,8 @@ pub enum Stmt {
     Print(Expr),
     Return {
         keyword: Token,
-        value: Expr,
+        // we could always return Value::Nil but None reflects the syntactical structure of 'return;' statement better
+        value: Option<Expr>,
     },
     Var {
         name: Token,

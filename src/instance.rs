@@ -30,7 +30,7 @@ impl Instance {
     }
 
     // Returning Option<Value> as it's more Rust-idiomatic (same as in BareEnv::get()).
-    // NOTE: we return Value here for the same reason as in BareEnv::get(), see notes there.
+    // We return Value here for the same reason as in BareEnv::get(), see notes there.
     pub fn get(&self, name: &Token) -> Option<Value> {
         if let Some(field) = self.fields.get(&name.lexeme) {
             Some(field.clone())

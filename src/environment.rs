@@ -4,6 +4,8 @@ use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
 
+// TODO: implement the approach with Environment/EnvironmentData from here https://github.com/cc-code-examples/kind-leopard-632316/blob/main/src/environment.rs#L8
+// to encapsulate borrow/borrow_mut calls inside the environment
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
 // for multiple child environments where it can be potentially mutated (e.g. Binary expression)
 // TODO: rename into EnvShared
@@ -55,9 +57,12 @@ impl BareEnv {
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
     //
-    // NOTE: it's not possible to return Option<&Value> because &Value cannot outlive the output of enclosing.borrow().
+    // It's not possible to return Option<&Value> because &Value cannot outlive the output of enclosing.borrow().
     // The environment could be HashMap<String, Rc<RefCell<Value>>> but it seems more natural to move the
     // value/reference duality to the Value itself (see Value definition.)
+    //
+    // TODO: revisit having &str as the key here instead of a &Token.
+    // This will help when defining/getting "this"
     pub fn get(&self, name: &Token) -> Option<Value> {
         self.values.get(&name.lexeme).cloned().or_else(|| {
             if let Some(enclosing) = &self.enclosing {
@@ -68,8 +73,9 @@ impl BareEnv {
         })
     }
 
-    // NOTE: see the `get` method note about not returning Option<&Value> here.
-    // TODO: revisit having &str as the key here instead of a &Token
+    // See the `get` method note about not returning Option<&Value> here.
+    // TODO: revisit having &str as the key here instead of a &Token.
+    // This will help when defining/getting "this"
     pub fn get_at(&self, distance: usize, name: &Token) -> Option<Value> {
         if distance == 0 {
             self.get(name)

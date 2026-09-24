@@ -33,6 +33,7 @@ impl Display for ResolveError {
 enum FunctionType {
     None,
     Function,
+    Initializer,
     Method,
     #[cfg(feature = "lambdas")]
     Lambda,
@@ -312,8 +313,14 @@ impl<'a> Resolver<'a> {
             .expect("Just opened a new scope")
             .declare_and_define(&scanner::THIS);
 
-        for method in methods {
-            self.resolve_function(&mut method.expr, FunctionType::Method)?;
+        for method_decl in methods {
+            let fun_type = if method_decl.name.lexeme == "init" {
+                FunctionType::Initializer
+            } else {
+                FunctionType::Method
+            };
+
+            self.resolve_function(&mut method_decl.expr, fun_type)?;
         }
 
         self.end_scope()?;
@@ -354,10 +361,23 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(expr)
     }
 
-    fn visit_return_stmt(&mut self, keyword: &Token, value: &'a mut Expr) -> ResolutionResult {
+    fn visit_return_stmt(
+        &mut self,
+        keyword: &Token,
+        value: &'a mut Option<Expr>,
+    ) -> ResolutionResult {
         match self.current_function {
             FunctionType::None => Self::error(keyword, "Can't return from top-level code."),
-            _ => self.resolve_expr(value),
+            FunctionType::Initializer if value.is_some() => {
+                Self::error(keyword, "Can't return a value from an initializer.")
+            }
+            _ => {
+                if let Some(value) = value {
+                    self.resolve_expr(value)
+                } else {
+                    VOID_OK
+                }
+            }
         }
     }
 

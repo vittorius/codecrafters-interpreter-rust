@@ -360,9 +360,9 @@ impl Parser {
     fn return_statement(&mut self) -> StmtResult {
         let keyword = self.previous().clone();
         let value = if self.check(TT::SEMICOLON) {
-            Expr::Literal(token::Literal::Nil)
+            None
         } else {
-            self.expression()?
+            Some(self.expression()?)
         };
 
         self.consume(TT::SEMICOLON, "Expect ';' after return value.")?;

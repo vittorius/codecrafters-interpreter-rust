@@ -8,6 +8,7 @@ use crate::{
     expr::fun_expr::FunExpr,
     instance::InstanceShared,
     interpreter::Interpreter,
+    scanner,
     stmt::fun_decl::FunDecl,
     token::Token,
     value::Value,
@@ -21,17 +22,19 @@ pub struct Function {
     name: Option<Token>, // optional because it may be a lambda
     fun_expr: FunExpr,
     closure: Env,
+    is_initializer: bool,
 }
 
 // TODO: type FunctionShared
 
 impl Function {
     // FIXME: store shared FunDecl in the Function
-    pub fn new(decl: FunDecl, closure: Env) -> Self {
+    pub fn new(decl: FunDecl, closure: Env, is_initializer: bool) -> Self {
         Self {
             name: Some(decl.name),
             fun_expr: decl.expr,
             closure,
+            is_initializer,
         }
     }
 
@@ -41,6 +44,7 @@ impl Function {
             name: None,
             fun_expr,
             closure,
+            is_initializer: false,
         }
     }
 
@@ -68,6 +72,7 @@ impl Function {
                 expr: self.fun_expr.clone(),
             },
             env.wrapped(),
+            self.is_initializer,
         )
     }
 }
@@ -77,6 +82,7 @@ impl Callable for Function {
         self.fun_expr.params.len()
     }
 
+    // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
         let env = BareEnv::with_enclosing(clone_env(&self.closure)).wrapped();
 
@@ -87,11 +93,29 @@ impl Callable for Function {
 
         interpreter.execute_block(&self.fun_expr.body, clone_env(&env))?;
 
-        if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
+        if self.is_initializer {
+            Ok(self
+                .closure
+                .borrow()
+                .get_at(0, &scanner::THIS) // FIXME: should be just .get_at(0, "this")
+                .expect("'this' is always defined if a function is a class initializer"))
+        } else if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
             // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
             // AND there was an actual return value stored in the env.
             // Return the `return` value and clear the "returning" env state.
-            Ok(return_value.clone())
+
+            if self.is_initializer {
+                self.closure
+                    .borrow()
+                    .get_at(0, &scanner::THIS)
+                    .ok_or_else(|| {
+                        unreachable!(
+                            "'this' is always defined if a function is a class initializer"
+                        )
+                    })
+            } else {
+                Ok(return_value.clone())
+            }
         } else {
             Ok(Value::Nil)
         }
