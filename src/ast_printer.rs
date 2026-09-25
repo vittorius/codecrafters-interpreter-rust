@@ -1,21 +1,15 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::{Env},
+    environment::Env,
     expr::{Expr, VisitorEnv},
 };
 
-pub struct AstPrinter<'a> {
-    expr: &'a Expr,
-}
+pub struct AstPrinter;
 
-impl<'a> AstPrinter<'a> {
-    pub fn new(expr: &'a Expr) -> Self {
-        Self { expr }
-    }
-
-    pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr, &Env::new())
+impl AstPrinter {
+    pub fn print(&self, expr: &Expr) -> String {
+        self.visit_expr(expr, &Env::new())
     }
 
     fn parenthesize_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {
@@ -43,10 +37,7 @@ impl<'a> AstPrinter<'a> {
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, env));
         for arg in arguments {
-            s.push_str(&format!(
-                " {}",
-                arg.accept_visitor_env(self, env)
-            ));
+            s.push_str(&format!(" {}", arg.accept_visitor_env(self, env)));
         }
         s.push(')');
         s
@@ -81,7 +72,7 @@ impl<'a> AstPrinter<'a> {
     }
 }
 
-impl VisitorEnv<String> for AstPrinter<'_> {
+impl VisitorEnv<String> for AstPrinter {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
         match expr {
             Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
@@ -147,9 +138,9 @@ mod tests {
             right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
-        let mut ast_printer = AstPrinter::new(&expr);
+        let ast_printer = AstPrinter;
 
-        assert_eq!(ast_printer.print(), "(* (- 123.0) (group 45.67))");
+        assert_eq!(ast_printer.print(&expr), "(* (- 123.0) (group 45.67))");
     }
 
     #[test]
@@ -164,8 +155,9 @@ mod tests {
             }
             .boxed(),
         };
-        let mut ast_printer = AstPrinter::new(&expr);
 
-        assert_eq!(ast_printer.print(), "(<- answer (+ 40.0 2.0))");
+        let ast_printer = AstPrinter;
+
+        assert_eq!(ast_printer.print(&expr), "(<- answer (+ 40.0 2.0))");
     }
 }

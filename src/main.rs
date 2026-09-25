@@ -145,8 +145,8 @@ fn parse(source: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let mut ast_printer = AstPrinter::new(&expr);
-    println!("{}", ast_printer.print());
+    let ast_printer = AstPrinter;
+    println!("{}", ast_printer.print(&expr));
 
     ExitValue::Success
 }

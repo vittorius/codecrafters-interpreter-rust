@@ -6,25 +6,19 @@ use crate::{
 };
 
 #[allow(dead_code)]
-pub struct RpnAstPrinter<'a> {
-    expr: &'a Expr,
-}
+pub struct RpnAstPrinter;
 
 #[allow(dead_code)]
-impl<'a> RpnAstPrinter<'a> {
-    pub fn new(expr: &'a Expr) -> Self {
-        Self { expr }
+impl RpnAstPrinter {
+    pub fn print(&self, expr: &Expr) -> String {
+        self.visit_expr(expr, &Env::new())
     }
 
-    pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr, &Env::new())
-    }
-
-    fn format_unary(&self, name: &str, expr: &'a Expr, env: &Env) -> String {
+    fn format_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {
         format!("{} {}", expr.accept_visitor_env(self, env), name)
     }
 
-    fn format_binary(&self, name: &str, left: &'a Expr, right: &'a Expr, env: &Env) -> String {
+    fn format_binary(&self, name: &str, left: &Expr, right: &Expr, env: &Env) -> String {
         format!(
             "{} {} {}",
             left.accept_visitor_env(self, env),
@@ -45,26 +39,14 @@ impl<'a> RpnAstPrinter<'a> {
     fn format_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
         let mut s = String::from("");
         for arg in arguments {
-            s.push_str(&format!(
-                "{} ",
-                arg.accept_visitor_env(self, env)
-            ));
+            s.push_str(&format!("{} ", arg.accept_visitor_env(self, env)));
         }
-        s.push_str(&format!(
-            "{} ()",
-            callee.accept_visitor_env(self, env)
-        ));
+        s.push_str(&format!("{} ()", callee.accept_visitor_env(self, env)));
         s
     }
 
     #[cfg(feature = "conditional-op")]
-    fn format_conditional(
-        &self,
-        cond: &'a Expr,
-        left: &'a Expr,
-        right: &'a Expr,
-        env: &Env,
-    ) -> String {
+    fn format_conditional(&self, cond: &Expr, left: &Expr, right: &Expr, env: &Env) -> String {
         format!(
             "{} {} {} ?:",
             cond.accept_visitor_env(self, env),
@@ -73,11 +55,11 @@ impl<'a> RpnAstPrinter<'a> {
         )
     }
 
-    fn format_get(&self, object: &'a Expr, name: &str, env: &Env) -> String {
+    fn format_get(&self, object: &Expr, name: &str, env: &Env) -> String {
         format!("{} {} .", object.accept_visitor_env(self, env), name)
     }
 
-    fn format_assign(&self, name: &str, value: &'a Expr, env: &Env) -> String {
+    fn format_assign(&self, name: &str, value: &Expr, env: &Env) -> String {
         format!("{} {} <-", name, value.accept_visitor_env(self, env))
     }
     #[cfg(feature = "lambdas")]
@@ -91,7 +73,7 @@ impl<'a> RpnAstPrinter<'a> {
     }
 }
 
-impl VisitorEnv<String> for RpnAstPrinter<'_> {
+impl VisitorEnv<String> for RpnAstPrinter {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
         match expr {
             Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
@@ -160,9 +142,10 @@ mod tests {
             )
             .boxed(),
         };
-        let mut ast_printer = RpnAstPrinter::new(&expr);
 
-        assert_eq!(ast_printer.print(), "1.0 2.0 + 4.0 3.0 - *");
+        let ast_printer = RpnAstPrinter;
+
+        assert_eq!(ast_printer.print(&expr), "1.0 2.0 + 4.0 3.0 - *");
     }
 
     #[test]
@@ -177,8 +160,9 @@ mod tests {
             }
             .boxed(),
         };
-        let mut ast_printer = RpnAstPrinter::new(&expr);
 
-        assert_eq!(ast_printer.print(), "answer 40.0 2.0 + <-");
+        let ast_printer = RpnAstPrinter;
+
+        assert_eq!(ast_printer.print(&expr), "answer 40.0 2.0 + <-");
     }
 }
