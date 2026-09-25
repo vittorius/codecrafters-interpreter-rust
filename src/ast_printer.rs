@@ -1,28 +1,26 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::{Env},
+    environment::Env,
     expr::{Expr, VisitorEnv},
 };
 
-pub struct AstPrinter<'a> {
-    expr: &'a Expr,
-}
+pub struct AstPrinter {}
 
-impl<'a> AstPrinter<'a> {
-    pub fn new(expr: &'a Expr) -> Self {
-        Self { expr }
+impl AstPrinter {
+    pub fn new() -> Self {
+        Self {}
     }
 
-    pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr, &Env::new())
+    pub fn print(&self, expr: Expr) -> String {
+        self.visit_expr(expr, &Env::new())
     }
 
-    fn parenthesize_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {
+    fn parenthesize_unary(&self, name: &str, expr: Expr, env: &Env) -> String {
         format!("({} {})", name, expr.accept_visitor_env(self, env))
     }
 
-    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn parenthesize_binary(&self, name: &str, left: Expr, right: Expr, env: &Env) -> String {
         format!(
             "({} {} {})",
             name,
@@ -31,7 +29,7 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: &Env) -> String {
+    fn parenthesize_set(&self, object: Expr, name: &str, value: Expr, env: &Env) -> String {
         format!(
             "(= {}.{} {})",
             object.accept_visitor_env(self, env),
@@ -40,20 +38,17 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
+    fn parenthesize_call(&self, callee: Expr, arguments: Vec<Expr>, env: &Env) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, env));
         for arg in arguments {
-            s.push_str(&format!(
-                " {}",
-                arg.accept_visitor_env(self, env)
-            ));
+            s.push_str(&format!(" {}", arg.accept_visitor_env(self, env)));
         }
         s.push(')');
         s
     }
 
     #[cfg(feature = "conditional-op")]
-    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn parenthesize_ternary(&self, cond: Expr, left: Expr, right: Expr, env: &Env) -> String {
         format!(
             "(?: {} {} {})",
             cond.accept_visitor_env(self, env),
@@ -62,16 +57,16 @@ impl<'a> AstPrinter<'a> {
         )
     }
 
-    fn parenthesize_get(&self, object: &Expr, name: &str, env: &Env) -> String {
+    fn parenthesize_get(&self, object: Expr, name: &str, env: &Env) -> String {
         format!("(. {} {})", object.accept_visitor_env(self, env), name)
     }
 
-    fn parenthesize_assign(&self, name: &str, value: &Expr, env: &Env) -> String {
+    fn parenthesize_assign(&self, name: &str, value: Expr, env: &Env) -> String {
         format!("(<- {} {})", name, value.accept_visitor_env(self, env))
     }
 
     #[cfg(feature = "lambdas")]
-    fn parenthesize_lambda(&self, fun_expr: &FunExpr) -> String {
+    fn parenthesize_lambda(&self, fun_expr: FunExpr) -> String {
         let mut s = String::from("lambda");
         for param in fun_expr.params.iter() {
             s.push_str(&format!(" {}", param.lexeme));
@@ -81,24 +76,26 @@ impl<'a> AstPrinter<'a> {
     }
 }
 
-impl VisitorEnv<String> for AstPrinter<'_> {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
+// Consuming visitor for just a printer is not so great idea in general.
+// Defining a separate ref-walking visitor without an env could be a thing to think about.
+impl VisitorEnv<String> for AstPrinter {
+    fn visit_expr(&self, expr: Expr, env: &Env) -> String {
         match expr {
-            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
+            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, *value, env),
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, *left, *right, env),
             Expr::Call {
                 callee, arguments, ..
-            } => self.parenthesize_call(callee, arguments, env),
+            } => self.parenthesize_call(*callee, arguments, env),
             #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
-                self.parenthesize_ternary(cond, left, right, env)
+                self.parenthesize_ternary(*cond, *left, *right, env)
             }
-            Expr::Get { object, name } => self.parenthesize_get(object, &name.lexeme, env),
-            Expr::Grouping(expr) => self.parenthesize_unary("group", expr, env),
+            Expr::Get { object, name } => self.parenthesize_get(*object, &name.lexeme, env),
+            Expr::Grouping(expr) => self.parenthesize_unary("group", *expr, env),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
             Expr::Literal(value) => value.to_string(),
@@ -106,15 +103,15 @@ impl VisitorEnv<String> for AstPrinter<'_> {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, *left, *right, env),
             Expr::Set {
                 object,
                 name,
                 value,
-            } => self.parenthesize_set(object, &name.lexeme, value, env),
+            } => self.parenthesize_set(*object, &name.lexeme, *value, env),
             Expr::This { keyword, .. } => keyword.lexeme.clone(),
             Expr::Unary { operator, right } => {
-                self.parenthesize_unary(&operator.lexeme, right, env)
+                self.parenthesize_unary(&operator.lexeme, *right, env)
             }
             Expr::Variable { name, .. } => name.lexeme.clone(),
         }
@@ -147,9 +144,9 @@ mod tests {
             right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
-        let mut ast_printer = AstPrinter::new(&expr);
+        let ast_printer = AstPrinter::new();
 
-        assert_eq!(ast_printer.print(), "(* (- 123.0) (group 45.67))");
+        assert_eq!(ast_printer.print(expr), "(* (- 123.0) (group 45.67))");
     }
 
     #[test]
@@ -164,8 +161,8 @@ mod tests {
             }
             .boxed(),
         };
-        let mut ast_printer = AstPrinter::new(&expr);
+        let ast_printer = AstPrinter::new();
 
-        assert_eq!(ast_printer.print(), "(<- answer (+ 40.0 2.0))");
+        assert_eq!(ast_printer.print(expr), "(<- answer (+ 40.0 2.0))");
     }
 }

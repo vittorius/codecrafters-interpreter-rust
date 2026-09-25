@@ -145,8 +145,8 @@ fn parse(source: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     };
 
-    let mut ast_printer = AstPrinter::new(&expr);
-    println!("{}", ast_printer.print());
+    let ast_printer = AstPrinter::new();
+    println!("{}", ast_printer.print(expr));
 
     ExitValue::Success
 }
@@ -163,7 +163,7 @@ fn evaluate(source: &str) -> ExitValue {
     };
 
     let interpreter = Interpreter::new();
-    let Ok(result) = interpreter.interpret_expr(&expr) else {
+    let Ok(result) = interpreter.interpret_expr(expr) else {
         return ExitValue::RuntimeError;
     };
     println!("{}", result);
@@ -195,7 +195,7 @@ fn run(source: &str) -> ExitValue {
         return ExitValue::SyntaxError;
     }
 
-    match interpreter.interpret(&statements) {
+    match interpreter.interpret(statements) {
         Ok(_) => ExitValue::Success,
         Err(err) => {
             eprintln!("{err}");
@@ -214,7 +214,7 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
     let mut resolver = Resolver::new();
     resolver.resolve(&mut statements)?;
 
-    interpreter.interpret(&statements)?;
+    interpreter.interpret(statements)?;
 
     Ok(())
 }

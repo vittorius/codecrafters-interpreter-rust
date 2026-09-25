@@ -95,7 +95,8 @@ impl Callable for Function {
             env.define(p.lexeme.clone(), arguments[i].clone());
         }
 
-        interpreter.execute_block(&self.fun_expr.body, &env)?;
+        // FIXME: cloning the function body every time we call it is bad
+        interpreter.execute_block(self.fun_expr.body.clone(), &env)?;
 
         if self.is_initializer {
             // always return 'this' from an initializer

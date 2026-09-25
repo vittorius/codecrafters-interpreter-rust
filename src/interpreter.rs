@@ -34,7 +34,7 @@ impl Interpreter {
         Self { env }
     }
 
-    pub fn interpret(&self, statements: &[Stmt]) -> Result {
+    pub fn interpret(&self, statements: Vec<Stmt>) -> Result {
         for stmt in statements {
             self.execute(stmt, &self.env)?;
             if self.env.is_returning_from_fn() {
@@ -45,7 +45,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    pub fn interpret_expr(&self, expr: &Expr) -> StringResult {
+    pub fn interpret_expr(&self, expr: Expr) -> StringResult {
         self.evaluate(expr, &self.env).map(|v| v.to_string())
     }
 
@@ -53,11 +53,11 @@ impl Interpreter {
         &self.env
     }
 
-    fn execute(&self, stmt: &Stmt, env: &Env) -> StmtResult {
+    fn execute(&self, stmt: Stmt, env: &Env) -> StmtResult {
         stmt.accept_visitor_env(self, env)
     }
 
-    pub fn execute_block(&self, statements: &[Stmt], env: &Env) -> StmtResult {
+    pub fn execute_block(&self, statements: Vec<Stmt>, env: &Env) -> StmtResult {
         for stmt in statements {
             self.execute(stmt, env)?;
             if env.is_returning_from_fn() {
@@ -68,7 +68,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn evaluate(&self, expr: &Expr, env: &Env) -> ExprResult {
+    fn evaluate(&self, expr: Expr, env: &Env) -> ExprResult {
         expr.accept_visitor_env(self, env)
     }
 
@@ -99,24 +99,24 @@ impl Interpreter {
         Err(Self::mk_error(token, message))
     }
 
-    fn visit_grouping_expr(&self, expr: &Expr, env: &Env) -> ExprResult {
+    fn visit_grouping_expr(&self, expr: Expr, env: &Env) -> ExprResult {
         self.evaluate(expr, env)
     }
 
-    fn visit_literal_expr(literal: &token::Literal) -> ExprResult {
+    fn visit_literal_expr(literal: token::Literal) -> ExprResult {
         Ok(match literal {
             token::Literal::Str(s) => Value::Str(s.clone()),
-            token::Literal::Num(n) => Value::Num(*n),
-            token::Literal::Bool(b) => Value::Bool(*b),
+            token::Literal::Num(n) => Value::Num(n),
+            token::Literal::Bool(b) => Value::Bool(b),
             token::Literal::Nil => Value::Nil,
         })
     }
 
     fn visit_logical_expr(
         &self,
-        left: &Expr,
-        operator: &Token,
-        right: &Expr,
+        left: Expr,
+        operator: Token,
+        right: Expr,
         env: &Env,
     ) -> ExprResult {
         let left = self.evaluate(left, env)?;
@@ -134,7 +134,7 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
-    fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: &Env) -> ExprResult {
+    fn visit_set_expr(&self, object: Expr, name: Token, value: Expr, env: &Env) -> ExprResult {
         let object = self.evaluate(object, env)?;
 
         if let Object(instance) = object {
@@ -143,50 +143,44 @@ impl Interpreter {
 
             Ok(value)
         } else {
-            Self::error(name, "Only instances have fields.")
+            Self::error(&name, "Only instances have fields.")
         }
     }
 
-    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
-        self.lookup_variable(keyword, depth, env)
+    fn visit_this_expr(&self, keyword: Token, depth: Option<usize>, env: &Env) -> ExprResult {
+        self.lookup_variable(&keyword, depth, env)
             .ok_or_else(|| unreachable!("'this' should be always defined by resolver."))
     }
 
-    fn visit_unary_expr(&self, operator: &Token, expr: &Expr, env: &Env) -> ExprResult {
+    fn visit_unary_expr(&self, operator: Token, expr: Expr, env: &Env) -> ExprResult {
         let right = self.evaluate(expr, env)?;
 
         match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
-            (TT::MINUS, _) => Self::error(operator, "Operand must be a number."),
+            (TT::MINUS, _) => Self::error(&operator, "Operand must be a number."),
             (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
-            _ => unreachable!(),
+            (op, _) => unreachable!("Invalid unary operator {}", op),
         }
     }
 
-    fn visit_binary_expr(
-        &self,
-        left: &Expr,
-        operator: &Token,
-        right: &Expr,
-        env: &Env,
-    ) -> ExprResult {
+    fn visit_binary_expr(&self, left: Expr, operator: Token, right: Expr, env: &Env) -> ExprResult {
         let left = self.evaluate(left, env)?;
         let right = self.evaluate(right, env)?;
 
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
-            (TT::MINUS, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::MINUS, _, _) => Self::error(&operator, "Operands must be numbers."),
             (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
-            (TT::SLASH, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::SLASH, _, _) => Self::error(&operator, "Operands must be numbers."),
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
-            (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::STAR, _, _) => Self::error(&operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             #[cfg(feature = "str-num-concat")]
             (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             #[cfg(feature = "str-num-concat")]
             (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::PLUS, _, _) => Self::error(&operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
@@ -200,7 +194,7 @@ impl Interpreter {
             #[cfg(feature = "str-cmp")]
             (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
             (TT::GREATER | TT::GREATER_EQUAL | TT::LESS | TT::LESS_EQUAL, _, _) => {
-                Self::error(operator, "Operands must be numbers.")
+                Self::error(&operator, "Operands must be numbers.")
             }
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
@@ -212,22 +206,22 @@ impl Interpreter {
 
     fn visit_call_expr(
         &self,
-        callee: &Expr,
-        paren: &Token,
-        arguments: &[Expr],
+        callee: Expr,
+        paren: Token,
+        arguments: Vec<Expr>,
         env: &Env,
     ) -> ExprResult {
         let callee = self.evaluate(callee, env)?;
 
         let arguments = arguments
-            .iter()
+            .into_iter()
             .map(|arg| self.evaluate(arg, env))
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
         if let Callable(callable) = callee {
             if arguments.len() != callable.arity() {
                 return Self::error(
-                    paren,
+                    &paren,
                     &format!(
                         "Expected {} arguments but got {}.",
                         callable.arity(),
@@ -238,18 +232,12 @@ impl Interpreter {
 
             callable.call(self, &arguments)
         } else {
-            Self::error(paren, "Can only call functions and classes.")
+            Self::error(&paren, "Can only call functions and classes.")
         }
     }
 
     #[cfg(feature = "conditional-op")]
-    fn visit_conditional_expr(
-        &self,
-        cond: &Expr,
-        left: &Expr,
-        right: &Expr,
-        env: &Env,
-    ) -> ExprResult {
+    fn visit_conditional_expr(&self, cond: Expr, left: Expr, right: Expr, env: &Env) -> ExprResult {
         if Self::is_truthy(&self.evaluate(cond, env)?) {
             self.evaluate(left, env)
         } else {
@@ -257,35 +245,35 @@ impl Interpreter {
         }
     }
 
-    fn visit_get_expr(&self, object: &Expr, name: &Token, env: &Env) -> ExprResult {
+    fn visit_get_expr(&self, object: Expr, name: Token, env: &Env) -> ExprResult {
         let object = self.evaluate(object, env)?;
 
         if let Value::Object(instance) = object {
-            instance.borrow().get(name).ok_or_else(|| {
-                Self::mk_error(name, &format!("Undefined property '{}'.", name.lexeme))
+            instance.borrow().get(&name).ok_or_else(|| {
+                Self::mk_error(&name, &format!("Undefined property '{}'.", name.lexeme))
             })
         } else {
-            Self::error(name, "Only instances have properties.")
+            Self::error(&name, "Only instances have properties.")
         }
     }
 
-    fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
-        match self.lookup_variable(name, depth, env) {
+    fn visit_variable_expr(&self, name: Token, depth: Option<usize>, env: &Env) -> ExprResult {
+        match self.lookup_variable(&name, depth, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
                 Value::Nil => Self::error(
-                    name,
+                    &name,
                     &format!("Uninitialized variable \"{}\".", name.lexeme),
                 ),
                 _ => Ok(value),
             },
-            None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
+            None => Self::error(&name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
 
-    fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: &Env) -> Option<Value> {
+    fn lookup_variable(&self, name: &Token, depth: Option<usize>, env: &Env) -> Option<Value> {
         if let Some(distance) = depth {
-            env.get_at(*distance, &name.lexeme)
+            env.get_at(distance, &name.lexeme)
         } else {
             self.globals().get(&name.lexeme)
         }
@@ -293,17 +281,17 @@ impl Interpreter {
 
     fn visit_assign_expr(
         &self,
-        name: &Token,
-        depth: &Option<usize>,
-        value: &Expr,
+        name: Token,
+        depth: Option<usize>,
+        value: Expr,
         env: &Env,
     ) -> ExprResult {
         let value = self.evaluate(value, env)?;
 
         if let Some(distance) = depth {
-            env.assign_at(*distance, name, value)
+            env.assign_at(distance, &name, value)
         } else {
-            self.globals().assign(name, value)
+            self.globals().assign(&name, value)
         }
     }
 
@@ -313,7 +301,7 @@ impl Interpreter {
         Ok(Value::Callable(Rc::new(function)))
     }
 
-    fn visit_expression_stmt(&self, expr: &Expr, env: &Env) -> StmtResult {
+    fn visit_expression_stmt(&self, expr: Expr, env: &Env) -> StmtResult {
         self.evaluate(expr, env).and(VOID_OK)
     }
 
@@ -332,25 +320,26 @@ impl Interpreter {
 
     fn visit_if_stmt(
         &self,
-        condition: &Expr,
-        then_branch: &Stmt,
-        else_branch: &Option<Box<Stmt>>,
+        condition: Expr,
+        then_branch: Stmt,
+        else_branch: Option<Box<Stmt>>,
         env: &Env,
     ) -> StmtResult {
         if Self::is_truthy(&self.evaluate(condition, env)?) {
             self.execute(then_branch, env)?;
         } else if let Some(else_branch) = else_branch {
-            self.execute(else_branch, env)?;
+            self.execute(*else_branch, env)?;
         }
         VOID_OK
     }
 
-    fn visit_print_stmt(&self, expr: &Expr, env: &Env) -> StmtResult {
+    fn visit_print_stmt(&self, expr: Expr, env: &Env) -> StmtResult {
         println!("{}", self.evaluate(expr, env).map(|v| v.to_string())?);
+
         VOID_OK
     }
 
-    fn visit_return_stmt(&self, expr: &Option<Expr>, env: &Env) -> StmtResult {
+    fn visit_return_stmt(&self, expr: Option<Expr>, env: &Env) -> StmtResult {
         let return_value = if let Some(expr) = expr {
             self.evaluate(expr, env)?
         } else {
@@ -361,12 +350,7 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_variable_stmt(
-        &self,
-        name: &Token,
-        initializer: &Option<Expr>,
-        env: &Env,
-    ) -> StmtResult {
+    fn visit_variable_stmt(&self, name: Token, initializer: Option<Expr>, env: &Env) -> StmtResult {
         let value = match initializer {
             Some(expr) => self.evaluate(expr, env)?,
             None => Value::Nil,
@@ -377,9 +361,10 @@ impl Interpreter {
         VOID_OK
     }
 
-    fn visit_while_stmt(&self, condition: &Expr, body: &Stmt, env: &Env) -> StmtResult {
-        while Self::is_truthy(&self.evaluate(condition, env)?) {
-            self.execute(body, env)?;
+    fn visit_while_stmt(&self, condition: Expr, body: Stmt, env: &Env) -> StmtResult {
+        // FIXME: cloning the loop condition and the entire loop body every time we run it is VERY BAD
+        while Self::is_truthy(&self.evaluate(condition.clone(), env)?) {
+            self.execute(body.clone(), env)?;
             if env.is_returning_from_fn() {
                 break;
             }
@@ -410,68 +395,68 @@ impl Interpreter {
 }
 
 impl expr::VisitorEnv<ExprResult> for Interpreter {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> ExprResult {
+    fn visit_expr(&self, expr: Expr, env: &Env) -> ExprResult {
         match expr {
-            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value, env),
+            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, *value, env),
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.visit_binary_expr(left, operator, right, env),
+            } => self.visit_binary_expr(*left, operator, *right, env),
             Expr::Call {
                 callee,
                 paren,
                 arguments,
-            } => self.visit_call_expr(callee, paren, arguments, env),
+            } => self.visit_call_expr(*callee, paren, arguments, env),
             #[cfg(feature = "conditional-op")]
             Expr::Conditional { cond, left, right } => {
-                self.visit_conditional_expr(cond, left, right, env)
+                self.visit_conditional_expr(*cond, *left, *right, env)
             }
-            Expr::Get { object, name } => self.visit_get_expr(object, name, env),
-            Expr::Grouping(expr) => self.visit_grouping_expr(expr, env),
+            Expr::Get { object, name } => self.visit_get_expr(*object, name, env),
+            Expr::Grouping(expr) => self.visit_grouping_expr(*expr, env),
             #[cfg(feature = "lambdas")]
-            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr.clone(), env),
+            Expr::Lambda(fun_expr) => self.visit_function_expr(fun_expr, env),
             Expr::Literal(literal) => Self::visit_literal_expr(literal),
             Expr::Logical {
                 left,
                 operator,
                 right,
-            } => self.visit_logical_expr(left, operator, right, env),
+            } => self.visit_logical_expr(*left, operator, *right, env),
             Expr::Set {
                 object,
                 name,
                 value,
-            } => self.visit_set_expr(object, name, value, env),
+            } => self.visit_set_expr(*object, name, *value, env),
             Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth, env),
-            Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
+            Expr::Unary { operator, right } => self.visit_unary_expr(operator, *right, env),
             Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
         }
     }
 }
 
 impl stmt::VisitorEnv<StmtResult> for Interpreter {
-    fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> StmtResult {
+    fn visit_stmt(&self, stmt: Stmt, env: &Env) -> StmtResult {
         match stmt {
             Stmt::Block(statements) => self.execute_block(statements, &Env::new_enclosed_with(env)),
             Stmt::Class { name, methods } => {
                 // TODO: cloning the entire vector here, not good.
                 // Again, let's experiment with consuming Visitor for Interpreter later.
-                self.visit_class_stmt(name.clone(), methods.clone(), env)
+                self.visit_class_stmt(name, methods, env)
             }
             Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
             // Cloning function decl here prevents from using Expr pointers ("references") as keys in local variable lookup resolution.
             // On the other hand, we have to clone function decl to make it live inside the environment and outlive the interpreter
             // invocations with new source code inputs in order for REPL to work.
-            Stmt::Function(decl) => self.visit_function_stmt(decl.clone(), env),
+            Stmt::Function(decl) => self.visit_function_stmt(decl, env),
             Stmt::If {
                 condition,
                 then_branch,
                 else_branch,
-            } => self.visit_if_stmt(condition, then_branch, else_branch, env),
+            } => self.visit_if_stmt(condition, *then_branch, else_branch, env),
             Stmt::Print(expr) => self.visit_print_stmt(expr, env),
             Stmt::Return { value, .. } => self.visit_return_stmt(value, env),
             Stmt::Var { name, initializer } => self.visit_variable_stmt(name, initializer, env),
-            Stmt::While { condition, body } => self.visit_while_stmt(condition, body, env),
+            Stmt::While { condition, body } => self.visit_while_stmt(condition, *body, env),
         }
     }
 }

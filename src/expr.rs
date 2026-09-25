@@ -6,7 +6,7 @@ pub mod fun_expr;
 
 // TODO: experiment with turning this into a consuming visitor
 pub trait VisitorEnv<R> {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> R;
+    fn visit_expr(&self, expr: Expr, env: &Env) -> R;
 }
 
 pub trait VisitorMut<'a, R> {
@@ -79,7 +79,7 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: &Env) -> R {
+    pub fn accept_visitor_env<R>(self, visitor: &impl VisitorEnv<R>, env: &Env) -> R {
         visitor.visit_expr(self, env)
     }
 
