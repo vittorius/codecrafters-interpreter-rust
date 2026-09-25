@@ -32,7 +32,7 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        let env = Env::new();
+        let env = Env::new(None);
         env.define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
 
         Self { env }
@@ -451,7 +451,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
 impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> StmtResult {
         match stmt {
-            Stmt::Block(statements) => self.execute_block(statements, &Env::new_enclosed_with(env)),
+            Stmt::Block(statements) => self.execute_block(statements, &Env::new(Some(env))),
             Stmt::Class(class_decl) => {
                 // A consuming Visitor for Interpreter would lead to either cloning large parts of the AST
                 // every time a code block is executed (a function call, a while loop).

@@ -11,7 +11,7 @@ pub struct RpnAstPrinter;
 #[allow(dead_code)]
 impl RpnAstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
-        self.visit_expr(expr, &Env::new())
+        self.visit_expr(expr, &Env::new(None))
     }
 
     fn format_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {

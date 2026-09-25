@@ -14,17 +14,14 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new() -> Self {
+    pub fn new(enclosing: Option<&Env>) -> Self {
+        let env_data = match enclosing {
+            Some(enclosing) => EnvData::new(Rc::clone(&enclosing.data)),
+            None => EnvData::default(),
+        };
+        
         Self {
-            data: Rc::new(RefCell::new(EnvData::default())),
-        }
-    }
-
-    pub fn new_enclosed_with(enclosing: &Env) -> Self {
-        Self {
-            data: Rc::new(RefCell::new(EnvData::new_enclosed_with(Rc::clone(
-                &enclosing.data,
-            )))),
+            data: Rc::new(RefCell::new(env_data)),
         }
     }
 
@@ -104,7 +101,7 @@ struct EnvData {
 }
 
 impl EnvData {
-    fn new_enclosed_with(env: Rc<RefCell<EnvData>>) -> Self {
+    fn new(env: Rc<RefCell<EnvData>>) -> Self {
         Self {
             enclosing: Some(env),
             ..EnvData::default()

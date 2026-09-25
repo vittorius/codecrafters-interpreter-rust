@@ -55,7 +55,7 @@ impl Function {
     }
 
     pub fn bind(&self, instance: InstanceShared) -> FunctionShared {
-        let env = Env::new_enclosed_with(&self.closure);
+        let env = Env::new(Some(&self.closure));
         env.define("this".to_owned(), Value::Object(instance));
 
         #[cfg_attr(not(feature = "lambdas"), allow(irrefutable_let_patterns))]
@@ -88,7 +88,7 @@ impl Callable for Function {
 
     // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
-        let env = Env::new_enclosed_with(&self.closure);
+        let env = Env::new(Some(&self.closure));
 
         self.fun_expr()
             .params
