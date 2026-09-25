@@ -4,7 +4,7 @@ use std::{fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
-    environment::{Env, EnvShared, clone_env},
+    environment::Env,
     expr::fun_expr::FunExpr,
     instance::InstanceShared,
     interpreter::Interpreter,
@@ -20,7 +20,7 @@ use crate::{
 pub struct Function {
     name: Option<Token>, // optional because it may be a lambda
     fun_expr: FunExpr,
-    closure: EnvShared,
+    closure: Env,
     is_initializer: bool,
 }
 
@@ -28,7 +28,7 @@ pub struct Function {
 
 impl Function {
     // FIXME: store shared FunDecl in the Function
-    pub fn new(decl: FunDecl, closure: EnvShared, is_initializer: bool) -> Self {
+    pub fn new(decl: FunDecl, closure: Env, is_initializer: bool) -> Self {
         Self {
             name: Some(decl.name),
             fun_expr: decl.expr,
@@ -38,7 +38,7 @@ impl Function {
     }
 
     #[cfg(feature = "lambdas")]
-    pub fn new_lambda(fun_expr: FunExpr, closure: EnvShared) -> Self {
+    pub fn new_lambda(fun_expr: FunExpr, closure: Env) -> Self {
         Self {
             name: None,
             fun_expr,
@@ -58,7 +58,7 @@ impl Function {
     // }
 
     pub fn bind(&self, instance: InstanceShared) -> Self {
-        let mut env = Env::with_enclosing(clone_env(&self.closure));
+        let env = Env::new_enclosed_with(&self.closure);
         env.define("this".to_owned(), Value::Object(instance));
         // FIXME: reject cloning in favor of shared function declarations that must be kept shared in runtime
         Function::new(
@@ -70,14 +70,13 @@ impl Function {
                     .expect("Regular function always has a name"),
                 expr: self.fun_expr.clone(),
             },
-            env.wrapped(),
+            env,
             self.is_initializer,
         )
     }
 
     fn this_in_initializer(&self) -> Value {
         self.closure
-            .borrow()
             .get_at(0, "this")
             .expect("'this' is always defined if a function is a class initializer")
     }
@@ -90,19 +89,18 @@ impl Callable for Function {
 
     // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
-        let env = Env::with_enclosing(clone_env(&self.closure)).wrapped();
+        let env = Env::new_enclosed_with(&self.closure);
 
         for (i, p) in self.fun_expr.params.iter().enumerate() {
-            env.borrow_mut()
-                .define(p.lexeme.clone(), arguments[i].clone());
+            env.define(p.lexeme.clone(), arguments[i].clone());
         }
 
-        interpreter.execute_block(&self.fun_expr.body, clone_env(&env))?;
+        interpreter.execute_block(&self.fun_expr.body, &env)?;
 
         if self.is_initializer {
             // always return 'this' from an initializer
             Ok(self.this_in_initializer())
-        } else if let Some(return_value) = env.borrow_mut().clear_return_from_fn() {
+        } else if let Some(return_value) = env.take_return_from_fn() {
             // The interpreter stack was naturally unwinded by the early return in the Interpreter::execute
             // and there was an actual return value stored in the env.
             // Return the `return` value and clear the "returning" env state.

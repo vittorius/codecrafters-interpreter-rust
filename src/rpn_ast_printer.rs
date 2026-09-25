@@ -1,7 +1,7 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::fun_expr::FunExpr;
 use crate::{
-    environment::{Env, EnvShared, clone_env},
+    environment::Env,
     expr::{Expr, VisitorEnv},
 };
 
@@ -17,42 +17,42 @@ impl<'a> RpnAstPrinter<'a> {
     }
 
     pub fn print(&mut self) -> String {
-        self.visit_expr(self.expr, Env::new().wrapped())
+        self.visit_expr(self.expr, &Env::new())
     }
 
-    fn format_unary(&self, name: &str, expr: &'a Expr, env: EnvShared) -> String {
+    fn format_unary(&self, name: &str, expr: &'a Expr, env: &Env) -> String {
         format!("{} {}", expr.accept_visitor_env(self, env), name)
     }
 
-    fn format_binary(&self, name: &str, left: &'a Expr, right: &'a Expr, env: EnvShared) -> String {
+    fn format_binary(&self, name: &str, left: &'a Expr, right: &'a Expr, env: &Env) -> String {
         format!(
             "{} {} {}",
-            left.accept_visitor_env(self, clone_env(&env)),
+            left.accept_visitor_env(self, env),
             right.accept_visitor_env(self, env),
             name
         )
     }
 
-    fn format_set(&self, object: &Expr, name: &str, value: &Expr, env: EnvShared) -> String {
+    fn format_set(&self, object: &Expr, name: &str, value: &Expr, env: &Env) -> String {
         format!(
             "{}.{} {} =",
-            object.accept_visitor_env(self, clone_env(&env)),
+            object.accept_visitor_env(self, env),
             name,
             value.accept_visitor_env(self, env)
         )
     }
 
-    fn format_call(&self, callee: &Expr, arguments: &[Expr], env: EnvShared) -> String {
+    fn format_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
         let mut s = String::from("");
         for arg in arguments {
             s.push_str(&format!(
                 "{} ",
-                arg.accept_visitor_env(self, clone_env(&env))
+                arg.accept_visitor_env(self, env)
             ));
         }
         s.push_str(&format!(
             "{} ()",
-            callee.accept_visitor_env(self, clone_env(&env))
+            callee.accept_visitor_env(self, env)
         ));
         s
     }
@@ -63,21 +63,21 @@ impl<'a> RpnAstPrinter<'a> {
         cond: &'a Expr,
         left: &'a Expr,
         right: &'a Expr,
-        env: EnvShared,
+        env: &Env,
     ) -> String {
         format!(
             "{} {} {} ?:",
-            cond.accept_visitor_env(self, clone_env(&env)),
-            left.accept_visitor_env(self, clone_env(&env)),
+            cond.accept_visitor_env(self, env),
+            left.accept_visitor_env(self, env),
             right.accept_visitor_env(self, env),
         )
     }
 
-    fn format_get(&self, object: &'a Expr, name: &str, env: EnvShared) -> String {
+    fn format_get(&self, object: &'a Expr, name: &str, env: &Env) -> String {
         format!("{} {} .", object.accept_visitor_env(self, env), name)
     }
 
-    fn format_assign(&self, name: &str, value: &'a Expr, env: EnvShared) -> String {
+    fn format_assign(&self, name: &str, value: &'a Expr, env: &Env) -> String {
         format!("{} {} <-", name, value.accept_visitor_env(self, env))
     }
     #[cfg(feature = "lambdas")]
@@ -92,7 +92,7 @@ impl<'a> RpnAstPrinter<'a> {
 }
 
 impl VisitorEnv<String> for RpnAstPrinter<'_> {
-    fn visit_expr(&self, expr: &Expr, env: EnvShared) -> String {
+    fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
         match expr {
             Expr::Assign { name, value, .. } => self.format_assign(&name.lexeme, value, env),
             Expr::Binary {

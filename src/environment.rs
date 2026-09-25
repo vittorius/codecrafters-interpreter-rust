@@ -1,58 +1,36 @@
 // TODO: move inside the 'interpreter' module
 
-use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{error::RuntimeError, token::Token, value::Value};
 
-// TODO: implement the approach with Environment/EnvironmentData from here https://github.com/cc-code-examples/kind-leopard-632316/blob/main/src/environment.rs#L8
-// to encapsulate borrow/borrow_mut calls inside the environment
+// The approach with Env/EnvData is borrowed from here https://github.com/cc-code-examples/kind-leopard-632316/blob/main/src/environment.rs#L8
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
-// for multiple child environments where it can be potentially mutated (e.g. Binary expression)
-// TODO: rename into EnvShared
-pub type EnvShared = Rc<RefCell<Env>>;
+// for multiple child environments where it can be potentially mutated (e.g. when evaluating a Binary expression)
 
-// Env owns its variable names (hence String keys) to make a true REPL:
-// variable definitions that survive the line of source they were derived from.
 #[derive(Debug)]
-// TODO: rename into Env
 pub struct Env {
-    values: HashMap<String, Value>,
-    enclosing: Option<EnvShared>,
-    return_value: Option<Value>,
+    data: Rc<RefCell<EnvData>>,
 }
 
-// TODO: rename into Env
 impl Env {
-    // TODO: delete this method and move its logic to `wrapped`
     pub fn new() -> Self {
         Self {
-            values: HashMap::new(),
-            enclosing: None,
-            return_value: None,
+            data: Rc::new(RefCell::new(EnvData::default())),
         }
     }
 
-    pub fn with_enclosing(enclosing: EnvShared) -> Self {
+    pub fn new_enclosed_with(enclosing: &Env) -> Self {
         Self {
-            enclosing: Some(enclosing),
-            values: HashMap::new(),
-            return_value: None,
+            data: Rc::new(RefCell::new(EnvData::new_enclosed_with(Rc::clone(
+                &enclosing.data,
+            )))),
         }
     }
 
-    // TODO: rename to `new_shared`
-    pub fn wrapped(self) -> EnvShared {
-        Rc::new(RefCell::new(self))
+    pub fn define(&self, name: String, value: Value) {
+        self.data.borrow_mut().values.insert(name, value);
     }
-
-    pub fn define(&mut self, name: String, value: Value) {
-        self.values.insert(name, value);
-    }
-
-    // TODO: use when BareEnv is renamed to Env
-    // pub fn clone_shared(env: &Env) -> Env {
-    //     Rc::clone(&env)
-    // }
 
     // The book throws the "undefined variable" RuntimeError right here, in the `get` method.
     // This is not very idiomatic for Rust, instead we use Option and handle this error higher up the callstack.
@@ -61,55 +39,116 @@ impl Env {
     // The environment could be HashMap<String, Rc<RefCell<Value>>> but it seems more natural to move the
     // value/reference duality to the Value itself (see Value definition.)
     pub fn get(&self, name: &str) -> Option<Value> {
-        self.values.get(name).cloned().or_else(|| {
-            if let Some(enclosing) = &self.enclosing {
-                enclosing.borrow().get(name)
-            } else {
-                None
-            }
-        })
+        self.data.borrow().get(name)
     }
 
     // See the `get` method note about not returning Option<&Value> here.
     pub fn get_at(&self, distance: usize, name: &str) -> Option<Value> {
+        self.data.borrow().get_at(distance, name)
+    }
+
+    // See the `get` method note about not returning Result<&Value, _> here.
+    pub fn assign(&self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
+        self.data.borrow_mut().assign(name, value)
+    }
+
+    // See the `get` method note about not returning Result<&Value, _> here.
+    pub fn assign_at(
+        &self,
+        distance: usize,
+        name: &Token,
+        value: Value,
+    ) -> Result<Value, RuntimeError> {
+        self.data.borrow_mut().assign_at(distance, name, value)
+    }
+
+    pub fn set_return_from_fn(&self, value: Value) {
+        self.data.borrow_mut().return_value = Some(value);
+    }
+
+    pub fn is_returning_from_fn(&self) -> bool {
+        self.data.borrow().return_value.is_some()
+    }
+
+    pub fn take_return_from_fn(&self) -> Option<Value> {
+        self.data.borrow_mut().return_value.take()
+    }
+}
+
+impl Clone for Env {
+    // Use Env::clone() syntax (like Rc::clone()) to emphasize the ref-cloning nature of this operation.
+    fn clone(&self) -> Self {
+        Self {
+            data: Rc::clone(&self.data),
+        }
+    }
+}
+
+impl Drop for Env {
+    fn drop(&mut self) {
+        if let Some(enclosing) = &self.data.borrow().enclosing
+            && let Some(return_value) = self.data.borrow().return_value.as_ref()
+        {
+            enclosing.borrow_mut().return_value = Some(return_value.clone()); // the original value will be dropped
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct EnvData {
+    // Environment owns its variable names (hence String keys) to make a true REPL:
+    // variable definitions that survive the line of source they were derived from.
+    values: HashMap<String, Value>,
+    enclosing: Option<Rc<RefCell<EnvData>>>,
+    return_value: Option<Value>,
+}
+
+impl EnvData {
+    fn new_enclosed_with(env: Rc<RefCell<EnvData>>) -> Self {
+        Self {
+            enclosing: Some(env),
+            ..EnvData::default()
+        }
+    }
+
+    fn get(&self, name: &str) -> Option<Value> {
+        if let Some(value) = self.values.get(name) {
+            Some(value.clone())
+        } else if let Some(enclosing) = &self.enclosing {
+            enclosing.borrow().get(name)
+        } else {
+            None
+        }
+    }
+
+    fn get_at(&self, distance: usize, name: &str) -> Option<Value> {
         if distance == 0 {
             self.get(name)
+        } else if let Some(enclosing) = &self.enclosing {
+            enclosing.borrow().get_at(distance - 1, name)
         } else {
-            self.ancestor(NonZeroUsize::new(distance).expect("The distance must be non-zero"))
-                .borrow()
-                .values
-                .get(name)
-                .cloned()
+            unreachable!(
+                "Wrong var resolution distance {} when enclosing env is missing",
+                distance
+            )
         }
     }
 
-    // TODO: return Result<(), RuntimeError> here and make the caller mess with Value cloning
-    // Using &Token here is correct because this method semantics is similar to .get() or .contains_key():
-    // you cannot assign what hasn't been defined, so .assign() must not consume the key but rather borrow it.
-    pub fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
-        use std::collections::hash_map::Entry;
-
-        // TODO: try using .contains_key() to avoid premature cloning of `name.lexeme`
-        match self.values.entry(name.lexeme.clone()) {
-            Entry::Occupied(mut occupied_entry) => {
-                occupied_entry.insert(value.clone()); // TODO: avoid this clone making the caller do this
-                Ok(value)
-            }
-            Entry::Vacant(_) => {
-                if let Some(enclosing) = &mut self.enclosing {
-                    enclosing.borrow_mut().assign(name, value)
-                } else {
-                    Err(RuntimeError::new(
-                        name,
-                        &format!("Undefined variable \"{}\"", name.lexeme),
-                    ))
-                }
-            }
+    fn assign(&mut self, name: &Token, value: Value) -> Result<Value, RuntimeError> {
+        if self.values.contains_key(&name.lexeme) {
+            self.values.insert(name.lexeme.clone(), value.clone());
+            Ok(value)
+        } else if let Some(enclosing) = &self.enclosing {
+            enclosing.borrow_mut().assign(name, value)
+        } else {
+            Err(RuntimeError::new(
+                name,
+                &format!("Undefined variable \"{}\"", name.lexeme),
+            ))
         }
     }
 
-    // TODO: consume `name` and make the caller .clone()
-    pub fn assign_at(
+    fn assign_at(
         &mut self,
         distance: usize,
         name: &Token,
@@ -117,60 +156,13 @@ impl Env {
     ) -> Result<Value, RuntimeError> {
         if distance == 0 {
             self.assign(name, value)
+        } else if let Some(enclosing) = &self.enclosing {
+            enclosing.borrow_mut().assign_at(distance - 1, name, value)
         } else {
-            self.ancestor(NonZeroUsize::new(distance).expect("The distance must be non-zero"))
-                .borrow_mut()
-                .values
-                .insert(name.lexeme.clone(), value.clone());
-            Ok(value)
-        }
-    }
-
-    pub fn return_from_fn(&mut self, value: Value) {
-        self.return_value = Some(value);
-    }
-
-    pub fn is_returning_from_fn(&self) -> bool {
-        self.return_value.is_some()
-    }
-
-    pub fn clear_return_from_fn(&mut self) -> Option<Value> {
-        self.return_value.take()
-    }
-
-    fn ancestor(&self, distance: NonZeroUsize) -> EnvShared {
-        let mut env = clone_env(
-            self.enclosing
-                .as_ref()
-                .expect("Enclosing env must be present (trusting the resolver)"),
-        );
-
-        for _ in NonZeroUsize::MIN..distance {
-            let env_clone = clone_env(
-                env.borrow()
-                    .enclosing
-                    .as_ref()
-                    .expect("Enclosing env must be present (trusting the resolver)"),
-            );
-            env = env_clone;
-        }
-
-        env
-    }
-}
-
-// This function is added for the same explicitness as comes with calling Rc::clone
-// but hiding the implementation details (`Rc`) a bit.
-pub fn clone_env(env: &EnvShared) -> EnvShared {
-    Rc::clone(env)
-}
-
-impl Drop for Env {
-    fn drop(&mut self) {
-        if let Some(enclosing) = &self.enclosing
-            && let Some(return_value) = self.return_value.take()
-        {
-            enclosing.borrow_mut().return_from_fn(return_value);
+            unreachable!(
+                "Wrong var resolution distance {} when enclosing env is missing",
+                distance
+            )
         }
     }
 }
