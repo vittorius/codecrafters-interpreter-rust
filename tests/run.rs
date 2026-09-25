@@ -199,4 +199,23 @@ mod lambda_tests {
             "[line 1] Error at 'fun': Lambda functions are forbidden in statements",
         );
     }
+
+    #[test]
+    fn test_lambda_correctly_captures_this_from_a_class() {
+        assert_run_success(
+            r#"
+            class C {
+              foo() {
+                return fun () {
+                   return this;
+                };
+              }
+            }
+
+            var f = C().foo();
+            print f();
+            "#,
+            "C instance\n",
+        );
+    }
 }
