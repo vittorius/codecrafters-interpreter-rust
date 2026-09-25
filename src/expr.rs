@@ -1,16 +1,21 @@
-#[cfg(feature = "lambdas")]
-use crate::expr::fun_expr::FunExpr;
-use crate::{environment::Env, token::{self, Token}};
+use crate::{
+    environment::Env,
+    stmt::Stmt,
+    token::{self, Token},
+};
 
-pub mod fun_expr;
-
-// TODO: experiment with turning this into a consuming visitor
 pub trait VisitorEnv<R> {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> R;
 }
 
 pub trait VisitorMut<'a, R> {
     fn visit_expr(&mut self, expr: &'a mut Expr) -> R;
+}
+
+#[derive(Clone, Debug)]
+pub struct Binding {
+    pub name: Token,
+    pub depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
 }
 
 // Box<Expr> is used here instead of &Expr because the expression tree
@@ -26,9 +31,8 @@ pub trait VisitorMut<'a, R> {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Assign {
-        name: Token,
+        variable: Binding,
         value: Box<Expr>,
-        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
     },
     Binary {
         left: Box<Expr>,
@@ -72,10 +76,7 @@ pub enum Expr {
         operator: Token,
         right: Box<Expr>,
     },
-    Variable {
-        name: Token,
-        depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
-    },
+    Variable(Binding),
 }
 
 impl Expr {
@@ -90,4 +91,14 @@ impl Expr {
     pub fn boxed(self) -> Box<Self> {
         Box::new(self)
     }
+}
+
+pub type FunParams = Vec<Token>;
+pub type FunBody = Vec<Stmt>;
+
+#[derive(Debug, Clone)]
+#[cfg(feature = "lambdas")]
+pub struct FunExpr {
+    pub params: FunParams,
+    pub body: FunBody,
 }

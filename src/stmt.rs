@@ -1,14 +1,8 @@
-
 use crate::{
     environment::Env,
-    expr::Expr,
-    stmt::{class_decl::ClassDecl, fun_decl::FunDecl},
+    expr::{Expr, FunExpr, Binding},
     token::Token,
 };
-
-pub mod class_decl;
-pub mod fun_decl;
-
 
 pub trait VisitorEnv<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> R;
@@ -26,12 +20,12 @@ pub trait VisitorMut<'a, R> {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
-    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST 
+    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST
     // and is designed in such way captures the statement list for 'a.
     // So, we have to .clone() this declaration into the interpreter environment.
-    Class(ClassDecl), 
+    Class(ClassDecl),
     Expression(Expr),
-    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST 
+    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST
     // and is designed in such way captures the statement list for 'a.
     // So, we have to .clone() this declaration into the interpreter environment.
     Function(FunDecl),
@@ -43,7 +37,7 @@ pub enum Stmt {
     Print(Expr),
     Return {
         keyword: Token,
-        // we could always return Value::Nil but None reflects 
+        // we could always return Value::Nil but None reflects
         // the syntactical structure of 'return;' statement better
         value: Option<Expr>,
     },
@@ -69,4 +63,17 @@ impl Stmt {
     pub fn boxed(self) -> Box<Self> {
         Box::new(self)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FunDecl {
+    pub name: Token,
+    pub expr: FunExpr,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClassDecl {
+    pub name: Token,
+    pub superclass: Option<Binding>,
+    pub methods: Vec<FunDecl>,
 }

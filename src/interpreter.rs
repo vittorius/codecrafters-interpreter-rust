@@ -1,19 +1,15 @@
 use std::{collections::HashMap, rc::Rc};
 
 #[cfg(feature = "lambdas")]
-use crate::expr::fun_expr::FunExpr;
+use crate::expr::FunExpr;
 use crate::{
     class::Class,
     environment::Env,
     error::RuntimeError,
-    expr::{self, Expr},
+    expr::{self, Binding, Expr},
     function::{Function, FunctionShared},
     native::ClockFunction,
-    stmt::{
-        self, Stmt,
-        class_decl::ClassDecl,
-        fun_decl::FunDecl,
-    },
+    stmt::{self, ClassDecl, FunDecl, Stmt},
     token::{self, Token, TokenType as TT},
     value::Value::{self, Callable, Object},
 };
@@ -411,7 +407,10 @@ impl Interpreter {
 impl expr::VisitorEnv<ExprResult> for Interpreter {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> ExprResult {
         match expr {
-            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value, env),
+            Expr::Assign {
+                variable: Binding { name, depth },
+                value,
+            } => self.visit_assign_expr(name, depth, value, env),
             Expr::Binary {
                 left,
                 operator,
@@ -443,7 +442,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
             } => self.visit_set_expr(object, name, value, env),
             Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth, env),
             Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
-            Expr::Variable { name, depth } => self.visit_variable_expr(name, depth, env),
+            Expr::Variable(Binding { name, depth }) => self.visit_variable_expr(name, depth, env),
         }
     }
 }

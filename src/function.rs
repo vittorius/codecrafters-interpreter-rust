@@ -5,10 +5,10 @@ use std::{fmt::Display, rc::Rc};
 use crate::{
     callable::{CallResult, Callable},
     environment::Env,
-    expr::fun_expr::FunExpr,
+    expr::FunExpr,
     instance::InstanceShared,
     interpreter::Interpreter,
-    stmt::fun_decl::FunDecl,
+    stmt::FunDecl,
     value::Value,
 };
 

@@ -1,15 +1,11 @@
 use std::{fmt::Display, mem};
 
 use crate::{
-    expr::{self, Expr, fun_expr::FunExpr},
+    expr::{self, Binding, Expr, FunExpr},
     interpreter::Void,
     lox,
     resolver::scope::Scope,
-    stmt::{
-        self, Stmt,
-        class_decl::ClassDecl,
-        fun_decl::FunDecl,
-    },
+    stmt::{self, ClassDecl, FunDecl, Stmt},
     token::{self, Literal, Token},
 };
 
@@ -404,7 +400,10 @@ impl<'a> Resolver<'a> {
 impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         match expr {
-            Expr::Assign { name, depth, value } => self.visit_assign_expr(name, depth, value),
+            Expr::Assign {
+                variable: Binding { name, depth },
+                value,
+            } => self.visit_assign_expr(name, depth, value),
             Expr::Binary { left, right, .. } => self.visit_binary_expr(left, right),
             Expr::Call {
                 callee, arguments, ..
@@ -422,7 +421,7 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Expr::Set { object, value, .. } => self.visit_set_expr(object, value),
             Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth),
             Expr::Unary { right, .. } => self.visit_unary_expr(right),
-            Expr::Variable { name, depth } => self.visit_variable_expr(name, depth),
+            Expr::Variable(Binding { name, depth }) => self.visit_variable_expr(name, depth),
         }
     }
 }

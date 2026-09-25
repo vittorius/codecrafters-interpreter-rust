@@ -1,8 +1,8 @@
 #[cfg(feature = "lambdas")]
-use crate::expr::fun_expr::FunExpr;
+use crate::expr::FunExpr;
 use crate::{
     environment::Env,
-    expr::{Expr, VisitorEnv},
+    expr::{Binding, Expr, VisitorEnv},
 };
 
 pub struct AstPrinter;
@@ -75,7 +75,9 @@ impl AstPrinter {
 impl VisitorEnv<String> for AstPrinter {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
         match expr {
-            Expr::Assign { name, value, .. } => self.parenthesize_assign(&name.lexeme, value, env),
+            Expr::Assign {
+                variable, value, ..
+            } => self.parenthesize_assign(&variable.name.lexeme, value, env),
             Expr::Binary {
                 left,
                 operator,
@@ -107,7 +109,7 @@ impl VisitorEnv<String> for AstPrinter {
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }
-            Expr::Variable { name, .. } => name.lexeme.clone(),
+            Expr::Variable(Binding { name, .. }) => name.lexeme.clone(),
         }
     }
 }
@@ -146,8 +148,10 @@ mod tests {
     #[test]
     fn test_assignment_expression() {
         let expr = Expr::Assign {
-            name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
-            depth: None,
+            variable: Binding {
+                name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
+                depth: None,
+            },
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
                 operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),

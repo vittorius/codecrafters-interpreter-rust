@@ -2,7 +2,7 @@
 //!
 //! program        → declaration* EOF ;
 //! declaration    → classDecl | funDecl | varDecl | statement ;
-//! classDecl      → "class" IDENTIFIER "{" function* "}" ;
+//! classDecl      → "class" IDENTIFIER ( "<" IDENTIFIER ) ? "{" function* "}" ;
 //! funDecl        → "fun" function ;
 //! function       → IDENTIFIER "(" parameters? ")" block ;
 //! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
@@ -35,12 +35,9 @@
 use std::fmt::Display;
 
 use crate::{
-    expr::{
-        Expr,
-        fun_expr::{FunBody, FunExpr, FunParams},
-    },
+    expr::{Binding, Expr, FunBody, FunExpr, FunParams},
     lox,
-    stmt::{Stmt, class_decl::ClassDecl, fun_decl::FunDecl},
+    stmt::{ClassDecl, FunDecl, Stmt},
     token::{self, Literal, Token, TokenType, TokenType as TT},
 };
 
@@ -224,6 +221,17 @@ impl Parser {
 
     fn class_declaration(&mut self) -> StmtResult {
         let name = self.consume(TT::IDENTIFIER, "Expect class name.")?;
+
+        let superclass = if self.match_next(TT::LESS) {
+            self.consume(TT::IDENTIFIER, "Expect superclass name.")?;
+            Some(Binding {
+                name: self.previous().clone(),
+                depth: None,
+            })
+        } else {
+            None
+        };
+
         self.consume(TT::LEFT_BRACE, "Expect '{' before class body.")?;
 
         let mut methods = Vec::new();
@@ -236,7 +244,11 @@ impl Parser {
 
         self.consume(TT::RIGHT_BRACE, "Expect '}' after class body.")?;
 
-        Ok(Stmt::Class(ClassDecl { name, methods }))
+        Ok(Stmt::Class(ClassDecl {
+            name,
+            methods,
+            superclass,
+        }))
     }
 
     fn function(&mut self, kind: FunctionKind) -> StmtResult {
@@ -431,21 +443,12 @@ impl Parser {
         let expr = self.or()?;
 
         if self.match_next(TT::EQUAL) {
-            // return if let Expr::Variable { name, .. } = expr {
-            //     Ok(Expr::Assign {
-            //         name,
-            //         depth: None,
-            //         value: self.assignment()?.boxed(),
-            //     })
-            // } else {
-            //     let equals = self.previous();
-            //     Err(Self::mk_error(equals, "Invalid assignment target."))
-            // };
-
             return match expr {
-                Expr::Variable { name, .. } => Ok(Expr::Assign {
-                    name,
-                    depth: None,
+                Expr::Variable(binding) => Ok(Expr::Assign {
+                    variable: Binding {
+                        depth: None,
+                        ..binding
+                    },
                     value: self.assignment()?.boxed(),
                 }),
                 Expr::Get { object, name } => Ok(Expr::Set {
@@ -740,10 +743,10 @@ impl Parser {
         }
 
         if self.match_next(TT::IDENTIFIER) {
-            return Ok(Expr::Variable {
+            return Ok(Expr::Variable(Binding {
                 name: self.previous().clone(),
                 depth: None,
-            });
+            }));
         }
 
         if self.match_next(TT::LEFT_PAREN) {
