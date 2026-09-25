@@ -1,6 +1,9 @@
 use std::{fmt::Display, rc::Rc};
 
-use crate::{callable::Callable, instance::InstanceShared};
+use crate::{
+    callable::Callable, callable::SharedClone, class::ClassShared, function::FunctionShared,
+    instance::InstanceShared, native_function::NativeFunctionShared,
+};
 
 // We made Value cloneable because we need to be able to store values in the environment
 // and refer to variable in expressions. We construct a new Value in 2 cases: evaluating expressions
@@ -17,12 +20,24 @@ pub enum Value {
     Str(String),
     Num(f64),
     Bool(bool),
-    // callable is a ref object, we don't "copy" callables in runtime
-    Callable(Rc<dyn Callable>),
-    // class instance is a ref object, we "copy" only a reference to it;
-    // we need RefCell because it's a mutable bag of properties
+    // these *Shared types are "ref" objects with all shallow copies
+    // pointing to the same object in memory
+    NativeFn(NativeFunctionShared),
+    Fn(FunctionShared),
+    Class(ClassShared),
     Object(InstanceShared),
     Nil,
+}
+
+impl Value {
+    pub fn as_callable(&self) -> Option<Rc<dyn Callable>> {
+        match self {
+            Value::NativeFn(native_fn) => Some(native_fn.shared_clone()),
+            Value::Fn(function) => Some(function.shared_clone()),
+            Value::Class(class) => Some(class.shared_clone()),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Value {
@@ -31,7 +46,9 @@ impl Display for Value {
             Value::Str(value) => write!(f, "{value}"),
             Value::Num(value) => write!(f, "{value}"),
             Value::Bool(value) => write!(f, "{value}"),
-            Value::Callable(callable) => write!(f, "{callable}"),
+            Value::NativeFn(native_fn) => write!(f, "{native_fn}"),
+            Value::Fn(function) => write!(f, "{function}"),
+            Value::Class(class) => write!(f, "{class}"),
             Value::Object(instance) => write!(f, "{}", instance.borrow()),
             Value::Nil => write!(f, "nil"),
         }

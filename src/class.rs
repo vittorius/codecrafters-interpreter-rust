@@ -3,7 +3,7 @@
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
-    callable::{CallResult, Callable},
+    callable::{CallResult, Callable, SharedClone},
     function::FunctionShared,
     instance::Instance,
     interpreter::Interpreter,
@@ -14,24 +14,27 @@ use crate::{
 #[derive(Debug)]
 pub struct Class {
     name: Token,
+    superclass: Option<ClassShared>,
     methods: HashMap<String, FunctionShared>,
 }
 
 pub type ClassShared = Rc<Class>;
 
 impl Class {
-    pub fn new(name: Token, methods: HashMap<String, FunctionShared>) -> Self {
-        Self { name, methods }
+    pub fn new(
+        name: Token,
+        superclass: Option<ClassShared>,
+        methods: HashMap<String, FunctionShared>,
+    ) -> Self {
+        Self {
+            name,
+            superclass,
+            methods,
+        }
     }
 
     pub fn find_method(&self, name: &str) -> Option<FunctionShared> {
         self.methods.get(name).map(Rc::clone)
-    }
-}
-
-impl Display for Class {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name.lexeme)
     }
 }
 
@@ -54,5 +57,13 @@ impl Callable for Class {
         }
 
         Ok(Value::Object(instance))
+    }
+}
+
+impl SharedClone for Class {}
+
+impl Display for Class {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name.lexeme)
     }
 }

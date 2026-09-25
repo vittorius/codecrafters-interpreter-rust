@@ -1,6 +1,6 @@
 use crate::{
     environment::Env,
-    expr::{Expr, FunExpr, Binding},
+    expr::{Binding, Expr, FunExpr},
     token::Token,
 };
 

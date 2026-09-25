@@ -1,4 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::HashMap,
+    rc::Rc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 #[cfg(feature = "lambdas")]
 use crate::expr::FunExpr;
@@ -8,10 +12,10 @@ use crate::{
     error::RuntimeError,
     expr::{self, Binding, Expr},
     function::{Function, FunctionShared},
-    native::ClockFunction,
+    native_function::NativeFunction,
     stmt::{self, ClassDecl, FunDecl, Stmt},
     token::{self, Token, TokenType as TT},
-    value::Value::{self, Callable, Object},
+    value::Value::{self, Object},
 };
 
 pub type Void = (); // right now, trying to follow the book, maybe remove it later
@@ -29,7 +33,17 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let env = Env::new(None);
-        env.define("clock".to_owned(), Value::Callable(Rc::new(ClockFunction)));
+        env.define(
+            "clock".to_owned(),
+            Value::NativeFn(NativeFunction::new_shared(|| {
+                Ok(Value::Num(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("system time is before the Unix epoch")
+                        .as_secs_f64(),
+                ))
+            })),
+        );
 
         Self { env }
     }
@@ -95,7 +109,11 @@ impl Interpreter {
         RuntimeError::new(token, message)
     }
 
-    fn error(token: &Token, message: &str) -> ExprResult {
+    fn expr_error(token: &Token, message: &str) -> ExprResult {
+        Err(Self::mk_error(token, message))
+    }
+
+    fn stmt_error(token: &Token, message: &str) -> StmtResult {
         Err(Self::mk_error(token, message))
     }
 
@@ -143,7 +161,7 @@ impl Interpreter {
 
             Ok(value)
         } else {
-            Self::error(name, "Only instances have fields.")
+            Self::expr_error(name, "Only instances have fields.")
         }
     }
 
@@ -157,7 +175,7 @@ impl Interpreter {
 
         match (operator.token_type, right) {
             (TT::MINUS, Value::Num(n)) => Ok(Value::Num(-n)),
-            (TT::MINUS, _) => Self::error(operator, "Operand must be a number."),
+            (TT::MINUS, _) => Self::expr_error(operator, "Operand must be a number."),
             (TT::BANG, val) => Ok(Value::Bool(!Self::is_truthy(&val))),
             _ => unreachable!(),
         }
@@ -175,18 +193,18 @@ impl Interpreter {
 
         match (operator.token_type, left, right) {
             (TT::MINUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l - r)),
-            (TT::MINUS, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::MINUS, _, _) => Self::expr_error(operator, "Operands must be numbers."),
             (TT::SLASH, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l / r)),
-            (TT::SLASH, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::SLASH, _, _) => Self::expr_error(operator, "Operands must be numbers."),
             (TT::STAR, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l * r)),
-            (TT::STAR, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::STAR, _, _) => Self::expr_error(operator, "Operands must be numbers."),
             (TT::PLUS, Value::Num(l), Value::Num(r)) => Ok(Value::Num(l + r)),
             (TT::PLUS, Value::Str(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             #[cfg(feature = "str-num-concat")]
             (TT::PLUS, Value::Num(l), Value::Str(r)) => Ok(Value::Str(format!("{l}{r}"))),
             #[cfg(feature = "str-num-concat")]
             (TT::PLUS, Value::Str(l), Value::Num(r)) => Ok(Value::Str(format!("{l}{r}"))),
-            (TT::PLUS, _, _) => Self::error(operator, "Operands must be numbers."),
+            (TT::PLUS, _, _) => Self::expr_error(operator, "Operands must be numbers."),
             (TT::GREATER, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l > r)),
             (TT::GREATER_EQUAL, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l >= r)),
             (TT::LESS, Value::Num(l), Value::Num(r)) => Ok(Value::Bool(l < r)),
@@ -200,7 +218,7 @@ impl Interpreter {
             #[cfg(feature = "str-cmp")]
             (TT::LESS_EQUAL, Value::Str(l), Value::Str(r)) => Ok(Value::Bool(l <= r)),
             (TT::GREATER | TT::GREATER_EQUAL | TT::LESS | TT::LESS_EQUAL, _, _) => {
-                Self::error(operator, "Operands must be numbers.")
+                Self::expr_error(operator, "Operands must be numbers.")
             }
             (TT::EQUAL_EQUAL, l, r) => Ok(Value::Bool(Self::is_equal(&l, &r))),
             (TT::BANG_EQUAL, l, r) => Ok(Value::Bool(!Self::is_equal(&l, &r))),
@@ -224,9 +242,9 @@ impl Interpreter {
             .map(|arg| self.evaluate(arg, env))
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        if let Callable(callable) = callee {
+        if let Some(callable) = callee.as_callable() {
             if arguments.len() != callable.arity() {
-                return Self::error(
+                return Self::expr_error(
                     paren,
                     &format!(
                         "Expected {} arguments but got {}.",
@@ -238,7 +256,7 @@ impl Interpreter {
 
             callable.call(self, &arguments)
         } else {
-            Self::error(paren, "Can only call functions and classes.")
+            Self::expr_error(paren, "Can only call functions and classes.")
         }
     }
 
@@ -265,7 +283,7 @@ impl Interpreter {
                 Self::mk_error(name, &format!("Undefined property '{}'.", name.lexeme))
             })
         } else {
-            Self::error(name, "Only instances have properties.")
+            Self::expr_error(name, "Only instances have properties.")
         }
     }
 
@@ -273,13 +291,13 @@ impl Interpreter {
         match self.lookup_variable(name, depth, env) {
             Some(value) => match value {
                 #[cfg(feature = "init-vars")]
-                Value::Nil => Self::error(
+                Value::Nil => Self::expr_error(
                     name,
                     &format!("Uninitialized variable \"{}\".", name.lexeme),
                 ),
                 _ => Ok(value),
             },
-            None => Self::error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
+            None => Self::expr_error(name, &format!("Undefined variable \"{}\".", name.lexeme)),
         }
     }
 
@@ -310,7 +328,7 @@ impl Interpreter {
     #[cfg(feature = "lambdas")]
     fn visit_function_expr(&self, fun_expr: FunExpr, env: &Env) -> ExprResult {
         let function = Function::new_lambda(fun_expr, Env::clone(env));
-        Ok(Value::Callable(Rc::new(function)))
+        Ok(Value::Fn(Rc::new(function)))
     }
 
     fn visit_expression_stmt(&self, expr: &Expr, env: &Env) -> StmtResult {
@@ -319,10 +337,7 @@ impl Interpreter {
 
     fn visit_function_stmt(&self, decl: FunDecl, env: &Env) -> StmtResult {
         let function = Function::new(Rc::new(decl), Env::clone(env), false);
-        env.define(
-            function.name().to_owned(),
-            Value::Callable(Rc::new(function)),
-        );
+        env.define(function.name().to_owned(), Value::Fn(Rc::new(function)));
 
         VOID_OK
     }
@@ -385,8 +400,19 @@ impl Interpreter {
         VOID_OK
     }
 
-    // Two-stage variable binding process allows references to the class inside its own methods.
     fn visit_class_stmt(&self, class_decl: ClassDecl, env: &Env) -> StmtResult {
+        let superclass = if let Some(binding) = &class_decl.superclass {
+            let superclass = self.evaluate(&Expr::Variable(binding.clone()), env)?;
+
+            match superclass {
+                Value::Class(class) => Some(class),
+                _ => return Self::stmt_error(&binding.name, "Superclass must be a class."),
+            }
+        } else {
+            None
+        };
+
+        // at first, only define: two-stage variable binding process allows references to the class inside its own methods
         env.define(class_decl.name.lexeme.clone(), Value::Nil);
 
         let mut class_methods = HashMap::<String, FunctionShared>::new();
@@ -397,8 +423,10 @@ impl Interpreter {
             class_methods.insert(function.name().to_owned(), Rc::new(function));
         }
 
-        let class = Class::new(class_decl.name.clone(), class_methods);
-        env.assign(&class_decl.name, Value::Callable(Rc::new(class)))?;
+        let class = Class::new(class_decl.name.clone(), superclass, class_methods);
+
+        // finally, assign
+        env.assign(&class_decl.name, Value::Class(Rc::new(class)))?;
 
         VOID_OK
     }

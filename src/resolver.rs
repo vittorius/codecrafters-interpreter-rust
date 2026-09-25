@@ -303,6 +303,13 @@ impl<'a> Resolver<'a> {
         self.declare(&class_decl.name)?;
         self.define(&class_decl.name);
 
+        if let Some(Binding { name, depth }) = &mut class_decl.superclass {
+            if class_decl.name.lexeme == name.lexeme {
+                return Self::error(name, "A class can't inherit from itself.");
+            }
+            self.visit_variable_expr(name, depth)?;
+        }
+
         self.begin_scope();
         self.last_scope_mut()
             .expect("Just opened a new scope")

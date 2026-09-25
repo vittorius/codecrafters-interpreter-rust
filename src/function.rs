@@ -3,7 +3,7 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    callable::{CallResult, Callable},
+    callable::{CallResult, Callable, SharedClone},
     environment::Env,
     expr::FunExpr,
     instance::InstanceShared,
@@ -113,7 +113,11 @@ impl Callable for Function {
             Ok(Value::Nil)
         }
     }
+
+    
 }
+
+impl SharedClone for Function {}
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

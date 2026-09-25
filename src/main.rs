@@ -30,10 +30,10 @@ mod environment;
 mod error;
 mod expr;
 mod function;
+mod native_function;
 mod instance;
 mod interpreter;
 mod lox;
-mod native;
 mod parser;
 mod resolver;
 #[cfg(feature = "rpn-ast-printer")]

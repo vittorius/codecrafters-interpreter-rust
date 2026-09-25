@@ -37,7 +37,7 @@ impl Instance {
         } else {
             self.class
                 .find_method(&name.lexeme)
-                .map(|method| Value::Callable(method.bind(self.this())))
+                .map(|method| Value::Fn(method.bind(self.this())))
         }
     }
 
