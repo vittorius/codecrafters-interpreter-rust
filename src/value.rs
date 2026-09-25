@@ -1,6 +1,6 @@
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use std::{fmt::Display, rc::Rc};
 
-use crate::{callable::Callable, instance::Instance};
+use crate::{callable::Callable, instance::InstanceShared};
 
 // We made Value cloneable because we need to be able to store values in the environment
 // and refer to variable in expressions. We construct a new Value in 2 cases: evaluating expressions
@@ -21,7 +21,7 @@ pub enum Value {
     Callable(Rc<dyn Callable>),
     // class instance is a ref object, we "copy" only a reference to it;
     // we need RefCell because it's a mutable bag of properties
-    Object(Rc<RefCell<Instance>>),
+    Object(InstanceShared),
     Nil,
 }
 

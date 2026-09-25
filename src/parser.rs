@@ -40,7 +40,7 @@ use crate::{
         fun_expr::{FunBody, FunExpr, FunParams},
     },
     lox,
-    stmt::{Stmt, fun_decl::FunDecl},
+    stmt::{Stmt, class_decl::ClassDecl, fun_decl::FunDecl},
     token::{self, Literal, Token, TokenType, TokenType as TT},
 };
 
@@ -236,7 +236,7 @@ impl Parser {
 
         self.consume(TT::RIGHT_BRACE, "Expect '}' after class body.")?;
 
-        Ok(Stmt::Class { name, methods })
+        Ok(Stmt::Class(ClassDecl { name, methods }))
     }
 
     fn function(&mut self, kind: FunctionKind) -> StmtResult {

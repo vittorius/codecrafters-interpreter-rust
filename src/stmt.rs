@@ -1,8 +1,15 @@
-use crate::{environment::Env, expr::Expr, stmt::fun_decl::FunDecl, token::Token};
 
+use crate::{
+    environment::Env,
+    expr::Expr,
+    stmt::{class_decl::ClassDecl, fun_decl::FunDecl},
+    token::Token,
+};
+
+pub mod class_decl;
 pub mod fun_decl;
 
-// TODO: experiment with turning this into a consuming visitor
+
 pub trait VisitorEnv<R> {
     fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> R;
 }
@@ -19,11 +26,14 @@ pub trait VisitorMut<'a, R> {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Block(Vec<Stmt>),
-    Class {
-        name: Token,
-        methods: Vec<FunDecl>,
-    },
+    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST 
+    // and is designed in such way captures the statement list for 'a.
+    // So, we have to .clone() this declaration into the interpreter environment.
+    Class(ClassDecl), 
     Expression(Expr),
+    // We had to make this a non-Rc-RefCell value because Resolver mutates the AST 
+    // and is designed in such way captures the statement list for 'a.
+    // So, we have to .clone() this declaration into the interpreter environment.
     Function(FunDecl),
     If {
         condition: Expr,
@@ -33,7 +43,8 @@ pub enum Stmt {
     Print(Expr),
     Return {
         keyword: Token,
-        // we could always return Value::Nil but None reflects the syntactical structure of 'return;' statement better
+        // we could always return Value::Nil but None reflects 
+        // the syntactical structure of 'return;' statement better
         value: Option<Expr>,
     },
     Var {

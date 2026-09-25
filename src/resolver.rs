@@ -1,7 +1,16 @@
 use std::{fmt::Display, mem};
 
 use crate::{
-    expr::{self, Expr, fun_expr::FunExpr}, interpreter::Void, lox, resolver::scope::Scope, stmt::{self, Stmt, fun_decl::FunDecl}, token::{self, Literal, Token},
+    expr::{self, Expr, fun_expr::FunExpr},
+    interpreter::Void,
+    lox,
+    resolver::scope::Scope,
+    stmt::{
+        self, Stmt,
+        class_decl::ClassDecl,
+        fun_decl::FunDecl,
+    },
+    token::{self, Literal, Token},
 };
 
 pub struct ResolveError(String);
@@ -292,22 +301,18 @@ impl<'a> Resolver<'a> {
         VOID_OK
     }
 
-    fn visit_class_stmt(
-        &mut self,
-        name: &'a Token,
-        methods: &'a mut [FunDecl],
-    ) -> ResolutionResult {
+    fn visit_class_stmt(&mut self, class_decl: &'a mut ClassDecl) -> ResolutionResult {
         let enclosing_class = mem::replace(&mut self.current_class, ClassType::Class);
 
-        self.declare(name)?;
-        self.define(name);
+        self.declare(&class_decl.name)?;
+        self.define(&class_decl.name);
 
         self.begin_scope();
         self.last_scope_mut()
             .expect("Just opened a new scope")
             .declare_and_define(&token::THIS);
 
-        for method_decl in methods {
+        for method_decl in &mut class_decl.methods {
             let fun_type = if method_decl.name.lexeme == "init" {
                 FunctionType::Initializer
             } else {
@@ -426,9 +431,9 @@ impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_stmt(&mut self, stmt: &'a mut stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Block(statements) => self.visit_block(statements),
-            Stmt::Class { name, methods } => self.visit_class_stmt(name, methods),
+            Stmt::Class(class_decl) => self.visit_class_stmt(class_decl),
             Stmt::Expression(expr) => self.visit_expression_stmt(expr),
-            Stmt::Function(decl) => self.visit_function_stmt(decl),
+            Stmt::Function(fun_decl) => self.visit_function_stmt(fun_decl),
             Stmt::If {
                 condition,
                 then_branch,

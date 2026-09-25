@@ -7,19 +7,19 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{class::Class, token::Token, value::Value};
-
-pub type InstanceShared = Rc<RefCell<Instance>>;
+use crate::{class::ClassShared, token::Token, value::Value};
 
 #[derive(Debug, Clone)]
 pub struct Instance {
-    class: Rc<Class>,
+    class: ClassShared,
     fields: HashMap<String, Value>,
     self_weak: Weak<RefCell<Instance>>,
 }
 
+pub type InstanceShared = Rc<RefCell<Instance>>;
+
 impl Instance {
-    pub fn new_shared(class: Rc<Class>) -> InstanceShared {
+    pub fn new_shared(class: ClassShared) -> InstanceShared {
         Rc::new_cyclic(|weak| {
             RefCell::new(Self {
                 class,
@@ -37,7 +37,7 @@ impl Instance {
         } else {
             self.class
                 .find_method(&name.lexeme)
-                .map(|method| Value::Callable(Rc::new(method.bind(self.this()))))
+                .map(|method| Value::Callable(method.bind(self.this())))
         }
     }
 

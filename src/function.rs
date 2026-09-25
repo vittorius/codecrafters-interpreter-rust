@@ -9,29 +9,29 @@ use crate::{
     instance::InstanceShared,
     interpreter::Interpreter,
     stmt::fun_decl::FunDecl,
-    token::Token,
     value::Value,
 };
 
-// TODO: use const generics to separate function and lambda implementation details
-// Or, have 2 different types for function and lambda and move call default impl
-// to the Callable trait body
+#[derive(Debug)]
+enum FunDef {
+    Function(Rc<FunDecl>), // all functions of the same definition will share the same declaration
+    #[cfg(feature = "lambdas")]
+    Lambda(FunExpr), // lambda declarations are never cloned (in particular, because they are never bound)
+}
+
 #[derive(Debug)]
 pub struct Function {
-    name: Option<Token>, // optional because it may be a lambda
-    fun_expr: FunExpr,
+    definition: FunDef,
     closure: Env,
     is_initializer: bool,
 }
 
-// TODO: type FunctionShared
+pub type FunctionShared = Rc<Function>;
 
 impl Function {
-    // FIXME: store shared FunDecl in the Function
-    pub fn new(decl: FunDecl, closure: Env, is_initializer: bool) -> Self {
+    pub fn new(decl: Rc<FunDecl>, closure: Env, is_initializer: bool) -> Self {
         Self {
-            name: Some(decl.name),
-            fun_expr: decl.expr,
+            definition: FunDef::Function(decl),
             closure,
             is_initializer,
         }
@@ -40,39 +40,30 @@ impl Function {
     #[cfg(feature = "lambdas")]
     pub fn new_lambda(fun_expr: FunExpr, closure: Env) -> Self {
         Self {
-            name: None,
-            fun_expr,
+            definition: FunDef::Lambda(fun_expr),
             closure,
             is_initializer: false,
         }
     }
 
-    pub fn name(&self) -> Option<&str> {
-        self.name.as_ref().map(|t| t.lexeme.as_str())
+    pub fn name(&self) -> &str {
+        match &self.definition {
+            FunDef::Function(fun_decl) => &fun_decl.name.lexeme,
+            #[cfg(feature = "lambdas")]
+            FunDef::Lambda(_) => "(lambda)",
+        }
     }
 
-    // TODO: return FunctionShared; or think if we need it here
-    // or the Function-using code is better to decide whether to wrap in Rc
-    // pub fn into_shared(self) -> Rc<Self> {
-    //    Rc::new()
-    // }
-
-    pub fn bind(&self, instance: InstanceShared) -> Self {
+    pub fn bind(&self, instance: InstanceShared) -> FunctionShared {
         let env = Env::new_enclosed_with(&self.closure);
         env.define("this".to_owned(), Value::Object(instance));
-        // FIXME: reject cloning in favor of shared function declarations that must be kept shared in runtime
-        Function::new(
-            FunDecl {
-                name: self
-                    .name
-                    .as_ref()
-                    .cloned()
-                    .expect("Regular function always has a name"),
-                expr: self.fun_expr.clone(),
-            },
-            env,
-            self.is_initializer,
-        )
+
+        #[cfg_attr(not(feature = "lambdas"), allow(irrefutable_let_patterns))]
+        let FunDef::Function(fun_decl) = &self.definition else {
+            unreachable!("Only functions are bound to class instances")
+        };
+
+        Rc::new(Function::new(Rc::clone(fun_decl), env, self.is_initializer))
     }
 
     fn this_in_initializer(&self) -> Value {
@@ -80,22 +71,34 @@ impl Function {
             .get_at(0, "this")
             .expect("'this' is always defined if a function is a class initializer")
     }
+
+    fn fun_expr(&self) -> &FunExpr {
+        match &self.definition {
+            FunDef::Function(fun_decl) => &fun_decl.expr,
+            #[cfg(feature = "lambdas")]
+            FunDef::Lambda(fun_expr) => fun_expr,
+        }
+    }
 }
 
 impl Callable for Function {
     fn arity(&self) -> usize {
-        self.fun_expr.params.len()
+        self.fun_expr().params.len()
     }
 
     // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
         let env = Env::new_enclosed_with(&self.closure);
 
-        for (i, p) in self.fun_expr.params.iter().enumerate() {
-            env.define(p.lexeme.clone(), arguments[i].clone());
-        }
+        self.fun_expr()
+            .params
+            .iter()
+            .zip(arguments)
+            .for_each(|(param, arg)| {
+                env.define(param.lexeme.clone(), arg.clone());
+            });
 
-        interpreter.execute_block(&self.fun_expr.body, &env)?;
+        interpreter.execute_block(&self.fun_expr().body, &env)?;
 
         if self.is_initializer {
             // always return 'this' from an initializer
@@ -114,14 +117,6 @@ impl Callable for Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if cfg!(feature = "lambdas") {
-            write!(f, "<fn {}", self.name().unwrap_or("lambda"))
-        } else {
-            write!(
-                f,
-                "<fn {}>",
-                self.name().expect("A regular function always has a name")
-            )
-        }
+        write!(f, "<fn {}>", self.name())
     }
 }

@@ -4,27 +4,27 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     callable::{CallResult, Callable},
-    function::Function,
+    function::FunctionShared,
     instance::Instance,
     interpreter::Interpreter,
     token::Token,
     value::Value,
 };
 
-// TODO: type ClassShared
-
 #[derive(Debug)]
 pub struct Class {
     name: Token,
-    methods: HashMap<String, Rc<Function>>,
+    methods: HashMap<String, FunctionShared>,
 }
 
+pub type ClassShared = Rc<Class>;
+
 impl Class {
-    pub fn new(name: Token, methods: HashMap<String, Rc<Function>>) -> Self {
+    pub fn new(name: Token, methods: HashMap<String, FunctionShared>) -> Self {
         Self { name, methods }
     }
 
-    pub fn find_method(&self, name: &str) -> Option<Rc<Function>> {
+    pub fn find_method(&self, name: &str) -> Option<FunctionShared> {
         self.methods.get(name).map(Rc::clone)
     }
 }
@@ -49,7 +49,7 @@ impl Callable for Class {
         let instance = Instance::new_shared(Rc::clone(&self));
 
         if let Some(initializer) = self.find_method("init") {
-            let initializer = Rc::new(initializer.bind(Rc::clone(&instance)));
+            let initializer = initializer.bind(Rc::clone(&instance));
             initializer.call(interpreter, arguments)?;
         }
 

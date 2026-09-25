@@ -7,9 +7,13 @@ use crate::{
     environment::Env,
     error::RuntimeError,
     expr::{self, Expr},
-    function::Function,
+    function::{Function, FunctionShared},
     native::ClockFunction,
-    stmt::{self, Stmt, fun_decl::FunDecl},
+    stmt::{
+        self, Stmt,
+        class_decl::ClassDecl,
+        fun_decl::FunDecl,
+    },
     token::{self, Token, TokenType as TT},
     value::Value::{self, Callable, Object},
 };
@@ -318,12 +322,9 @@ impl Interpreter {
     }
 
     fn visit_function_stmt(&self, decl: FunDecl, env: &Env) -> StmtResult {
-        let function = Function::new(decl, Env::clone(env), false);
+        let function = Function::new(Rc::new(decl), Env::clone(env), false);
         env.define(
-            function
-                .name()
-                .expect("A regular function always has a name")
-                .to_owned(),
+            function.name().to_owned(),
             Value::Callable(Rc::new(function)),
         );
 
@@ -389,21 +390,19 @@ impl Interpreter {
     }
 
     // Two-stage variable binding process allows references to the class inside its own methods.
-    fn visit_class_stmt(&self, name: Token, methods: Vec<FunDecl>, env: &Env) -> StmtResult {
-        // TODO: improve interfaces of all Env methods involved here to reduce the number of .clone()-s
-        env.define(name.lexeme.clone(), Value::Nil);
+    fn visit_class_stmt(&self, class_decl: ClassDecl, env: &Env) -> StmtResult {
+        env.define(class_decl.name.lexeme.clone(), Value::Nil);
 
-        let mut class_methods = HashMap::<String, Rc<Function>>::new();
+        let mut class_methods = HashMap::<String, FunctionShared>::new();
 
-        for method_decl in methods {
-            // FIXME: avoid this cloning
-            let method_name = method_decl.name.lexeme.clone();
-            let function = Function::new(method_decl, Env::clone(env), &method_name == "init");
-            class_methods.insert(method_name, Rc::new(function));
+        for method_decl in class_decl.methods {
+            let is_initializer = method_decl.name.lexeme == "init";
+            let function = Function::new(Rc::new(method_decl), Env::clone(env), is_initializer);
+            class_methods.insert(function.name().to_owned(), Rc::new(function));
         }
 
-        let class = Class::new(name.clone(), class_methods);
-        env.assign(&name, Value::Callable(Rc::new(class)))?;
+        let class = Class::new(class_decl.name.clone(), class_methods);
+        env.assign(&class_decl.name, Value::Callable(Rc::new(class)))?;
 
         VOID_OK
     }
@@ -453,10 +452,10 @@ impl stmt::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> StmtResult {
         match stmt {
             Stmt::Block(statements) => self.execute_block(statements, &Env::new_enclosed_with(env)),
-            Stmt::Class { name, methods } => {
-                // TODO: cloning the entire vector here, not good.
-                // Again, let's experiment with consuming Visitor for Interpreter later.
-                self.visit_class_stmt(name.clone(), methods.clone(), env)
+            Stmt::Class(class_decl) => {
+                // A consuming Visitor for Interpreter would lead to either cloning large parts of the AST
+                // every time a code block is executed (a function call, a while loop).
+                self.visit_class_stmt(class_decl.clone(), env)
             }
             Stmt::Expression(expr) => self.visit_expression_stmt(expr, env),
             // Cloning function decl here prevents from using Expr pointers ("references") as keys in local variable lookup resolution.
