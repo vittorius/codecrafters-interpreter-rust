@@ -7,6 +7,7 @@ use std::{
 #[cfg(feature = "lambdas")]
 use crate::expr::FunExpr;
 use crate::{
+    callable::SharedClone,
     class::Class,
     environment::Env,
     error::RuntimeError,
@@ -152,6 +153,30 @@ impl Interpreter {
         self.evaluate(right, env)
     }
 
+    fn visit_super_expr(&self, method: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
+        let distance = depth.expect("'super' distance should have been set by resolver.");
+
+        let Value::Class(superclass) = env
+            .get_at(distance, "super")
+            .expect("Superclass should have been put into env by interpreter.")
+        else {
+            unreachable!("'super' must refer to a class.");
+        };
+
+        let Value::Object(object) = env
+            .get_at(distance - 1, "this")
+            .expect("'this' must be in the child environment of 'super'")
+        else {
+            unreachable!("'this' must refer to a class instance.")
+        };
+
+        let method = superclass.find_method(&method.lexeme).ok_or_else(|| {
+            Self::mk_error(method, &format!("Undefined property '{}'.", method.lexeme))
+        })?;
+
+        Ok(Value::Fn(method.bind(object)))
+    }
+
     fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: &Env) -> ExprResult {
         let object = self.evaluate(object, env)?;
 
@@ -165,8 +190,8 @@ impl Interpreter {
         }
     }
 
-    fn visit_this_expr(&self, name: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
-        self.lookup_variable(name, depth, env)
+    fn visit_this_expr(&self, keyword: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
+        self.lookup_variable(keyword, depth, env)
             .ok_or_else(|| unreachable!("'this' should be always defined by resolver."))
     }
 
@@ -336,8 +361,8 @@ impl Interpreter {
     }
 
     fn visit_function_stmt(&self, decl: FunDecl, env: &Env) -> StmtResult {
-        let function = Function::new(Rc::new(decl), Env::clone(env), false);
-        env.define(function.name().to_owned(), Value::Fn(Rc::new(function)));
+        let function = Function::new_shared(Rc::new(decl), Env::clone(env), false);
+        env.define(function.name().to_owned(), Value::Fn(function));
 
         VOID_OK
     }
@@ -415,12 +440,22 @@ impl Interpreter {
         // at first, only define: two-stage variable binding process allows references to the class inside its own methods
         env.define(class_decl.name.lexeme.clone(), Value::Nil);
 
+        let methods_env = superclass.as_ref().map(|superclass| {
+            let env = Env::new(Some(env));
+            env.define("super".to_owned(), Value::Class(superclass.shared_clone()));
+            env
+        });
+
         let mut class_methods = HashMap::<String, FunctionShared>::new();
 
         for method_decl in class_decl.methods {
             let is_initializer = method_decl.name.lexeme == "init";
-            let function = Function::new(Rc::new(method_decl), Env::clone(env), is_initializer);
-            class_methods.insert(function.name().to_owned(), Rc::new(function));
+            let function = Function::new_shared(
+                Rc::new(method_decl),
+                Env::clone(methods_env.as_ref().unwrap_or(env)),
+                is_initializer,
+            );
+            class_methods.insert(function.name().to_owned(), function);
         }
 
         let class = Class::new(class_decl.name.clone(), superclass, class_methods);
@@ -463,12 +498,19 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
                 operator,
                 right,
             } => self.visit_logical_expr(left, operator, right, env),
+            Expr::Super {
+                keyword: Binding { depth, .. },
+                method,
+            } => self.visit_super_expr(method, depth, env),
             Expr::Set {
                 object,
                 name,
                 value,
             } => self.visit_set_expr(object, name, value, env),
-            Expr::This(Binding { name, depth }) => self.visit_this_expr(name, depth, env),
+            Expr::This(Binding {
+                name: keyword,
+                depth,
+            }) => self.visit_this_expr(keyword, depth, env),
             Expr::Unary { operator, right } => self.visit_unary_expr(operator, right, env),
             Expr::Variable(Binding { name, depth }) => self.visit_variable_expr(name, depth, env),
         }

@@ -138,10 +138,18 @@ impl Display for Token {
     }
 }
 
-// Have to keep this for the err-unused-vars feature
+// have to keep this for because resolver's Scope keeps into on Tokens bound to declared names
 pub static THIS: LazyLock<Token> = LazyLock::new(|| Token {
     token_type: TokenType::THIS,
     lexeme: String::from("this"),
+    literal: None,
+    line: 0,
+});
+
+// have to keep this for because resolver's Scope keeps into on Tokens bound to declared names
+pub static SUPER: LazyLock<Token> = LazyLock::new(|| Token {
+    token_type: TokenType::THIS,
+    lexeme: String::from("super"),
     literal: None,
     line: 0,
 });

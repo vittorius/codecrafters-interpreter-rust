@@ -30,7 +30,7 @@
 //! unary          → ( "!" | "-" ) unary | call ;
 //! call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 //! arguments      → expression ( "," expression )* ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "this" | "(" expression ")" | IDENTIFIER ;
+//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "this" | "(" expression ")" | IDENTIFIER | "super" "." IDENTIFIER ;
 
 use std::fmt::Display;
 
@@ -724,6 +724,19 @@ impl Parser {
         if self.match_next(TT::NIL) {
             return Ok(Expr::Literal(Literal::Nil));
         };
+
+        if self.match_next(TT::SUPER) {
+            let keyword = self.previous().clone();
+            self.consume(TT::DOT, "Expect '.' after 'super'.")?;
+            let method = self.consume(TT::IDENTIFIER, "Expect superclass method name.")?;
+            return Ok(Expr::Super {
+                keyword: Binding {
+                    name: keyword,
+                    depth: None,
+                },
+                method,
+            });
+        }
 
         if self.match_next(TT::THIS) {
             return Ok(Expr::This(Binding {

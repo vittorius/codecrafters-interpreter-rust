@@ -11,3 +11,8 @@ This scanner is designed to achieve several following goals simultaneously:
    it byte-wise.)
 3. Use `rustc_lexer` for inspiration but not over-engineer: we need to
    accomplish this project quickly.
+
+## TODOs
+
+- Create a declarative macro to unpack a certain variant from an enum with or
+  emit unreachable! with a message if unpacking fails

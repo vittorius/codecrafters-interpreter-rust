@@ -29,12 +29,12 @@ pub struct Function {
 pub type FunctionShared = Rc<Function>;
 
 impl Function {
-    pub fn new(decl: Rc<FunDecl>, closure: Env, is_initializer: bool) -> Self {
-        Self {
+    pub fn new_shared(decl: Rc<FunDecl>, closure: Env, is_initializer: bool) -> Rc<Self> {
+        Rc::new(Self {
             definition: FunDef::Function(decl),
             closure,
             is_initializer,
-        }
+        })
     }
 
     #[cfg(feature = "lambdas")]
@@ -63,7 +63,7 @@ impl Function {
             unreachable!("Only functions are bound to class instances")
         };
 
-        Rc::new(Function::new(Rc::clone(fun_decl), env, self.is_initializer))
+        Function::new_shared(Rc::clone(fun_decl), env, self.is_initializer)
     }
 
     fn this_in_initializer(&self) -> Value {
@@ -113,8 +113,6 @@ impl Callable for Function {
             Ok(Value::Nil)
         }
     }
-
-    
 }
 
 impl SharedClone for Function {}

@@ -36,6 +36,10 @@ impl RpnAstPrinter {
         )
     }
 
+    fn format_super(&self, method: &str) -> String {
+        format!("{} <|", method)
+    }
+
     fn format_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
         let mut s = String::from("");
         for arg in arguments {
@@ -106,6 +110,7 @@ impl VisitorEnv<String> for RpnAstPrinter {
                 name,
                 value,
             } => self.format_set(object, &name.lexeme, value, env),
+            Expr::Super { method, .. } => self.format_super(&method.lexeme),
             Expr::This(Binding { name, .. }) => name.lexeme.clone(),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable(Binding { name, .. }) => name.lexeme.clone(),

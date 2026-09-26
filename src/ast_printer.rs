@@ -34,6 +34,10 @@ impl AstPrinter {
         )
     }
 
+    fn parenthesize_super(&self, method: &str) -> String {
+        format!("(<| {})", method)
+    }
+
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
         let mut s = format!("({}", callee.accept_visitor_env(self, env));
         for arg in arguments {
@@ -105,6 +109,7 @@ impl VisitorEnv<String> for AstPrinter {
                 name,
                 value,
             } => self.parenthesize_set(object, &name.lexeme, value, env),
+            Expr::Super { method, .. } => self.parenthesize_super(&method.lexeme),
             Expr::This(Binding { name, .. }) => name.lexeme.clone(),
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)

@@ -68,6 +68,10 @@ pub enum Expr {
         name: Token,
         value: Box<Expr>,
     },
+    Super {
+        keyword: Binding,
+        method: Token,
+    },
     This(Binding),
     Unary {
         operator: Token,
