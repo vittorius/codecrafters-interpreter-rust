@@ -726,10 +726,10 @@ impl Parser {
         };
 
         if self.match_next(TT::THIS) {
-            return Ok(Expr::This {
-                keyword: self.previous().clone(),
+            return Ok(Expr::This(Binding {
+                name: self.previous().clone(),
                 depth: None,
-            });
+            }));
         }
 
         if self.match_next_any(&[TT::NUMBER, TT::STRING]) {

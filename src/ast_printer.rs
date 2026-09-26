@@ -105,7 +105,7 @@ impl VisitorEnv<String> for AstPrinter {
                 name,
                 value,
             } => self.parenthesize_set(object, &name.lexeme, value, env),
-            Expr::This { keyword, .. } => keyword.lexeme.clone(),
+            Expr::This(Binding { name, .. }) => name.lexeme.clone(),
             Expr::Unary { operator, right } => {
                 self.parenthesize_unary(&operator.lexeme, right, env)
             }

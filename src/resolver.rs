@@ -211,13 +211,13 @@ impl<'a> Resolver<'a> {
 
     fn visit_this_expr(
         &mut self,
-        keyword: &'a Token,
+        name: &'a Token,
         depth: &mut Option<usize>,
     ) -> ResolutionResult {
         match self.current_class {
-            ClassType::None => Self::error(keyword, "Can't use 'this' outside of a class."),
+            ClassType::None => Self::error(name, "Can't use 'this' outside of a class."),
             _ => {
-                self.resolve_local(keyword, depth, true);
+                self.resolve_local(name, depth, true);
 
                 VOID_OK
             }
@@ -426,7 +426,7 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Expr::Literal(literal) => Self::visit_literal_expr(literal),
             Expr::Logical { left, right, .. } => self.visit_logical_expr(left, right),
             Expr::Set { object, value, .. } => self.visit_set_expr(object, value),
-            Expr::This { keyword, depth } => self.visit_this_expr(keyword, depth),
+            Expr::This(Binding { name, depth }) => self.visit_this_expr(name, depth),
             Expr::Unary { right, .. } => self.visit_unary_expr(right),
             Expr::Variable(Binding { name, depth }) => self.visit_variable_expr(name, depth),
         }

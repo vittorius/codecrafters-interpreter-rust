@@ -106,7 +106,7 @@ impl VisitorEnv<String> for RpnAstPrinter {
                 name,
                 value,
             } => self.format_set(object, &name.lexeme, value, env),
-            Expr::This { keyword, .. } => keyword.lexeme.clone(),
+            Expr::This(Binding { name, .. }) => name.lexeme.clone(),
             Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
             Expr::Variable(Binding { name, .. }) => name.lexeme.clone(),
         }
