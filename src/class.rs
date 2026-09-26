@@ -34,7 +34,10 @@ impl Class {
     }
 
     pub fn find_method(&self, name: &str) -> Option<FunctionShared> {
-        self.methods.get(name).map(Rc::clone)
+        self.methods
+            .get(name)
+            .map(Rc::clone)
+            .or_else(|| self.superclass.as_ref().and_then(|s| s.find_method(name)))
     }
 }
 
