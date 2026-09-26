@@ -41,6 +41,7 @@ enum FunctionType {
 enum ClassType {
     None,
     Class,
+    Subclass,
 }
 
 type ResolutionResult = std::result::Result<Void, ResolveError>;
@@ -209,10 +210,22 @@ impl<'a> Resolver<'a> {
         self.resolve_expr(object)
     }
 
-    fn visit_super_expr(&mut self, name: &'a Token, depth: &mut Option<usize>) -> ResolutionResult {
-        self.resolve_local(name, depth, true);
+    fn visit_super_expr(
+        &mut self,
+        keyword: &'a Token,
+        depth: &mut Option<usize>,
+    ) -> ResolutionResult {
+        match self.current_class {
+            ClassType::None => Self::error(keyword, "Can't use 'super' outside of a class."),
+            ClassType::Class => {
+                Self::error(keyword, "Can't use 'super' in a class with no superclass.")
+            }
+            ClassType::Subclass => {
+                self.resolve_local(keyword, depth, true);
 
-        VOID_OK
+                VOID_OK
+            }
+        }
     }
 
     fn visit_this_expr(&mut self, name: &'a Token, depth: &mut Option<usize>) -> ResolutionResult {
@@ -310,6 +323,8 @@ impl<'a> Resolver<'a> {
             if class_decl.name.lexeme == name.lexeme {
                 return Self::error(name, "A class can't inherit from itself.");
             }
+
+            self.current_class = ClassType::Subclass;
             self.visit_variable_expr(name, depth)?;
 
             self.begin_scope();
@@ -440,9 +455,13 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
             Expr::Logical { left, right, .. } => self.visit_logical_expr(left, right),
             Expr::Set { object, value, .. } => self.visit_set_expr(object, value),
             Expr::Super {
-                keyword: Binding { name, depth },
+                keyword:
+                    Binding {
+                        name: keyword,
+                        depth,
+                    },
                 ..
-            } => self.visit_super_expr(name, depth),
+            } => self.visit_super_expr(keyword, depth),
             Expr::This(Binding { name, depth }) => self.visit_this_expr(name, depth),
             Expr::Unary { right, .. } => self.visit_unary_expr(right),
             Expr::Variable(Binding { name, depth }) => self.visit_variable_expr(name, depth),
