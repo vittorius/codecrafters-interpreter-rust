@@ -16,3 +16,5 @@ This scanner is designed to achieve several following goals simultaneously:
 
 - Create a declarative macro to unpack a certain variant from an enum with or
   emit unreachable! with a message if unpacking fails
+- Better REPL (with left-right navigation, alt-left-right word jumping, etc.).
+  Probably, the easiest way would be to use `rustyline`
