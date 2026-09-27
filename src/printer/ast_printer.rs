@@ -35,7 +35,7 @@ impl AstPrinter {
     }
 
     fn parenthesize_super(&self, method: &str) -> String {
-        format!("(<| {})", method)
+        format!("(<| {method})")
     }
 
     fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr]) -> String {

@@ -156,11 +156,9 @@ impl Interpreter {
         if operator.token_type == TT::OR {
             if Self::is_truthy(&left) {
                 return Ok(left);
-            };
-        } else {
-            if !Self::is_truthy(&left) {
-                return Ok(left);
-            };
+            }
+        } else if !Self::is_truthy(&left) {
+            return Ok(left);
         }
 
         self.evaluate(right, env)

@@ -152,7 +152,7 @@ impl Parser {
     fn consume(&mut self, token_type: TokenType, message: &str) -> TokenResult {
         if self.check(token_type) {
             return Ok(self.advance().clone());
-        };
+        }
 
         Err(Self::mk_error(self.peek(), message))
     }
@@ -246,14 +246,14 @@ impl Parser {
 
         Ok(Stmt::Class(ClassDecl {
             name,
-            methods,
             superclass,
+            methods,
         }))
     }
 
     fn function(&mut self, kind: FunctionKind) -> StmtResult {
         let name = self
-            .consume(TT::IDENTIFIER, &format!("Expect {} name.", kind))?
+            .consume(TT::IDENTIFIER, &format!("Expect {kind} name."))?
             .clone();
 
         let (params, body) = self.function_body(kind)?;
@@ -312,24 +312,24 @@ impl Parser {
             Some(self.expression_statement()?)
         };
 
-        let condition = if !self.check(TT::SEMICOLON) {
-            self.expression()?
-        } else {
+        let condition = if self.check(TT::SEMICOLON) {
             Expr::Literal(token::Literal::Bool(true))
+        } else {
+            self.expression()?
         };
         self.consume(TT::SEMICOLON, "Expect ';' after loop condition.")?;
 
-        let increment = if !self.check(TT::RIGHT_PAREN) {
-            Some(self.expression()?)
-        } else {
+        let increment = if self.check(TT::RIGHT_PAREN) {
             None
+        } else {
+            Some(self.expression()?)
         };
         self.consume(TT::RIGHT_PAREN, "Expect ')' after for clauses.")?;
 
         let mut body = self.statement()?;
 
         if let Some(increment) = increment {
-            body = Stmt::Block(vec![body, Stmt::Expression(increment)])
+            body = Stmt::Block(vec![body, Stmt::Expression(increment)]);
         }
 
         body = Stmt::While {
@@ -549,7 +549,7 @@ impl Parser {
             &format!("Expect '(' before {} parameters", FunctionKind::Lambda),
         )?;
         #[cfg(not(feature = "lambdas"))]
-        self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {} name.", kind))?;
+        self.consume(TT::LEFT_PAREN, &format!("Expect '(' after {kind} name."))?;
 
         let mut params = Vec::<Token>::new();
         if !self.check(TT::RIGHT_PAREN) {
@@ -557,7 +557,7 @@ impl Parser {
                 if params.len() >= FUN_ARGS_MAX {
                     return Err(Self::mk_error(
                         self.peek(),
-                        &format!("Can't have more than {} arguments.", FUN_ARGS_MAX),
+                        &format!("Can't have more than {FUN_ARGS_MAX} arguments."),
                     ));
                 }
                 params.push(
@@ -572,10 +572,7 @@ impl Parser {
         }
         self.consume(TT::RIGHT_PAREN, "Expect ')' after parameters.")?;
 
-        self.consume(
-            TT::LEFT_BRACE,
-            &format!("Expect '{{' before {} body.", kind),
-        )?;
+        self.consume(TT::LEFT_BRACE, &format!("Expect '{{' before {kind} body."))?;
         let Stmt::Block(body) = self.block()? else {
             unreachable!("block statement must return a collection of statements")
         };
@@ -689,7 +686,7 @@ impl Parser {
                 if arguments.len() >= FUN_ARGS_MAX {
                     return Err(Self::mk_error(
                         self.peek(),
-                        &format!("Can't have more than {} arguments.", FUN_ARGS_MAX),
+                        &format!("Can't have more than {FUN_ARGS_MAX} arguments."),
                     ));
                 }
                 #[cfg(not(feature = "comma-op"))]
@@ -715,15 +712,15 @@ impl Parser {
     fn primary(&mut self) -> ExprResult {
         if self.match_next(TT::FALSE) {
             return Ok(Expr::Literal(Literal::Bool(false)));
-        };
+        }
 
         if self.match_next(TT::TRUE) {
             return Ok(Expr::Literal(Literal::Bool(true)));
-        };
+        }
 
         if self.match_next(TT::NIL) {
             return Ok(Expr::Literal(Literal::Nil));
-        };
+        }
 
         if self.match_next(TT::SUPER) {
             let keyword = self.previous().clone();

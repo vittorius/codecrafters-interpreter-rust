@@ -38,7 +38,7 @@ pub struct Cursor<'a> {
 
 const EOF_CHAR: char = '\0';
 
-impl<'a> Cursor<'a> {
+impl Cursor<'_> {
     fn advance(&mut self) -> char {
         let c = self
             .chars
@@ -73,7 +73,7 @@ pub type Result = std::result::Result<Tokens, ScanError>;
 
 impl From<ScanError> for String {
     fn from(value: ScanError) -> Self {
-        value.0.errors().fold(String::from(""), |mut acc, e| {
+        value.0.errors().fold(String::new(), |mut acc, e| {
             acc.push_str(&format!("\n{e}"));
             acc
         })
@@ -110,7 +110,7 @@ impl<'a> Scanner<'a> {
         }
 
         self.tokens
-            .push(Token::new(TokenType::EOF, "".to_owned(), None, self.line));
+            .push(Token::new(TokenType::EOF, String::new(), None, self.line));
 
         if self.errors.is_empty() {
             Ok(self.tokens)

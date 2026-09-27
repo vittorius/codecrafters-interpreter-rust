@@ -59,7 +59,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 && args[1] == "repl" {
         match repl() {
-            Ok(_) => ExitValue::Success,
+            Ok(()) => ExitValue::Success,
             Err(err) => err,
         }
         .into()
@@ -68,7 +68,7 @@ fn main() -> ExitCode {
         let filename = &args[2];
 
         let source = fs::read_to_string(filename).unwrap_or_else(|_| {
-            eprintln!("Failed to read file {}", filename);
+            eprintln!("Failed to read file {filename}");
             String::new()
         });
 
@@ -78,7 +78,7 @@ fn main() -> ExitCode {
             "evaluate" => evaluate(&source).into(),
             "run" => run(&source).into(),
             _ => {
-                eprintln!("Unknown command: {}", command);
+                eprintln!("Unknown command: {command}");
                 usage(&args[0]).into()
             }
         }
@@ -89,11 +89,10 @@ fn main() -> ExitCode {
 
 fn usage(bin_name: &str) -> ExitValue {
     eprintln!(
-        r#"
-Usage: {0} (tokenize | parse | evaluate | run) <filename>
-       {0} repl
-"#,
-        bin_name
+        r"
+Usage: {bin_name} (tokenize | parse | evaluate | run) <filename>
+       {bin_name} repl
+"
     );
 
     ExitValue::Usage
@@ -154,7 +153,7 @@ fn evaluate(source: &str) -> ExitValue {
     let Ok(result) = interpreter.interpret_expr(&expr) else {
         return ExitValue::RuntimeError;
     };
-    println!("{}", result);
+    println!("{result}");
 
     ExitValue::Success
 }
@@ -184,7 +183,7 @@ fn run(source: &str) -> ExitValue {
     }
 
     match interpreter.interpret(&statements) {
-        Ok(_) => ExitValue::Success,
+        Ok(()) => ExitValue::Success,
         Err(err) => {
             eprintln!("{err}");
             ExitValue::RuntimeError
@@ -232,7 +231,7 @@ fn repl() -> Result<(), ExitValue> {
     let _raw_mode_guard = RawModeGuard::new()?;
 
     loop {
-        print!("{}", PROMPT);
+        print!("{PROMPT}");
         stdout().flush()?;
 
         loop {
@@ -299,7 +298,7 @@ fn repl() -> Result<(), ExitValue> {
         }
 
         match run_with_interpreter(&source, &mut interpreter) {
-            Ok(_) => {
+            Ok(()) => {
                 stdout().execute(cursor::MoveToColumn(0))?;
             }
             Err(msg) => {

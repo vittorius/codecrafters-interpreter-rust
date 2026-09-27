@@ -33,7 +33,7 @@ impl ErrorSink {
     }
 
     pub fn errors(&self) -> impl Iterator<Item = &str> {
-        self.errors.iter().map(|s| s.as_str())
+        self.errors.iter().map(String::as_str)
     }
 
     pub fn append(&mut self, msg: &str) {

@@ -119,9 +119,9 @@ impl<'a> Resolver<'a> {
         if let Some(scope) = self.last_scope_mut() {
             if scope.is_declared(name) {
                 return Self::error(name, "Already a variable with this name in this scope.");
-            } else {
-                scope.declare(name);
             }
+
+            scope.declare(name);
         }
 
         VOID_OK
@@ -228,13 +228,12 @@ impl<'a> Resolver<'a> {
     }
 
     fn visit_this_expr(&mut self, name: &'a Token, depth: &mut Option<usize>) -> ResolutionResult {
-        match self.current_class {
-            ClassType::None => Self::error(name, "Can't use 'this' outside of a class."),
-            _ => {
-                self.resolve_local(name, depth, true);
+        if let ClassType::None = self.current_class {
+            Self::error(name, "Can't use 'this' outside of a class.")
+        } else {
+            self.resolve_local(name, depth, true);
 
-                VOID_OK
-            }
+            VOID_OK
         }
     }
 

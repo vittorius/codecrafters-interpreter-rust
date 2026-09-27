@@ -56,7 +56,7 @@ pub enum TokenType {
 
 impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -131,9 +131,7 @@ impl Display for Token {
             self.token_type,
             self.lexeme,
             self.literal
-                .as_ref()
-                .map(|v| v.to_string())
-                .unwrap_or_else(|| "null".to_owned())
+                .as_ref().map_or_else(|| "null".to_owned(), std::string::ToString::to_string)
         )
     }
 }
