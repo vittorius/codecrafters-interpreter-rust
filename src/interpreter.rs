@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
@@ -44,6 +45,7 @@ pub struct Interpreter {
     env: Env,
 }
 
+#[allow(clippy::unnecessary_wraps, clippy::ref_option, clippy::unused_self)]
 impl Interpreter {
     pub fn new() -> Self {
         let env = Env::new(None);
@@ -111,9 +113,8 @@ impl Interpreter {
     fn is_equal(left: &Value, right: &Value) -> bool {
         match (left, right) {
             (Value::Nil, Value::Nil) => true,
-            (Value::Nil, _) => false,
             (Value::Bool(l), Value::Bool(r)) => l == r,
-            (Value::Num(l), Value::Num(r)) => l == r,
+            (Value::Num(l), Value::Num(r)) => l.total_cmp(r) == Ordering::Equal,
             (Value::Str(l), Value::Str(r)) => l == r,
             _ => false,
         }
@@ -323,6 +324,7 @@ impl Interpreter {
         }
     }
 
+    #[allow(clippy::ref_option)]
     fn visit_variable_expr(&self, name: &Token, depth: &Option<usize>, env: &Env) -> ExprResult {
         match self.lookup_variable(name, depth, env) {
             Some(value) => match value {
@@ -337,6 +339,7 @@ impl Interpreter {
         }
     }
 
+    #[allow(clippy::ref_option)]
     fn lookup_variable(&self, name: &Token, depth: &Option<usize>, env: &Env) -> Option<Value> {
         if let Some(distance) = depth {
             env.get_at(*distance, &name.lexeme)
@@ -345,6 +348,7 @@ impl Interpreter {
         }
     }
 
+    #[allow(clippy::ref_option)]
     fn visit_assign_expr(
         &self,
         name: &Token,

@@ -33,9 +33,7 @@ fn assert_run_parse_error(source: &str, expected_stderr_substring: &str) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains(expected_stderr_substring),
-        "expected stderr to contain {:?}, got:\n{}",
-        expected_stderr_substring,
-        stderr
+        "expected stderr to contain {expected_stderr_substring:?}, got:\n{stderr}",
     );
 }
 
@@ -49,9 +47,7 @@ fn assert_run_runtime_error(source: &str, expected_stderr_substring: &str) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains(expected_stderr_substring),
-        "expected stderr to contain {:?}, got:\n{}",
-        expected_stderr_substring,
-        stderr
+        "expected stderr to contain {expected_stderr_substring:?}, got:\n{stderr}",
     );
 }
 
@@ -163,7 +159,7 @@ mod lambda_tests {
     #[test]
     fn test_pass_lambda_into_function() {
         assert_run_success(
-            r#"
+            r"
            fun thrice(fn) {
              for (var i = 1; i <= 3; i = i + 1) {
                fn(i);
@@ -173,7 +169,7 @@ mod lambda_tests {
            thrice(fun (a) {
              print a;
            });
-           "#,
+           ",
             "1\n2\n3\n",
         );
     }
@@ -181,13 +177,13 @@ mod lambda_tests {
     #[test]
     fn test_assign_lambda_to_variable() {
         assert_run_success(
-            r#"
+            r"
                 var f = fun (a) {
                   print a;
                 };
 
                 f(10);
-               "#,
+               ",
             "10\n",
         );
     }
@@ -203,7 +199,7 @@ mod lambda_tests {
     #[test]
     fn test_lambda_correctly_captures_this_from_a_class() {
         assert_run_success(
-            r#"
+            r"
             class C {
               foo() {
                 return fun () {
@@ -214,7 +210,7 @@ mod lambda_tests {
 
             var f = C().foo();
             print f();
-            "#,
+            ",
             "C instance\n",
         );
     }

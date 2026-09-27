@@ -10,7 +10,7 @@ use crate::{
 #[allow(dead_code)]
 pub struct RpnAstPrinter;
 
-#[allow(dead_code)]
+#[allow(dead_code, clippy::unused_self, clippy::format_push_string)]
 impl RpnAstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
         self.visit_expr(expr)
@@ -39,11 +39,11 @@ impl RpnAstPrinter {
     }
 
     fn format_super(&self, method: &str) -> String {
-        format!("{} <|", method)
+        format!("{method} <|")
     }
 
     fn format_call(&self, callee: &Expr, arguments: &[Expr]) -> String {
-        let mut s = String::from("");
+        let mut s = String::new();
         for arg in arguments {
             s.push_str(&format!("{} ", arg.accept_visitor(self)));
         }
@@ -71,7 +71,7 @@ impl RpnAstPrinter {
     #[cfg(feature = "lambdas")]
     fn format_lambda(&self, fun_expr: &FunExpr) -> String {
         let mut s = String::from("(");
-        for param in fun_expr.params.iter() {
+        for param in &fun_expr.params {
             s.push_str(&format!("{} ", param.lexeme));
         }
         s.push_str(&format!("{})", "\\->"));

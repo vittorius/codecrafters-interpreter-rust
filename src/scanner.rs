@@ -74,7 +74,8 @@ pub type Result = std::result::Result<Tokens, ScanError>;
 impl From<ScanError> for String {
     fn from(value: ScanError) -> Self {
         value.0.errors().fold(String::new(), |mut acc, e| {
-            acc.push_str(&format!("\n{e}"));
+            acc.push('\n');
+            acc.push_str(e);
             acc
         })
     }
@@ -147,7 +148,7 @@ impl<'a> Scanner<'a> {
             _ => {
                 if c.is_ascii_digit() {
                     self.number();
-                } else if Self::is_alpha(&c) {
+                } else if Self::is_alpha(c) {
                     self.identifier();
                 } else {
                     self.error(&format!("Unexpected character: {c}"));
@@ -303,16 +304,16 @@ impl<'a> Scanner<'a> {
         );
     }
 
-    fn is_alpha(c: &char) -> bool {
-        c.is_ascii_alphabetic() || *c == '_'
+    fn is_alpha(c: char) -> bool {
+        c.is_ascii_alphabetic() || c == '_'
     }
 
-    fn is_alphanumeric(c: &char) -> bool {
+    fn is_alphanumeric(c: char) -> bool {
         Self::is_alpha(c) || c.is_ascii_digit()
     }
 
     fn identifier(&mut self) {
-        while Self::is_alphanumeric(&self.peek()) {
+        while Self::is_alphanumeric(self.peek()) {
             self.advance();
         }
 

@@ -1,36 +1,36 @@
-//! Lox grammar:
-//!
-//! program        → declaration* EOF ;
-//! declaration    → classDecl | funDecl | varDecl | statement ;
-//! classDecl      → "class" IDENTIFIER ( "<" IDENTIFIER ) ? "{" function* "}" ;
-//! funDecl        → "fun" function ;
-//! function       → IDENTIFIER "(" parameters? ")" block ;
-//! parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
-//! varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
-//! statement      → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
-//! exprStmt       → expression ";"
-//! ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
-//! forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
-//! printStmt      → "print" expression ";"
-//! returnStmt     → "return" expression? ";"
-//! whileStmt      → "while" "(" expression ")" statement ;
-//! block          → "{" declaration* "}" ;
-//! expression     → comma ;
-//! comma          → assignment ("," assignment)* ;
-//! assignment     → ( call "."  )? IDENTIFIER "=" assignment | conditional ;
-//! conditional    → logic_or ("?" logic_or ":" conditional)? ;
-//! logic_or       → logic_and ( "or" logic_and )* ;
-//! logic_and      → funExpr ( "and" funExpr )* ;
-//! funExpr        → lambda | equality ;
-//! lambda         → "fun" "(" parameters? ")" block ;
-//! equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-//! comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-//! term           → factor ( ( "-" | "+" ) factor )* ;
-//! factor         → unary ( ( "/" | "*" ) unary )* ;
-//! unary          → ( "!" | "-" ) unary | call ;
-//! call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
-//! arguments      → expression ( "," expression )* ;
-//! primary        → NUMBER | STRING | "true" | "false" | "nil" | "this" | "(" expression ")" | IDENTIFIER | "super" "." IDENTIFIER ;
+// Lox grammar:
+//
+// program        → declaration* EOF ;
+// declaration    → classDecl | funDecl | varDecl | statement ;
+// classDecl      → "class" IDENTIFIER ( "<" IDENTIFIER ) ? "{" function* "}" ;
+// funDecl        → "fun" function ;
+// function       → IDENTIFIER "(" parameters? ")" block ;
+// parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
+// varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+// statement      → exprStmt | forStmt | ifStmt | printStmt | returnStmt | whileStmt | block ;
+// exprStmt       → expression ";"
+// ifStmt         → "if" "(" expression ")" statement ( "else" statement )? ;
+// forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+// printStmt      → "print" expression ";"
+// returnStmt     → "return" expression? ";"
+// whileStmt      → "while" "(" expression ")" statement ;
+// block          → "{" declaration* "}" ;
+// expression     → comma ;
+// comma          → assignment ("," assignment)* ;
+// assignment     → ( call "."  )? IDENTIFIER "=" assignment | conditional ;
+// conditional    → logic_or ("?" logic_or ":" conditional)? ;
+// logic_or       → logic_and ( "or" logic_and )* ;
+// logic_and      → funExpr ( "and" funExpr )* ;
+// funExpr        → lambda | equality ;
+// lambda         → "fun" "(" parameters? ")" block ;
+// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
+// comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+// term           → factor ( ( "-" | "+" ) factor )* ;
+// factor         → unary ( ( "/" | "*" ) unary )* ;
+// unary          → ( "!" | "-" ) unary | call ;
+// call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
+// arguments      → expression ( "," expression )* ;
+// primary        → NUMBER | STRING | "true" | "false" | "nil" | "this" | "(" expression ")" | IDENTIFIER | "super" "." IDENTIFIER ;
 
 use std::fmt::Display;
 
@@ -203,7 +203,7 @@ impl Parser {
                     "Lambda functions are forbidden in statements",
                 ))
             } else {
-                self.function(FunctionKind::Function)
+                self.function(&FunctionKind::Function)
             }
         } else if self.match_next(TT::VAR) {
             let decl = self.var_declaration();
@@ -236,7 +236,7 @@ impl Parser {
 
         let mut methods = Vec::new();
         while !self.check(TT::RIGHT_BRACE) && !self.is_at_end() {
-            let Stmt::Function(fun_decl) = self.function(FunctionKind::Method)? else {
+            let Stmt::Function(fun_decl) = self.function(&FunctionKind::Method)? else {
                 unreachable!("Function declaration must produce function expression.")
             };
             methods.push(fun_decl);
@@ -251,7 +251,7 @@ impl Parser {
         }))
     }
 
-    fn function(&mut self, kind: FunctionKind) -> StmtResult {
+    fn function(&mut self, kind: &FunctionKind) -> StmtResult {
         let name = self
             .consume(TT::IDENTIFIER, &format!("Expect {kind} name."))?
             .clone();
@@ -532,7 +532,7 @@ impl Parser {
     #[cfg(feature = "lambdas")]
     fn fun_expr(&mut self) -> ExprResult {
         if self.match_next(TT::FUN) {
-            let (params, body) = self.function_body(FunctionKind::Lambda)?;
+            let (params, body) = self.function_body(&FunctionKind::Lambda)?;
             Ok(Expr::Lambda(FunExpr { params, body }))
         } else {
             self.equality()
@@ -541,7 +541,7 @@ impl Parser {
 
     fn function_body(
         &mut self,
-        kind: FunctionKind,
+        kind: &FunctionKind,
     ) -> std::result::Result<(FunParams, FunBody), ParseError> {
         #[cfg(feature = "lambdas")]
         self.consume(

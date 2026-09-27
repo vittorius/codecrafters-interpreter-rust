@@ -209,6 +209,7 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
 // TODO: add syntax highlighting (or, at least, the prompt highlighting)
 fn repl() -> Result<(), ExitValue> {
     fn move_cursor_to_prompt() -> io::Result<()> {
+        #[allow(clippy::cast_possible_truncation)]
         stdout()
             .execute(cursor::MoveToColumn(PROMPT.len() as u16))
             .map(|_| ())
@@ -221,14 +222,15 @@ fn repl() -> Result<(), ExitValue> {
         Ok(())
     }
 
+    const PROMPT: &str = "> ";
+
     let mut interpreter = Interpreter::new();
     let mut source = String::new();
 
-    const PROMPT: &str = "> ";
     let mut history = Vec::<String>::new();
     let mut history_pos: usize = 0;
 
-    let _raw_mode_guard = RawModeGuard::new()?;
+    let raw_mode_guard = RawModeGuard::new()?;
 
     loop {
         print!("{PROMPT}");
@@ -249,7 +251,7 @@ fn repl() -> Result<(), ExitValue> {
                         history_pos -= 1;
                         print!("{}", history[history_pos]);
                         stdout().flush()?;
-                        source = history[history_pos].clone();
+                        source.clone_from(&history[history_pos]);
                     }
                     (KeyCode::Down, _) => {
                         if history_pos == history.len().saturating_sub(1) {
@@ -260,7 +262,7 @@ fn repl() -> Result<(), ExitValue> {
                         history_pos += 1;
                         print!("{}", history[history_pos]);
                         stdout().flush()?;
-                        source = history[history_pos].clone();
+                        source.clone_from(&history[history_pos]);
                     }
                     (KeyCode::Backspace, _) => {
                         if cursor::position()?.0 as usize > PROMPT.len() {
@@ -275,7 +277,7 @@ fn repl() -> Result<(), ExitValue> {
                         source.clear();
                     }
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
-                        drop(_raw_mode_guard);
+                        drop(raw_mode_guard);
                         eprintln!("\nInterrupted, exiting");
                         return Err(ExitValue::Termination);
                     }

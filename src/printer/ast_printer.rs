@@ -7,6 +7,7 @@ use crate::{
 
 pub struct AstPrinter;
 
+#[allow(clippy::unused_self, clippy::format_push_string)]
 impl AstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
         self.visit_expr(expr)
@@ -68,7 +69,7 @@ impl AstPrinter {
     #[cfg(feature = "lambdas")]
     fn parenthesize_lambda(&self, fun_expr: &FunExpr) -> String {
         let mut s = String::from("lambda");
-        for param in fun_expr.params.iter() {
+        for param in &fun_expr.params {
             s.push_str(&format!(" {}", param.lexeme));
         }
         s.push(')');

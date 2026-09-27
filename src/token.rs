@@ -101,6 +101,7 @@ impl Display for Literal {
 // Otherwise, we would have to invent a parallel owned `Stmt` kind for that etc. etc.
 #[derive(Debug, Clone)]
 pub struct Token {
+    #[allow(clippy::struct_field_names)]
     pub token_type: TokenType,
     pub lexeme: String,
     pub literal: Option<Literal>,
@@ -131,7 +132,8 @@ impl Display for Token {
             self.token_type,
             self.lexeme,
             self.literal
-                .as_ref().map_or_else(|| "null".to_owned(), std::string::ToString::to_string)
+                .as_ref()
+                .map_or_else(|| "null".to_owned(), std::string::ToString::to_string)
         )
     }
 }
