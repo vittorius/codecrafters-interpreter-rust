@@ -72,7 +72,6 @@ fn main() -> ExitCode {
             String::new()
         });
 
-        // TODO: reduce or eliminate code duplication between different command implementations
         match command.as_str() {
             "tokenize" => tokenize(&source).into(),
             "parse" => parse(&source).into(),

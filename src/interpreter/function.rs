@@ -84,7 +84,6 @@ impl Callable for Function {
         self.fun_expr().params.len()
     }
 
-    // TODO: rethink Rc<Self> as a receiver type
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
         let env = Env::new(Some(&self.closure));
 

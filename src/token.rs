@@ -103,7 +103,7 @@ impl Display for Literal {
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
-    pub literal: Option<Literal>, // TODO: try to encode in types that Literal is present for token_type = NUMBER | STRING
+    pub literal: Option<Literal>,
     pub line: usize,
 }
 
