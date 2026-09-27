@@ -10,10 +10,10 @@ use crate::{
     error::RuntimeError,
     expr::{Binding, Expr},
     interpreter::{
-        callable::SharedClone,
+        callable::CloneRef,
         class::Class,
         environment::Env,
-        function::{Function, FunctionShared},
+        function::{Function, FunctionRef},
         native_function::NativeFunction,
         value::Value,
     },
@@ -49,7 +49,7 @@ impl Interpreter {
         let env = Env::new(None);
         env.define(
             "clock".to_owned(),
-            Value::NativeFn(NativeFunction::new_shared(|| {
+            Value::NativeFn(NativeFunction::new_ref(|| {
                 Ok(Value::Num(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
@@ -376,7 +376,7 @@ impl Interpreter {
     }
 
     fn visit_function_stmt(&self, decl: FunDecl, env: &Env) -> StmtResult {
-        let function = Function::new_shared(Rc::new(decl), Env::clone(env), false);
+        let function = Function::new_ref(Rc::new(decl), Env::clone(env), false);
         env.define(function.name().to_owned(), Value::Fn(function));
 
         VOID_OK
@@ -457,15 +457,15 @@ impl Interpreter {
 
         let methods_env = superclass.as_ref().map(|superclass| {
             let env = Env::new(Some(env));
-            env.define("super".to_owned(), Value::Class(superclass.shared_clone()));
+            env.define("super".to_owned(), Value::Class(superclass.clone_ref()));
             env
         });
 
-        let mut class_methods = HashMap::<String, FunctionShared>::new();
+        let mut class_methods = HashMap::<String, FunctionRef>::new();
 
         for method_decl in class_decl.methods {
             let is_initializer = method_decl.name.lexeme == "init";
-            let function = Function::new_shared(
+            let function = Function::new_ref(
                 Rc::new(method_decl),
                 Env::clone(methods_env.as_ref().unwrap_or(env)),
                 is_initializer,
@@ -473,10 +473,10 @@ impl Interpreter {
             class_methods.insert(function.name().to_owned(), function);
         }
 
-        let class = Class::new(class_decl.name.clone(), superclass, class_methods);
+        let class = Class::new_ref(class_decl.name.clone(), superclass, class_methods);
 
         // finally, assign
-        env.assign(&class_decl.name, Value::Class(Rc::new(class)))?;
+        env.assign(&class_decl.name, Value::Class(class))?;
 
         VOID_OK
     }

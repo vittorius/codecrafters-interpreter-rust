@@ -1,9 +1,9 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    interpreter::callable::Callable, interpreter::callable::SharedClone,
-    interpreter::class::ClassShared, interpreter::function::FunctionShared,
-    interpreter::instance::InstanceShared, interpreter::native_function::NativeFunctionShared,
+    interpreter::callable::Callable, interpreter::callable::CloneRef,
+    interpreter::class::ClassRef, interpreter::function::FunctionRef,
+    interpreter::instance::InstanceRef, interpreter::native_function::NativeFunctionRef,
 };
 
 // We made Value cloneable because we need to be able to store values in the environment
@@ -17,25 +17,22 @@ use crate::{
 // to make Values "copyable" around (via .clone()) everywhere when working with the parse tree.
 #[derive(Clone, Debug)]
 pub enum Value {
-    // str is a value object we "copy" the entire string whey "copying" a value (actually, .clone())
     Str(String),
     Num(f64),
     Bool(bool),
-    // these *Shared types are "ref" objects with all shallow copies
-    // pointing to the same object in memory
-    NativeFn(NativeFunctionShared),
-    Fn(FunctionShared),
-    Class(ClassShared),
-    Object(InstanceShared),
+    NativeFn(NativeFunctionRef),
+    Fn(FunctionRef),
+    Class(ClassRef),
+    Object(InstanceRef),
     Nil,
 }
 
 impl Value {
     pub fn as_callable(&self) -> Option<Rc<dyn Callable>> {
         match self {
-            Value::NativeFn(native_fn) => Some(native_fn.shared_clone()),
-            Value::Fn(function) => Some(function.shared_clone()),
-            Value::Class(class) => Some(class.shared_clone()),
+            Value::NativeFn(function) => Some(function.clone_ref()),
+            Value::Fn(function) => Some(function.clone_ref()),
+            Value::Class(class) => Some(class.clone_ref()),
             _ => None,
         }
     }
@@ -47,7 +44,7 @@ impl Display for Value {
             Value::Str(value) => write!(f, "{value}"),
             Value::Num(value) => write!(f, "{value}"),
             Value::Bool(value) => write!(f, "{value}"),
-            Value::NativeFn(native_fn) => write!(f, "{native_fn}"),
+            Value::NativeFn(function) => write!(f, "{function}"),
             Value::Fn(function) => write!(f, "{function}"),
             Value::Class(class) => write!(f, "{class}"),
             Value::Object(instance) => write!(f, "{}", instance.borrow()),

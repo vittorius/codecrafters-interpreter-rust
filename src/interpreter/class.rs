@@ -2,8 +2,8 @@ use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
     interpreter::Interpreter,
-    interpreter::callable::{CallResult, Callable, SharedClone},
-    interpreter::function::FunctionShared,
+    interpreter::callable::{CallResult, Callable, CloneRef},
+    interpreter::function::FunctionRef,
     interpreter::instance::Instance,
     interpreter::value::Value,
     token::Token,
@@ -12,26 +12,26 @@ use crate::{
 #[derive(Debug)]
 pub struct Class {
     name: Token,
-    superclass: Option<ClassShared>,
-    methods: HashMap<String, FunctionShared>,
+    superclass: Option<ClassRef>,
+    methods: HashMap<String, FunctionRef>,
 }
 
-pub type ClassShared = Rc<Class>;
+pub type ClassRef = Rc<Class>;
 
 impl Class {
-    pub fn new(
+    pub fn new_ref(
         name: Token,
-        superclass: Option<ClassShared>,
-        methods: HashMap<String, FunctionShared>,
-    ) -> Self {
-        Self {
+        superclass: Option<ClassRef>,
+        methods: HashMap<String, FunctionRef>,
+    ) -> ClassRef {
+        Rc::new(Self {
             name,
             superclass,
             methods,
-        }
+        })
     }
 
-    pub fn find_method(&self, name: &str) -> Option<FunctionShared> {
+    pub fn find_method(&self, name: &str) -> Option<FunctionRef> {
         self.methods
             .get(name)
             .map(Rc::clone)
@@ -50,7 +50,7 @@ impl Callable for Class {
 
     // using Rc<Self> here as a receiver type to make the 'self' reference escape into newly created Instance
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult {
-        let instance = Instance::new_shared(Rc::clone(&self));
+        let instance = Instance::new_ref(Rc::clone(&self));
 
         if let Some(initializer) = self.find_method("init") {
             let initializer = initializer.bind(Rc::clone(&instance));
@@ -61,7 +61,7 @@ impl Callable for Class {
     }
 }
 
-impl SharedClone for Class {}
+impl CloneRef for Class {}
 
 impl Display for Class {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

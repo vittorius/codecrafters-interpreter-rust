@@ -1,13 +1,13 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    interpreter::callable::{CallResult, Callable, SharedClone},
-    interpreter::environment::Env,
     expr::FunExpr,
-    interpreter::instance::InstanceShared,
     interpreter::Interpreter,
-    stmt::FunDecl,
+    interpreter::callable::{CallResult, Callable, CloneRef},
+    interpreter::environment::Env,
+    interpreter::instance::InstanceRef,
     interpreter::value::Value,
+    stmt::FunDecl,
 };
 
 #[derive(Debug)]
@@ -24,10 +24,10 @@ pub struct Function {
     is_initializer: bool,
 }
 
-pub type FunctionShared = Rc<Function>;
+pub type FunctionRef = Rc<Function>;
 
 impl Function {
-    pub fn new_shared(decl: Rc<FunDecl>, closure: Env, is_initializer: bool) -> Rc<Self> {
+    pub fn new_ref(decl: Rc<FunDecl>, closure: Env, is_initializer: bool) -> Rc<Self> {
         Rc::new(Self {
             definition: FunDef::Function(decl),
             closure,
@@ -35,6 +35,7 @@ impl Function {
         })
     }
 
+    // We copy lambda definitions by value so no need for the "ref" semantics.
     #[cfg(feature = "lambdas")]
     pub fn new_lambda(fun_expr: FunExpr, closure: Env) -> Self {
         Self {
@@ -52,7 +53,7 @@ impl Function {
         }
     }
 
-    pub fn bind(&self, instance: InstanceShared) -> FunctionShared {
+    pub fn bind(&self, instance: InstanceRef) -> FunctionRef {
         let env = Env::new(Some(&self.closure));
         env.define("this".to_owned(), Value::Object(instance));
 
@@ -61,7 +62,7 @@ impl Function {
             unreachable!("Only functions are bound to class instances")
         };
 
-        Function::new_shared(Rc::clone(fun_decl), env, self.is_initializer)
+        Function::new_ref(Rc::clone(fun_decl), env, self.is_initializer)
     }
 
     fn this_in_initializer(&self) -> Value {
@@ -112,7 +113,7 @@ impl Callable for Function {
     }
 }
 
-impl SharedClone for Function {}
+impl CloneRef for Function {}
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

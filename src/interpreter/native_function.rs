@@ -2,7 +2,7 @@ use std::{fmt::Display, rc::Rc};
 
 use crate::{
     interpreter::Interpreter,
-    interpreter::callable::{CallResult, Callable, SharedClone},
+    interpreter::callable::{CallResult, Callable, CloneRef},
     interpreter::value::Value,
 };
 
@@ -11,10 +11,10 @@ pub struct NativeFunction {
     callback: fn() -> CallResult,
 }
 
-pub type NativeFunctionShared = Rc<NativeFunction>;
+pub type NativeFunctionRef = Rc<NativeFunction>;
 
 impl NativeFunction {
-    pub fn new_shared(callback: fn() -> CallResult) -> NativeFunctionShared {
+    pub fn new_ref(callback: fn() -> CallResult) -> NativeFunctionRef {
         Rc::new(Self { callback })
     }
 }
@@ -29,7 +29,7 @@ impl Callable for NativeFunction {
     }
 }
 
-impl SharedClone for NativeFunction {}
+impl CloneRef for NativeFunction {}
 
 impl Display for NativeFunction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

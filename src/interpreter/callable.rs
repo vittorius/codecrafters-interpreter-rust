@@ -12,8 +12,8 @@ pub trait Callable: Debug + Display {
     fn call(self: Rc<Self>, interpreter: &Interpreter, arguments: &[Value]) -> CallResult;
 }
 
-pub trait SharedClone {
-    fn shared_clone(self: &Rc<Self>) -> Rc<Self> {
+pub trait CloneRef {
+    fn clone_ref(self: &Rc<Self>) -> Rc<Self> {
         Rc::clone(self)
     }
 }

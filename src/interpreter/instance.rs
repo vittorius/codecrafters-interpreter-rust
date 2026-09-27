@@ -5,19 +5,19 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{interpreter::class::ClassShared, interpreter::value::Value, token::Token};
+use crate::{interpreter::class::ClassRef, interpreter::value::Value, token::Token};
 
 #[derive(Debug, Clone)]
 pub struct Instance {
-    class: ClassShared,
+    class: ClassRef,
     fields: HashMap<String, Value>,
     self_weak: Weak<RefCell<Instance>>,
 }
 
-pub type InstanceShared = Rc<RefCell<Instance>>;
+pub type InstanceRef = Rc<RefCell<Instance>>;
 
 impl Instance {
-    pub fn new_shared(class: ClassShared) -> InstanceShared {
+    pub fn new_ref(class: ClassRef) -> InstanceRef {
         Rc::new_cyclic(|weak| {
             RefCell::new(Self {
                 class,
@@ -43,7 +43,7 @@ impl Instance {
         self.fields.insert(name.lexeme, value);
     }
 
-    fn this(&self) -> InstanceShared {
+    fn this(&self) -> InstanceRef {
         self.self_weak
             .upgrade()
             .expect("Getting 'this' reference for a disposed class instance")
