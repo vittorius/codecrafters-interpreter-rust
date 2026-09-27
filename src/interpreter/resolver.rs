@@ -1,10 +1,9 @@
 use std::{fmt::Display, mem};
 
 use crate::{
-    expr::{self, Binding, Expr, FunExpr},
-    interpreter::Void,
+    expr::{Binding, Expr, FunExpr},
+    interpreter::{Void, expr_visitor, resolver::scope::Scope, stmt_visitor},
     lox,
-    resolver::scope::Scope,
     stmt::{self, ClassDecl, FunDecl, Stmt},
     token::{self, Literal, Token},
 };
@@ -432,7 +431,7 @@ impl<'a> Resolver<'a> {
     }
 }
 
-impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
+impl<'a> expr_visitor::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_expr(&mut self, expr: &'a mut Expr) -> ResolutionResult {
         match expr {
             Expr::Assign {
@@ -469,7 +468,7 @@ impl<'a> expr::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     }
 }
 
-impl<'a> stmt::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
+impl<'a> stmt_visitor::VisitorMut<'a, ResolutionResult> for Resolver<'a> {
     fn visit_stmt(&mut self, stmt: &'a mut stmt::Stmt) -> ResolutionResult {
         match stmt {
             Stmt::Block(statements) => self.visit_block(statements),

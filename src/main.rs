@@ -13,35 +13,24 @@ use crossterm::event::KeyCode;
 use crossterm::event::KeyModifiers;
 use crossterm::terminal;
 
-use crate::ast_printer::AstPrinter;
-use crate::console::RawModeGuard;
 use crate::interpreter::Interpreter;
+use crate::interpreter::resolver::Resolver;
 use crate::parser::Parser;
-use crate::resolver::Resolver;
+use crate::printer::ast_printer::AstPrinter;
 use crate::scanner::ScanError;
 use crate::scanner::Scanner;
+use crate::terminal_utils::RawModeGuard;
 
-// mod playground;
-mod ast_printer;
-mod callable;
-mod class;
-mod console;
-mod environment;
 mod error;
 mod expr;
-mod function;
-mod native_function;
-mod instance;
 mod interpreter;
 mod lox;
 mod parser;
-mod resolver;
-#[cfg(feature = "rpn-ast-printer")]
-mod rpn_ast_printer;
+mod printer;
 mod scanner;
 mod stmt;
+mod terminal_utils;
 mod token;
-mod value;
 
 #[repr(u8)]
 enum ExitValue {

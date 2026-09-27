@@ -1,22 +1,7 @@
 use crate::{
-    environment::Env,
     stmt::Stmt,
     token::{self, Token},
 };
-
-pub trait VisitorEnv<R> {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> R;
-}
-
-pub trait VisitorMut<'a, R> {
-    fn visit_expr(&mut self, expr: &'a mut Expr) -> R;
-}
-
-#[derive(Clone, Debug)]
-pub struct Binding {
-    pub name: Token,
-    pub depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
-}
 
 // Box<Expr> is used here instead of &Expr because the expression tree
 // is built: the actual data must be allocated and owned by someone.
@@ -81,17 +66,17 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn accept_visitor_env<R>(&self, visitor: &impl VisitorEnv<R>, env: &Env) -> R {
-        visitor.visit_expr(self, env)
-    }
 
-    pub fn accept_visitor_mut<'a, R>(&'a mut self, visitor: &mut impl VisitorMut<'a, R>) -> R {
-        visitor.visit_expr(self)
-    }
 
     pub fn boxed(self) -> Box<Self> {
         Box::new(self)
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct Binding {
+    pub name: Token,
+    pub depth: Option<usize>, // delayed initialization by resolver; None is kept for globals
 }
 
 pub type FunParams = Vec<Token>;

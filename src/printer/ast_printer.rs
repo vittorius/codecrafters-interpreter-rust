@@ -1,36 +1,36 @@
 #[cfg(feature = "lambdas")]
 use crate::expr::FunExpr;
 use crate::{
-    environment::Env,
-    expr::{Binding, Expr, VisitorEnv},
+    expr::{Binding, Expr},
+    printer::expr_visitor::Visitor,
 };
 
 pub struct AstPrinter;
 
 impl AstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
-        self.visit_expr(expr, &Env::new(None))
+        self.visit_expr(expr)
     }
 
-    fn parenthesize_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {
-        format!("({} {})", name, expr.accept_visitor_env(self, env))
+    fn parenthesize_unary(&self, name: &str, expr: &Expr) -> String {
+        format!("({} {})", name, expr.accept_visitor(self))
     }
 
-    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn parenthesize_binary(&self, name: &str, left: &Expr, right: &Expr) -> String {
         format!(
             "({} {} {})",
             name,
-            left.accept_visitor_env(self, env),
-            right.accept_visitor_env(self, env)
+            left.accept_visitor(self),
+            right.accept_visitor(self)
         )
     }
 
-    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr, env: &Env) -> String {
+    fn parenthesize_set(&self, object: &Expr, name: &str, value: &Expr) -> String {
         format!(
             "(= {}.{} {})",
-            object.accept_visitor_env(self, env),
+            object.accept_visitor(self),
             name,
-            value.accept_visitor_env(self, env)
+            value.accept_visitor(self)
         )
     }
 
@@ -38,31 +38,31 @@ impl AstPrinter {
         format!("(<| {})", method)
     }
 
-    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
-        let mut s = format!("({}", callee.accept_visitor_env(self, env));
+    fn parenthesize_call(&self, callee: &Expr, arguments: &[Expr]) -> String {
+        let mut s = format!("({}", callee.accept_visitor(self));
         for arg in arguments {
-            s.push_str(&format!(" {}", arg.accept_visitor_env(self, env)));
+            s.push_str(&format!(" {}", arg.accept_visitor(self)));
         }
         s.push(')');
         s
     }
 
     #[cfg(feature = "conditional-op")]
-    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn parenthesize_ternary(&self, cond: &Expr, left: &Expr, right: &Expr) -> String {
         format!(
             "(?: {} {} {})",
-            cond.accept_visitor_env(self, env),
-            left.accept_visitor_env(self, env),
-            right.accept_visitor_env(self, env)
+            cond.accept_visitor(self),
+            left.accept_visitor(self),
+            right.accept_visitor(self)
         )
     }
 
-    fn parenthesize_get(&self, object: &Expr, name: &str, env: &Env) -> String {
-        format!("(. {} {})", object.accept_visitor_env(self, env), name)
+    fn parenthesize_get(&self, object: &Expr, name: &str) -> String {
+        format!("(. {} {})", object.accept_visitor(self), name)
     }
 
-    fn parenthesize_assign(&self, name: &str, value: &Expr, env: &Env) -> String {
-        format!("(<- {} {})", name, value.accept_visitor_env(self, env))
+    fn parenthesize_assign(&self, name: &str, value: &Expr) -> String {
+        format!("(<- {} {})", name, value.accept_visitor(self))
     }
 
     #[cfg(feature = "lambdas")]
@@ -76,26 +76,24 @@ impl AstPrinter {
     }
 }
 
-impl VisitorEnv<String> for AstPrinter {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
+impl Visitor<String> for AstPrinter {
+    fn visit_expr(&self, expr: &Expr) -> String {
         match expr {
             Expr::Assign {
                 variable, value, ..
-            } => self.parenthesize_assign(&variable.name.lexeme, value, env),
+            } => self.parenthesize_assign(&variable.name.lexeme, value),
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, left, right),
             Expr::Call {
                 callee, arguments, ..
-            } => self.parenthesize_call(callee, arguments, env),
+            } => self.parenthesize_call(callee, arguments),
             #[cfg(feature = "conditional-op")]
-            Expr::Conditional { cond, left, right } => {
-                self.parenthesize_ternary(cond, left, right, env)
-            }
-            Expr::Get { object, name } => self.parenthesize_get(object, &name.lexeme, env),
-            Expr::Grouping(expr) => self.parenthesize_unary("group", expr, env),
+            Expr::Conditional { cond, left, right } => self.parenthesize_ternary(cond, left, right),
+            Expr::Get { object, name } => self.parenthesize_get(object, &name.lexeme),
+            Expr::Grouping(expr) => self.parenthesize_unary("group", expr),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.parenthesize_lambda(fun_expr),
             Expr::Literal(value) => value.to_string(),
@@ -103,17 +101,15 @@ impl VisitorEnv<String> for AstPrinter {
                 left,
                 operator,
                 right,
-            } => self.parenthesize_binary(&operator.lexeme, left, right, env),
+            } => self.parenthesize_binary(&operator.lexeme, left, right),
             Expr::Set {
                 object,
                 name,
                 value,
-            } => self.parenthesize_set(object, &name.lexeme, value, env),
+            } => self.parenthesize_set(object, &name.lexeme, value),
             Expr::Super { method, .. } => self.parenthesize_super(&method.lexeme),
             Expr::This(Binding { name, .. }) => name.lexeme.clone(),
-            Expr::Unary { operator, right } => {
-                self.parenthesize_unary(&operator.lexeme, right, env)
-            }
+            Expr::Unary { operator, right } => self.parenthesize_unary(&operator.lexeme, right),
             Expr::Variable(Binding { name, .. }) => name.lexeme.clone(),
         }
     }

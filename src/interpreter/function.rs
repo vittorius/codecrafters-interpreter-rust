@@ -1,15 +1,13 @@
-// TODO: move inside the 'interpreter' module
-
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    callable::{CallResult, Callable, SharedClone},
-    environment::Env,
+    interpreter::callable::{CallResult, Callable, SharedClone},
+    interpreter::environment::Env,
     expr::FunExpr,
-    instance::InstanceShared,
+    interpreter::instance::InstanceShared,
     interpreter::Interpreter,
     stmt::FunDecl,
-    value::Value,
+    interpreter::value::Value,
 };
 
 #[derive(Debug)]

@@ -1,14 +1,12 @@
-// TODO: move inside the 'interpreter' module
-
 use std::{collections::HashMap, fmt::Display, rc::Rc};
 
 use crate::{
-    callable::{CallResult, Callable, SharedClone},
-    function::FunctionShared,
-    instance::Instance,
     interpreter::Interpreter,
+    interpreter::callable::{CallResult, Callable, SharedClone},
+    interpreter::function::FunctionShared,
+    interpreter::instance::Instance,
+    interpreter::value::Value,
     token::Token,
-    value::Value,
 };
 
 #[derive(Debug)]

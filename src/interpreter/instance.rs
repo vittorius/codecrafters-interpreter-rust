@@ -1,5 +1,3 @@
-// TODO: move inside the 'interpreter' module
-
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -7,7 +5,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use crate::{class::ClassShared, token::Token, value::Value};
+use crate::{interpreter::class::ClassShared, interpreter::value::Value, token::Token};
 
 #[derive(Debug, Clone)]
 pub struct Instance {

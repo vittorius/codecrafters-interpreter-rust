@@ -1,8 +1,10 @@
+#![cfg(feature = "rpn-ast-printer")]
+
 #[cfg(feature = "lambdas")]
 use crate::expr::FunExpr;
 use crate::{
-    environment::Env,
-    expr::{Binding, Expr, VisitorEnv},
+    expr::{Binding, Expr},
+    printer::expr_visitor::Visitor,
 };
 
 #[allow(dead_code)]
@@ -11,28 +13,28 @@ pub struct RpnAstPrinter;
 #[allow(dead_code)]
 impl RpnAstPrinter {
     pub fn print(&self, expr: &Expr) -> String {
-        self.visit_expr(expr, &Env::new(None))
+        self.visit_expr(expr)
     }
 
-    fn format_unary(&self, name: &str, expr: &Expr, env: &Env) -> String {
-        format!("{} {}", expr.accept_visitor_env(self, env), name)
+    fn format_unary(&self, name: &str, expr: &Expr) -> String {
+        format!("{} {}", expr.accept_visitor(self), name)
     }
 
-    fn format_binary(&self, name: &str, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn format_binary(&self, name: &str, left: &Expr, right: &Expr) -> String {
         format!(
             "{} {} {}",
-            left.accept_visitor_env(self, env),
-            right.accept_visitor_env(self, env),
+            left.accept_visitor(self),
+            right.accept_visitor(self),
             name
         )
     }
 
-    fn format_set(&self, object: &Expr, name: &str, value: &Expr, env: &Env) -> String {
+    fn format_set(&self, object: &Expr, name: &str, value: &Expr) -> String {
         format!(
             "{}.{} {} =",
-            object.accept_visitor_env(self, env),
+            object.accept_visitor(self),
             name,
-            value.accept_visitor_env(self, env)
+            value.accept_visitor(self)
         )
     }
 
@@ -40,31 +42,31 @@ impl RpnAstPrinter {
         format!("{} <|", method)
     }
 
-    fn format_call(&self, callee: &Expr, arguments: &[Expr], env: &Env) -> String {
+    fn format_call(&self, callee: &Expr, arguments: &[Expr]) -> String {
         let mut s = String::from("");
         for arg in arguments {
-            s.push_str(&format!("{} ", arg.accept_visitor_env(self, env)));
+            s.push_str(&format!("{} ", arg.accept_visitor(self)));
         }
-        s.push_str(&format!("{} ()", callee.accept_visitor_env(self, env)));
+        s.push_str(&format!("{} ()", callee.accept_visitor(self)));
         s
     }
 
     #[cfg(feature = "conditional-op")]
-    fn format_conditional(&self, cond: &Expr, left: &Expr, right: &Expr, env: &Env) -> String {
+    fn format_conditional(&self, cond: &Expr, left: &Expr, right: &Expr) -> String {
         format!(
             "{} {} {} ?:",
-            cond.accept_visitor_env(self, env),
-            left.accept_visitor_env(self, env),
-            right.accept_visitor_env(self, env),
+            cond.accept_visitor(self),
+            left.accept_visitor(self),
+            right.accept_visitor(self),
         )
     }
 
-    fn format_get(&self, object: &Expr, name: &str, env: &Env) -> String {
-        format!("{} {} .", object.accept_visitor_env(self, env), name)
+    fn format_get(&self, object: &Expr, name: &str) -> String {
+        format!("{} {} .", object.accept_visitor(self), name)
     }
 
-    fn format_assign(&self, name: &str, value: &Expr, env: &Env) -> String {
-        format!("{} {} <-", name, value.accept_visitor_env(self, env))
+    fn format_assign(&self, name: &str, value: &Expr) -> String {
+        format!("{} {} <-", name, value.accept_visitor(self))
     }
     #[cfg(feature = "lambdas")]
     fn format_lambda(&self, fun_expr: &FunExpr) -> String {
@@ -77,26 +79,22 @@ impl RpnAstPrinter {
     }
 }
 
-impl VisitorEnv<String> for RpnAstPrinter {
-    fn visit_expr(&self, expr: &Expr, env: &Env) -> String {
+impl Visitor<String> for RpnAstPrinter {
+    fn visit_expr(&self, expr: &Expr) -> String {
         match expr {
-            Expr::Assign { variable, value } => {
-                self.format_assign(&variable.name.lexeme, value, env)
-            }
+            Expr::Assign { variable, value } => self.format_assign(&variable.name.lexeme, value),
             Expr::Binary {
                 left,
                 operator,
                 right,
-            } => self.format_binary(&operator.lexeme, left, right, env),
+            } => self.format_binary(&operator.lexeme, left, right),
             Expr::Call {
                 callee, arguments, ..
-            } => self.format_call(callee, arguments, env),
+            } => self.format_call(callee, arguments),
             #[cfg(feature = "conditional-op")]
-            Expr::Conditional { cond, left, right } => {
-                self.format_conditional(cond, left, right, env)
-            }
-            Expr::Get { object, name } => self.format_get(object, &name.lexeme, env),
-            Expr::Grouping(expr) => expr.accept_visitor_env(self, env),
+            Expr::Conditional { cond, left, right } => self.format_conditional(cond, left, right),
+            Expr::Get { object, name } => self.format_get(object, &name.lexeme),
+            Expr::Grouping(expr) => expr.accept_visitor(self),
             #[cfg(feature = "lambdas")]
             Expr::Lambda(fun_expr) => self.format_lambda(fun_expr),
             Expr::Literal(value) => value.to_string(),
@@ -104,15 +102,15 @@ impl VisitorEnv<String> for RpnAstPrinter {
                 left,
                 operator,
                 right,
-            } => self.format_binary(&operator.lexeme, left, right, env),
+            } => self.format_binary(&operator.lexeme, left, right),
             Expr::Set {
                 object,
                 name,
                 value,
-            } => self.format_set(object, &name.lexeme, value, env),
+            } => self.format_set(object, &name.lexeme, value),
             Expr::Super { method, .. } => self.format_super(&method.lexeme),
             Expr::This(Binding { name, .. }) => name.lexeme.clone(),
-            Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right, env),
+            Expr::Unary { operator, right } => self.format_unary(&operator.lexeme, right),
             Expr::Variable(Binding { name, .. }) => name.lexeme.clone(),
         }
     }

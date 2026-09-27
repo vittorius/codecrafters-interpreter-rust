@@ -1,9 +1,9 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    callable::{CallResult, Callable,  SharedClone},
     interpreter::Interpreter,
-    value::Value,
+    interpreter::callable::{CallResult, Callable, SharedClone},
+    interpreter::value::Value,
 };
 
 #[derive(Debug)]
@@ -27,8 +27,6 @@ impl Callable for NativeFunction {
     fn call(self: Rc<Self>, _interpreter: &Interpreter, _arguments: &[Value]) -> CallResult {
         (self.callback)()
     }
-
-    
 }
 
 impl SharedClone for NativeFunction {}

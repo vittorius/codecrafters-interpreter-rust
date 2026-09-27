@@ -1,8 +1,6 @@
-// TODO: move inside the 'interpreter' module
-
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{error::RuntimeError, token::Token, value::Value};
+use crate::{error::RuntimeError, token::Token, interpreter::value::Value};
 
 // The approach with Env/EnvData is borrowed from here https://github.com/cc-code-examples/kind-leopard-632316/blob/main/src/environment.rs#L8
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing

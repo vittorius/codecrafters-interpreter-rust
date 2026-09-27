@@ -7,17 +7,30 @@ use std::{
 #[cfg(feature = "lambdas")]
 use crate::expr::FunExpr;
 use crate::{
-    callable::SharedClone,
-    class::Class,
-    environment::Env,
     error::RuntimeError,
-    expr::{self, Binding, Expr},
-    function::{Function, FunctionShared},
-    native_function::NativeFunction,
-    stmt::{self, ClassDecl, FunDecl, Stmt},
+    expr::{Binding, Expr},
+    interpreter::{
+        callable::SharedClone,
+        class::Class,
+        environment::Env,
+        function::{Function, FunctionShared},
+        native_function::NativeFunction,
+        value::Value,
+    },
+    stmt::{ClassDecl, FunDecl, Stmt},
     token::{self, Token, TokenType as TT},
-    value::Value::{self, Object},
 };
+
+mod callable;
+mod class;
+mod environment;
+mod expr_visitor;
+mod function;
+mod instance;
+mod native_function;
+pub mod resolver;
+mod stmt_visitor;
+mod value;
 
 pub type Void = (); // right now, trying to follow the book, maybe remove it later
 const VOID_OK: StmtResult = Ok(());
@@ -180,7 +193,7 @@ impl Interpreter {
     fn visit_set_expr(&self, object: &Expr, name: &Token, value: &Expr, env: &Env) -> ExprResult {
         let object = self.evaluate(object, env)?;
 
-        if let Object(instance) = object {
+        if let Value::Object(instance) = object {
             let value = self.evaluate(value, env)?;
             instance.borrow_mut().set(name.clone(), value.clone());
 
@@ -352,6 +365,8 @@ impl Interpreter {
 
     #[cfg(feature = "lambdas")]
     fn visit_function_expr(&self, fun_expr: FunExpr, env: &Env) -> ExprResult {
+        use crate::interpreter::function::Function;
+
         let function = Function::new_lambda(fun_expr, Env::clone(env));
         Ok(Value::Fn(Rc::new(function)))
     }
@@ -467,7 +482,7 @@ impl Interpreter {
     }
 }
 
-impl expr::VisitorEnv<ExprResult> for Interpreter {
+impl expr_visitor::VisitorEnv<ExprResult> for Interpreter {
     fn visit_expr(&self, expr: &Expr, env: &Env) -> ExprResult {
         match expr {
             Expr::Assign {
@@ -517,7 +532,7 @@ impl expr::VisitorEnv<ExprResult> for Interpreter {
     }
 }
 
-impl stmt::VisitorEnv<StmtResult> for Interpreter {
+impl stmt_visitor::VisitorEnv<StmtResult> for Interpreter {
     fn visit_stmt(&self, stmt: &Stmt, env: &Env) -> StmtResult {
         match stmt {
             Stmt::Block(statements) => self.execute_block(statements, &Env::new(Some(env))),

@@ -1,11 +1,9 @@
-// TODO: move inside the 'interpreter' module
-
 use std::{
     fmt::{Debug, Display},
     rc::Rc,
 };
 
-use crate::{error::RuntimeError, interpreter::Interpreter, value::Value};
+use crate::{error::RuntimeError, interpreter::Interpreter, interpreter::value::Value};
 
 pub type CallResult = Result<Value, RuntimeError>;
 
