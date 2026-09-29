@@ -118,9 +118,8 @@ impl Visitor<String> for AstPrinter {
 
 #[cfg(test)]
 mod tests {
-    use crate::token::{Literal, Token, TokenType};
-
     use super::*;
+    use crate::token::{Literal, Token, TokenType};
 
     #[test]
     fn test_ast_printer() {

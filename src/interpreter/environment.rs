@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{error::RuntimeError, token::Token, interpreter::value::Value};
+use crate::{error::RuntimeError, interpreter::value::Value, token::Token};
 
 // The approach with Env/EnvData is borrowed from here https://github.com/cc-code-examples/kind-leopard-632316/blob/main/src/environment.rs#L8
 // Rc<RefCell<...>> usage is inevitable because a single environment can become primary or enclosing
@@ -17,7 +17,7 @@ impl Env {
             Some(enclosing) => EnvData::new(Rc::clone(&enclosing.data)),
             None => EnvData::default(),
         };
-        
+
         Self {
             data: Rc::new(RefCell::new(env_data)),
         }

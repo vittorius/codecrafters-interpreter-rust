@@ -3,7 +3,7 @@ use std::process::Output;
 
 mod common;
 
-use common::{run_binary, TempLoxFile};
+use common::{TempLoxFile, run_binary};
 
 fn run_tokenize(path: &Path) -> Output {
     run_binary("tokenize", path)
@@ -82,11 +82,7 @@ fn test_unterminated_multiline_comment() {
     // character to be rescanned as a bogus trailing token. Ending on `\n`
     // avoids that (the `('\n', _)` arm always consumes it, so the next
     // iteration cleanly sees true EOF), keeping this test deterministic.
-    let source = concat!(
-        "(1 + 2)\n",
-        "/* this comment\n",
-        "never closes\n",
-    );
+    let source = concat!("(1 + 2)\n", "/* this comment\n", "never closes\n",);
 
     let expected_stdout = concat!(
         "LEFT_PAREN ( null\n",

@@ -3,7 +3,6 @@ use crate::{
     token::Token,
 };
 
-
 // These variants own their Exprs because the latter ones
 // are not being used anywhere besides being the part of their
 // owning statements. Owned Exprs could not be references here
@@ -44,7 +43,6 @@ pub enum Stmt {
 }
 
 impl Stmt {
-
     pub fn boxed(self) -> Box<Self> {
         Box::new(self)
     }

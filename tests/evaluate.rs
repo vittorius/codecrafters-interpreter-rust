@@ -125,4 +125,3 @@ mod str_num_concat_tests {
         assert_evaluate_success(r#"3.14 + " is pi""#, "3.14 is pi\n");
     }
 }
-

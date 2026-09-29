@@ -1,9 +1,9 @@
 use std::{fmt::Display, rc::Rc};
 
 use crate::{
-    interpreter::callable::Callable, interpreter::callable::CloneRef,
-    interpreter::class::ClassRef, interpreter::function::FunctionRef,
-    interpreter::instance::InstanceRef, interpreter::native_function::NativeFunctionRef,
+    interpreter::callable::Callable, interpreter::callable::CloneRef, interpreter::class::ClassRef,
+    interpreter::function::FunctionRef, interpreter::instance::InstanceRef,
+    interpreter::native_function::NativeFunctionRef,
 };
 
 // We made Value cloneable because we need to be able to store values in the environment
