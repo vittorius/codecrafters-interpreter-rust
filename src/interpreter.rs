@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
+    io::stdin,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -49,15 +50,27 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         let env = Env::new(None);
+
         env.define(
             "clock".to_owned(),
-            Value::NativeFn(NativeFunction::new_ref(|| {
+            Value::NativeFn(NativeFunction::new_ref(0, |_| {
                 Ok(Value::Num(
                     SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .expect("system time is before the Unix epoch")
                         .as_secs_f64(),
                 ))
+            })),
+        );
+
+        env.define(
+            "readline".to_owned(),
+            Value::NativeFn(NativeFunction::new_ref(0, |_| {
+                let mut buf = String::new();
+                stdin()
+                    .read_line(&mut buf)
+                    .map(|_| Value::Str(buf))
+                    .map_err(|err| RuntimeError::new_internal(&err.to_string()))
             })),
         );
 
