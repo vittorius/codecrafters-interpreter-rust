@@ -274,7 +274,7 @@ mod tests {
         while let Some(c) = chars.next() {
             if c == '\x1b' {
                 // skip until (and including) the terminating 'm' of the sequence
-                while let Some(c) = chars.next() {
+                for c in chars.by_ref() {
                     if c == 'm' {
                         break;
                     }
