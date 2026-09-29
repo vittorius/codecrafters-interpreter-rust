@@ -1,7 +1,8 @@
+#[cfg(feature = "readline")]
+use std::io::{IsTerminal, Write, stdin, stdout};
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    io::stdin,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -46,6 +47,45 @@ pub struct Interpreter {
     env: Env,
 }
 
+/// Reads a line from the OS stdin, without its trailing line terminator.
+///
+/// This works both when running a script and inside the rustyline REPL:
+/// rustyline restores the terminal to canonical mode as soon as a submitted
+/// line is returned, so a plain `read_line` on stdin blocks on the user's next
+/// Enter, with the tty echoing and editing the input.
+///
+/// The `? ` prompt is printed only when stdin is a terminal: piped input (e.g.
+/// `echo hi | interpreter run script.lox`) would otherwise get a stray prompt
+/// in the middle of the program's output. On EOF an empty string is returned,
+/// so a script can loop on `readline()` without hanging.
+#[cfg(feature = "readline")]
+fn read_line_from_stdin() -> StringResult {
+    if stdin().is_terminal() {
+        print!("? ");
+        // The prompt is written to a line-buffered stdout, so it would otherwise
+        // sit invisible in the buffer while we block on stdin.
+        stdout()
+            .flush()
+            .map_err(|err| RuntimeError::new_internal(&err.to_string()))?;
+    }
+
+    let mut line = String::new();
+    stdin()
+        .read_line(&mut line)
+        .map_err(|err| RuntimeError::new_internal(&err.to_string()))?;
+
+    // `read_line` keeps the trailing '\n' (and a '\r' on CRLF input); strip it
+    // so the value compares and concatenates like any other Lox string.
+    if line.ends_with('\n') {
+        line.pop();
+        if line.ends_with('\r') {
+            line.pop();
+        }
+    }
+
+    Ok(line)
+}
+
 #[allow(clippy::unnecessary_wraps, clippy::ref_option, clippy::unused_self)]
 impl Interpreter {
     pub fn new() -> Self {
@@ -63,14 +103,11 @@ impl Interpreter {
             })),
         );
 
+        #[cfg(feature = "readline")]
         env.define(
             "readline".to_owned(),
             Value::NativeFn(NativeFunction::new_ref(0, |_| {
-                let mut buf = String::new();
-                stdin()
-                    .read_line(&mut buf)
-                    .map(|_| Value::Str(buf))
-                    .map_err(|err| RuntimeError::new_internal(&err.to_string()))
+                read_line_from_stdin().map(Value::Str)
             })),
         );
 
