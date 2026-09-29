@@ -1,14 +1,18 @@
 use std::borrow::Cow;
 use std::path::Path;
 
+use rustyline::Cmd;
 use rustyline::Editor;
 use rustyline::Helper;
+use rustyline::KeyCode;
+use rustyline::KeyEvent;
+use rustyline::Modifiers;
 use rustyline::completion::Completer;
 use rustyline::error::ReadlineError;
 use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
 use rustyline::history::DefaultHistory;
-use rustyline::validate::Validator;
+use rustyline::validate::{ValidationContext, ValidationResult, Validator};
 
 use crate::ExitValue;
 use crate::interpreter::Interpreter;
@@ -92,15 +96,21 @@ fn highlight_gap(gap: &str) -> String {
         let comment = &rest[idx..];
 
         if comment.starts_with("//") {
-            highlighted.push_str(&colorize(comment, GRAY));
-            return highlighted;
-        }
-
-        // block comment: gray up to the closing "*/" or up to the line end
-        if let Some(end) = comment.find("*/") {
+            // line comment: gray up to (excluding) the newline, so that the
+            // following lines of a multiline buffer keep getting highlighted
+            if let Some(end) = comment.find('\n') {
+                highlighted.push_str(&colorize(&comment[..end], GRAY));
+                rest = &comment[end..];
+            } else {
+                highlighted.push_str(&colorize(comment, GRAY));
+                return highlighted;
+            }
+        } else if let Some(end) = comment.find("*/") {
+            // block comment: gray up to the closing "*/"
             highlighted.push_str(&colorize(&comment[..end + 2], GRAY));
             rest = &comment[end + 2..];
         } else {
+            // unterminated block comment: gray up to the end of the buffer
             highlighted.push_str(&colorize(comment, GRAY));
             return highlighted;
         }
@@ -144,6 +154,125 @@ fn highlight_line(line: &str) -> String {
     highlighted
 }
 
+/// Lexical fragment check for multiline REPL input (idea borrowed from
+/// evcxr's `scan.rs`): tells whether `source` is obviously cut off midway —
+/// unclosed brackets, an unterminated string or block comment, or a trailing
+/// operator / comma / dot / `else`. Such input keeps collecting lines on Enter
+/// instead of being submitted.
+///
+/// Mirrors the `Scanner` semantics: block comments nest and may span multiple
+/// lines; strings have no backslash escapes and may span multiple lines.
+/// Deliberately conservative: if unsure, treat the input as complete so it gets
+/// submitted and reported by the parser rather than trapping the user in a
+/// continuation line.
+fn is_incomplete_fragment(source: &str) -> bool {
+    // Characters a valid Lox fragment can never end with (an open bracket is
+    // covered by the bracket stack below)
+    const TRAILING_OPERATOR: &[char] = &[
+        '+', '-', '*', '/', '%', '=', '<', '>', '!', '&', '|', ',', '.',
+    ];
+
+    let mut brackets: Vec<char> = Vec::new();
+    let mut chars = source.chars().peekable();
+    // trailing context outside strings and comments, for the heuristics below
+    let mut last_char: Option<char> = None;
+    let mut last_word = String::new();
+    let mut word_stale = false; // a whitespace gap precedes the next word char
+
+    while let Some(c) = chars.next() {
+        match c {
+            '(' | '{' | '[' => {
+                brackets.push(c);
+                last_char = Some(c);
+                last_word.clear();
+            }
+            ')' | '}' | ']' => {
+                let opener = match c {
+                    ')' => '(',
+                    '}' => '{',
+                    _ => '[',
+                };
+                if brackets.pop() != Some(opener) {
+                    // Mismatched brackets: no additional input will fix this,
+                    // so submit and let the parser report the error.
+                    return false;
+                }
+                last_char = Some(c);
+                last_word.clear();
+            }
+            '"' => {
+                last_word.clear();
+                // String: up to the next quote (the scanner has no escape
+                // handling), and an unclosed one may still be completed
+                if !chars.by_ref().any(|c| c == '"') {
+                    return true;
+                }
+                last_char = Some('"');
+            }
+            '/' => match chars.peek() {
+                Some('/') => {
+                    // line comment: transparent to the trailing context
+                    while matches!(chars.peek(), Some(&c) if c != '\n') {
+                        chars.next();
+                    }
+                }
+                Some('*') => {
+                    // nested block comment, also transparent to the trailing
+                    // context
+                    chars.next(); // consume "*"
+                    let mut depth = 1usize;
+                    while depth > 0 {
+                        let Some(c) = chars.next() else {
+                            return true; // unterminated block comment
+                        };
+                        match (c, chars.peek()) {
+                            ('*', Some('/')) => {
+                                chars.next();
+                                depth -= 1;
+                            }
+                            ('/', Some('*')) => {
+                                chars.next();
+                                depth += 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                _ => {
+                    last_char = Some('/');
+                    last_word.clear();
+                }
+            },
+            c if c.is_whitespace() => word_stale = true,
+            c if c.is_ascii_alphanumeric() || c == '_' => {
+                if word_stale {
+                    last_word.clear();
+                    word_stale = false;
+                }
+                last_word.push(c);
+                last_char = Some(c);
+            }
+            _ => {
+                last_char = Some(c);
+                last_word.clear();
+            }
+        }
+    }
+
+    !brackets.is_empty()
+        || last_word == "else"
+        || matches!(last_char, Some(c) if TRAILING_OPERATOR.contains(&c))
+}
+
+/// Whether Enter should insert a newline instead of submitting `input`.
+///
+/// Escape hatch (evcxr-style): hammering Enter on an already empty
+/// continuation line — at which point the buffer ends with "\n\n" —
+/// force-submits whatever is there and lets the parser report the error.
+fn should_continue(input: &str) -> bool {
+    !input.ends_with("\n\n") && is_incomplete_fragment(input)
+}
+
 struct LoxHelper;
 
 impl Completer for LoxHelper {
@@ -154,7 +283,15 @@ impl Hinter for LoxHelper {
     type Hint = String;
 }
 
-impl Validator for LoxHelper {}
+impl Validator for LoxHelper {
+    fn validate(&self, ctx: &mut ValidationContext<'_>) -> Result<ValidationResult, ReadlineError> {
+        if should_continue(ctx.input()) {
+            Ok(ValidationResult::Incomplete)
+        } else {
+            Ok(ValidationResult::Valid(None))
+        }
+    }
+}
 
 impl Helper for LoxHelper {}
 
@@ -191,6 +328,15 @@ pub fn run() -> ExitValue {
         }
     };
     editor.set_helper(Some(LoxHelper));
+
+    // Keys for a manual newline, regardless of how complete the input looks.
+    // rustyline 18 doesn't parse the kitty keyboard protocol, so terminals
+    // deliver "Ctrl+Enter" as either Ctrl+J (LF) or Alt+Enter (ESC CR); Ctrl+J
+    // is also the classic Emacs newline binding. Enter+CTRL is there for the
+    // Windows console.
+    editor.bind_sequence(KeyEvent::from('\n'), Cmd::Newline);
+    editor.bind_sequence(KeyEvent(KeyCode::Enter, Modifiers::ALT), Cmd::Newline);
+    editor.bind_sequence(KeyEvent(KeyCode::Enter, Modifiers::CTRL), Cmd::Newline);
 
     if Path::new(HISTORY_FILE).exists()
         && let Err(err) = editor.load_history(HISTORY_FILE)
@@ -264,7 +410,10 @@ fn run_with_interpreter(source: &str, interpreter: &mut Interpreter) -> Result<(
 
 #[cfg(test)]
 mod tests {
-    use super::{AQUA, FG, GRAY, GREEN, PURPLE, RED, colorize, highlight_line};
+    use super::{
+        AQUA, FG, GRAY, GREEN, PURPLE, RED, colorize, highlight_line, is_incomplete_fragment,
+        should_continue,
+    };
 
     /// Strips ANSI SGR escape sequences (`ESC[...m`) from `highlighted`.
     fn strip_ansi(highlighted: &str) -> String {
@@ -321,5 +470,100 @@ mod tests {
 
         assert!(highlighted.contains(&colorize("var", RED)));
         assert_eq!(strip_ansi(&highlighted), line);
+    }
+
+    #[test]
+    fn line_comments_stop_at_the_newline_in_multiline_input() {
+        let line = "print 1; // c\nprint 2;";
+        let highlighted = highlight_line(line);
+
+        assert!(highlighted.contains(&colorize("// c", GRAY)));
+        // the code after the newline is still highlighted as code
+        assert_eq!(highlighted.matches(&colorize("print", RED)).count(), 2);
+        assert_eq!(strip_ansi(&highlighted), line);
+    }
+
+    #[test]
+    fn block_comments_span_lines_in_multiline_input() {
+        let line = "/* a\nb */ print 1;";
+        let highlighted = highlight_line(line);
+
+        assert!(highlighted.contains(&colorize("/* a\nb */", GRAY)));
+        assert!(highlighted.contains(&colorize("print", RED)));
+        assert_eq!(strip_ansi(&highlighted), line);
+    }
+
+    #[test]
+    fn multiline_highlighting_preserves_the_visible_text() {
+        let line = "fun f() {\n  return \"x\";\n}\n// tail";
+        assert_eq!(strip_ansi(&highlight_line(line)), line);
+    }
+
+    #[test]
+    fn complete_fragments_are_submitted() {
+        for source in [
+            "",
+            "print 1;",
+            "var x = 40 + 2;",
+            "fun f() { return 1; }",
+            "if (a) { b(); } else { c(); }",
+            "class A < B { m() { return this; } }",
+            r#"print "a } in a string";"#,
+            "print 1; // a comment { with a bracket",
+            "print 1; /* a comment } */",
+            "print -5;",
+            "print obj.field;",
+            "print 4.5;",
+            ":help",
+            ":quit",
+        ] {
+            assert!(
+                !is_incomplete_fragment(source),
+                "should be complete: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn incomplete_fragments_continue_the_line() {
+        for source in [
+            "fun f() {",
+            "fun f(n) {",
+            "if (a) {",
+            "class A {",
+            "print (1 + 2",
+            "print 1 +",
+            "var x =",
+            "print obj.",
+            "if (a) b; else",
+            r#"print "unterminated"#,
+            "/* unterminated block",
+            "print 1; /* nested /* still open */",
+            "fun f() { // a comment",
+        ] {
+            assert!(
+                is_incomplete_fragment(source),
+                "should be incomplete: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn mismatched_brackets_are_submitted_for_a_parser_error() {
+        for source in ["print 1);", "}", "fun f() }", "print (1];", r#""a" )"#] {
+            assert!(
+                !is_incomplete_fragment(source),
+                "should not block submission: {source:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn double_enter_force_submits_an_incomplete_fragment() {
+        // first Enter on the continuation line adds a newline...
+        let continuation = "fun f() {\n";
+        assert!(should_continue(continuation));
+        // ...the second one submits the whole thing
+        assert!(!should_continue("fun f() {\n\n"));
     }
 }

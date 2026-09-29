@@ -12,7 +12,7 @@ A Rust implementation of an interpreter for Lox (from the book
 CodeCrafters
 ["Build your own Interpreter"](https://app.codecrafters.io/courses/interpreter/overview)
 challenge. Complete pipeline: scanner, recursive-descent parser, tree-walking
-interpreter with a resolver, and a crossterm-based REPL. Extensions beyond the
+interpreter with a resolver, and a rustyline-based REPL. Extensions beyond the
 book are gated behind cargo feature flags (see below). Binary-only crate (no
 `lib.rs`); edition 2024, `rust-version = 1.96` (matches the CodeCrafters
 `rust-1.96` buildpack in `codecrafters.yml`).
@@ -28,6 +28,13 @@ book are gated behind cargo feature flags (see below). Binary-only crate (no
 - REPL: `cargo run -- repl` (rustyline-based; loads `history.txt` from the
   current dir if present and saves it on exit; internal commands `:help` and
   `:quit`; Ctrl+C/Ctrl+D exit gracefully like `:quit`, with code `0`)
+- REPL multiline input (evcxr-style): Enter continues the line while the input
+  is lexically incomplete (unclosed bracket/string/block comment, trailing
+  operator or `else`) instead of submitting; Enter on an empty continuation line
+  (buffer ends with `\n\n`) force-submits so the parser can report the error;
+  Ctrl+J and Alt+Enter insert a newline unconditionally. Multiline snippets
+  round-trip through `history.txt` (the `#V2` format escapes newlines) and
+  Up/Down navigate them (`LineUpOrPreviousHistory`)
 - Run tests (default features only, complying with the CodeCrafters test suite):
   `cargo test`
 - Run all tests including feature-gated ones: `cargo test --all-features`
@@ -63,7 +70,12 @@ with `--all-features` when touching those files.
 - `src/repl.rs` — rustyline REPL with a custom `Highlighter`: reuses `Scanner`
   to colorize each input line with a Gruvbox Dark truecolor palette (tokens via
   `Token.start` byte offsets, comments detected in between-token gaps; on scan
-  errors the valid prefix is highlighted from `ScanError`'s partial tokens).
+  errors the valid prefix is highlighted from `ScanError`'s partial tokens). Its
+  `Validator` drives multiline input: `is_incomplete_fragment` is a small
+  lexical fragment checker (idea borrowed from evcxr) that mirrors the `Scanner`
+  semantics (nested block comments, escape-less multiline strings) and is
+  deliberately conservative: it submits anything it isn't sure is unfinished so
+  the parser reports the error instead of trapping the user
 - `src/scanner.rs` — the tokenizer, structured as two layers:
   - `Cursor<'a>`: a thin wrapper around a `Peekable<Chars<'a>>` providing raw
     character-level lookahead (`advance`, `peek`, `peek_next`, `is_at_end`) with
