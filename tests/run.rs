@@ -215,3 +215,147 @@ mod lambda_tests {
         );
     }
 }
+
+/// Native functions. `clock` is ungated; `readline` needs its own feature.
+mod native_fn_tests {
+    use super::*;
+
+    #[test]
+    fn test_clock_returns_a_non_decreasing_number() {
+        assert_run_success("print(clock() <= clock());", "true\n");
+    }
+
+    #[test]
+    fn test_native_fn_prints_as_a_native_fn() {
+        assert_run_success("print clock;", "<native fn>\n");
+    }
+
+    #[test]
+    fn test_calling_a_native_fn_with_the_wrong_arity_is_an_error() {
+        assert_run_runtime_error("clock(1);", "Expected 0 arguments but got 1.");
+    }
+}
+
+#[cfg(feature = "readline")]
+mod readline_tests {
+    use super::*;
+    use crate::common::run_binary_with_stdin;
+
+    fn assert_readline(source: &str, stdin: &str, expected_stdout: &str) {
+        let file = TempLoxFile::new(source);
+        let output = run_binary_with_stdin("run", &file.path, stdin);
+
+        assert!(
+            output.status.success(),
+            "run exited with {}; stderr:\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8(output.stdout).expect("stdout was not valid UTF-8");
+        assert_eq!(stdout, expected_stdout);
+    }
+
+    #[test]
+    fn test_readline_returns_the_line_typed_on_stdin() {
+        assert_readline("print(readline());", "hello\n", "hello\n");
+    }
+
+    #[test]
+    fn test_readline_strips_the_trailing_newline() {
+        // The value must be a plain Lox string: equal to its own literal and
+        // safe to concatenate, with no stray line break inside it.
+        assert_readline(
+            r#"
+            print(readline() == "hello");
+            print("[" + readline() + "]");
+            "#,
+            "hello\nworld\n",
+            "true\n[world]\n",
+        );
+    }
+
+    #[test]
+    fn test_readline_strips_a_crlf_line_terminator() {
+        assert_readline(r#"print(readline() == "hello");"#, "hello\r\n", "true\n");
+    }
+
+    #[test]
+    fn test_readline_keeps_leading_and_trailing_spaces() {
+        assert_readline(
+            r#"print("[" + readline() + "]");"#,
+            "  spaced  \n",
+            "[  spaced  ]\n",
+        );
+    }
+
+    #[test]
+    fn test_readline_returns_an_empty_string_at_eof() {
+        // No stdin at all, then a line, then a premature EOF: every read past
+        // the end of the input yields "" instead of hanging.
+        assert_readline(
+            r#"
+            print("[" + readline() + "]");
+            print("[" + readline() + "]");
+            "#,
+            "only\n",
+            "[only]\n[]\n",
+        );
+    }
+
+    #[test]
+    fn test_readline_can_be_called_repeatedly() {
+        assert_readline(
+            r#"
+            var first = readline();
+            var second = readline();
+            print(first + " " + second);
+            "#,
+            "foo\nbar\n",
+            "foo bar\n",
+        );
+    }
+
+    #[test]
+    fn test_readline_is_a_first_class_value() {
+        assert_readline("var f = readline; print(f());", "via-var\n", "via-var\n");
+    }
+
+    #[test]
+    fn test_readline_print_prompt_is_not_emitted_for_piped_stdin() {
+        // The `? ` prompt is for interactive terminals only; piped input must
+        // not inject it into the program's stdout.
+        assert_readline(r#"print("[" + readline() + "]");"#, "hi\n", "[hi]\n");
+    }
+
+    #[test]
+    fn test_readline_can_drive_a_loop() {
+        assert_readline(
+            r#"
+            var line = readline();
+            while (line != "quit") {
+              print "got " + line;
+              line = readline();
+            }
+            "#,
+            "one\ntwo\nquit\n",
+            "got one\ngot two\n",
+        );
+    }
+
+    #[test]
+    fn test_calling_readline_with_an_argument_is_an_error() {
+        let file = TempLoxFile::new(r#"readline("> ");"#);
+        let output = run_binary_with_stdin("run", &file.path, "unused\n");
+
+        assert_eq!(output.status.code(), Some(70));
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("Expected 0 arguments but got 1."),
+            "expected an arity error, got:\n{stderr}",
+        );
+        // The argument is rejected before any read happens, so stdin is untouched.
+        assert!(stderr.contains("[line 1]"), "got:\n{stderr}");
+    }
+}

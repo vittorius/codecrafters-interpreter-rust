@@ -54,11 +54,21 @@ book are gated behind cargo feature flags (see below). Binary-only crate (no
 ## Feature flags
 
 Features in `Cargo.toml` (`conditional-op`, `init-vars`, `str-cmp`,
-`str-num-concat`, `comma-op`, `lambdas`, `rpn-ast-printer`, `err-unused-vars`)
-gate both implementation code (`#[cfg(feature = ...)]` scattered through
-`parser.rs`, `interpreter.rs`, `expr.rs`, `printer/`) and the tests exercising
-them. A plain `cargo build`/`test`/`clippy` silently skips all of it — verify
-with `--all-features` when touching those files.
+`str-num-concat`, `comma-op`, `lambdas`, `rpn-ast-printer`, `err-unused-vars`,
+`readline`) gate both implementation code (`#[cfg(feature = ...)]` scattered
+through `parser.rs`, `interpreter.rs`, `expr.rs`, `printer/`) and the tests
+exercising them. A plain `cargo build`/`test`/`clippy` silently skips all of it
+— verify with `--all-features` when touching those files.
+
+The `readline` feature adds a `readline()` native function (a
+`NativeFunction` in `Interpreter::new()`), which reads one line from the OS
+stdin minus its trailing `\r\n`. It works in `run` mode and inside the REPL:
+rustyline restores the terminal to canonical mode once a submitted line is
+returned, so a plain `stdin().read_line` blocks on the user's next Enter with
+the tty echoing and editing the input. The `? ` prompt is printed only when
+stdin is a terminal, so piped input (`tests/repl.rs` drives the whole REPL
+this way) never sees it. REPL integration tests live in `tests/repl.rs` and
+script-mode ones in the `readline_tests` module of `tests/run.rs`.
 
 ## Architecture
 

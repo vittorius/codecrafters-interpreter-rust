@@ -9,6 +9,11 @@ impl RuntimeError {
     pub fn new(token: &Token, message: &str) -> Self {
         RuntimeError(lox::fmt_runtime_error(token.line, message))
     }
+
+    #[cfg(feature = "readline")]
+    pub fn new_internal(message: &str) -> Self {
+        RuntimeError(format!("Internal error: {message}"))
+    }
 }
 
 impl From<RuntimeError> for String {
