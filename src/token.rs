@@ -106,6 +106,9 @@ pub struct Token {
     pub lexeme: String,
     pub literal: Option<Literal>,
     pub line: usize,
+    /// Byte offset of the lexeme's start within the source. Used by the
+    /// REPL's syntax highlighter to map tokens back onto the input line.
+    pub start: usize,
 }
 
 impl Token {
@@ -114,12 +117,14 @@ impl Token {
         lexeme: String,
         literal: Option<Literal>,
         line: usize,
+        start: usize,
     ) -> Self {
         Self {
             token_type,
             lexeme,
             literal,
             line,
+            start,
         }
     }
 }
@@ -144,6 +149,7 @@ pub static THIS: LazyLock<Token> = LazyLock::new(|| Token {
     lexeme: String::from("this"),
     literal: None,
     line: 0,
+    start: 0,
 });
 
 // have to keep this for because resolver's Scope keeps into on Tokens bound to declared names
@@ -152,4 +158,5 @@ pub static SUPER: LazyLock<Token> = LazyLock::new(|| Token {
     lexeme: String::from("super"),
     literal: None,
     line: 0,
+    start: 0,
 });

@@ -129,17 +129,17 @@ mod tests {
             left: Expr::Grouping(
                 Expr::Binary {
                     left: Expr::Literal(Literal::Num(1.0)).boxed(),
-                    operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
+                    operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1, 0),
                     right: Expr::Literal(Literal::Num(2.0)).boxed(),
                 }
                 .boxed(),
             )
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
+            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1, 0),
             right: Expr::Grouping(
                 Expr::Binary {
                     left: Expr::Literal(Literal::Num(4.0)).boxed(),
-                    operator: Token::new(TokenType::PLUS, "-".to_owned(), None, 1),
+                    operator: Token::new(TokenType::PLUS, "-".to_owned(), None, 1, 0),
                     right: Expr::Literal(Literal::Num(3.0)).boxed(),
                 }
                 .boxed(),
@@ -156,12 +156,12 @@ mod tests {
     fn test_assignment_expression() {
         let expr = Expr::Assign {
             variable: Binding {
-                name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
+                name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1, 0),
                 depth: None,
             },
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
-                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
+                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1, 0),
                 right: Expr::Literal(Literal::Num(2.0)).boxed(),
             }
             .boxed(),

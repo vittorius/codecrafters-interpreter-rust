@@ -110,8 +110,13 @@ impl<'a> Scanner<'a> {
             self.scan_token();
         }
 
-        self.tokens
-            .push(Token::new(TokenType::EOF, String::new(), None, self.line));
+        self.tokens.push(Token::new(
+            TokenType::EOF,
+            String::new(),
+            None,
+            self.line,
+            self.cursor.cur_byte,
+        ));
 
         if self.errors.is_empty() {
             Ok(self.tokens)
@@ -198,6 +203,7 @@ impl<'a> Scanner<'a> {
             self.cur_lexeme().to_owned(),
             literal,
             self.line,
+            self.cursor.start_byte,
         ));
     }
 

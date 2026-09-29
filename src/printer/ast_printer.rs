@@ -133,11 +133,11 @@ mod tests {
 
         let expr = Expr::Binary {
             left: Expr::Unary {
-                operator: Token::new(TokenType::MINUS, "-".to_owned(), None, 1),
+                operator: Token::new(TokenType::MINUS, "-".to_owned(), None, 1, 0),
                 right: Expr::Literal(Literal::Num(123.0)).boxed(),
             }
             .boxed(),
-            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1),
+            operator: Token::new(TokenType::STAR, "*".to_owned(), None, 1, 0),
             right: Expr::Grouping(Expr::Literal(Literal::Num(45.67)).boxed()).boxed(),
         };
 
@@ -150,12 +150,12 @@ mod tests {
     fn test_assignment_expression() {
         let expr = Expr::Assign {
             variable: Binding {
-                name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1),
+                name: Token::new(TokenType::IDENTIFIER, "answer".to_owned(), None, 1, 0),
                 depth: None,
             },
             value: Expr::Binary {
                 left: Expr::Literal(Literal::Num(40.0)).boxed(),
-                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1),
+                operator: Token::new(TokenType::PLUS, "+".to_owned(), None, 1, 0),
                 right: Expr::Literal(Literal::Num(2.0)).boxed(),
             }
             .boxed(),

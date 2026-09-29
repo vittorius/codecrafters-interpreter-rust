@@ -25,7 +25,9 @@ book are gated behind cargo feature flags (see below). Binary-only crate (no
   runs it — this reproduces the CodeCrafters compile/run flow from
   `.codecrafters/compile.sh` + `run.sh`, so prefer it over `cargo run` when
   checking end-to-end behavior)
-- REPL: `cargo run -- repl`
+- REPL: `cargo run -- repl` (rustyline-based; loads `history.txt` from the
+  current dir if present and saves it on exit; internal commands `:help` and
+  `:quit`; Ctrl+C/Ctrl+D exit gracefully like `:quit`, with code `0`)
 - Run tests (default features only, complying with the CodeCrafters test suite):
   `cargo test`
 - Run all tests including feature-gated ones: `cargo test --all-features`
@@ -36,6 +38,10 @@ book are gated behind cargo feature flags (see below). Binary-only crate (no
   `pedantic` and others warn — use `.expect("...")` over `.unwrap()`)
 - Format: `cargo fmt`, but `rustfmt.toml` sets the nightly-only `group_imports`;
   stable fmt warns and skips it. Use `cargo +nightly fmt` to fully comply.
+- Verify every successful build/change with BOTH `cargo test --all-features` and
+  `codecrafters test -previous` (server-side rerun of all previously passed
+  challenge stages, without committing) — this is a CodeCrafters challenge, so
+  never break an already-passed stage
 - Submit to CodeCrafters: `codecrafters submit`
 
 ## Feature flags
@@ -51,9 +57,13 @@ with `--all-features` when touching those files.
 
 - `src/main.rs` — CLI entry point. `tokenize|parse|evaluate|run <filename>` plus
   `repl`. Maps errors to exit codes that tests assert on: `0` success, `64`
-  usage, `65` lexical/syntactic/resolution error, `70` runtime error, `130` REPL
-  interrupt. `parse`/`evaluate` use `Parser::parse_expr` (a single expression);
-  `run` uses `Parser::parse` (statements) then `Resolver` then `Interpreter`.
+  usage, `65` lexical/syntactic/resolution error, `70` runtime error.
+  `parse`/`evaluate` use `Parser::parse_expr` (a single expression); `run` uses
+  `Parser::parse` (statements) then `Resolver` then `Interpreter`.
+- `src/repl.rs` — rustyline REPL with a custom `Highlighter`: reuses `Scanner`
+  to colorize each input line with a Gruvbox Dark truecolor palette (tokens via
+  `Token.start` byte offsets, comments detected in between-token gaps; on scan
+  errors the valid prefix is highlighted from `ScanError`'s partial tokens).
 - `src/scanner.rs` — the tokenizer, structured as two layers:
   - `Cursor<'a>`: a thin wrapper around a `Peekable<Chars<'a>>` providing raw
     character-level lookahead (`advance`, `peek`, `peek_next`, `is_at_end`) with
@@ -66,6 +76,9 @@ with `--all-features` when touching those files.
     with them.
   - The custom `scanner::Result`'s `Err(ScanError(ErrorSink, Tokens))` still
     carries the partially scanned tokens.
+  - Tokens carry their `start` byte offset in the source (used by the REPL
+    highlighter); `Token`'s `Display` format is asserted by the CodeCrafters
+    tokenize stage — don't change it.
 - `src/interpreter/` — tree-walking interpreter: `value`, `environment`,
   callables (`function`, `native_function`, `class`, `instance`), `resolver`
   (with `scope.rs`), and `expr_visitor`/`stmt_visitor`.
