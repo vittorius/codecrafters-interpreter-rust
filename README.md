@@ -52,11 +52,11 @@ Note: This section is for stages 2 and beyond.
 3. Run `codecrafters submit` to submit your solution to CodeCrafters. Test
    output will be streamed to your terminal.
 
-## Teaser
-
-![Demo](./docs/demo.svg)
-
 ## Play with it
 
 This Lox interpreter supports true interactive REPL: run `cargo run -- repl` and
 type in some Lox constructs and expressions.
+
+## Teaser
+
+![Demo](./docs/demo.svg)
