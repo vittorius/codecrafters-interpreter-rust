@@ -57,6 +57,31 @@ Note: This section is for stages 2 and beyond.
 This Lox interpreter supports true interactive REPL: run `cargo run -- repl` and
 type in some Lox constructs and expressions.
 
+## Extras
+
+Some Lox extra features (suggested as Challenges in the book) are gated behind
+Cargo [features](./Cargo.toml#L28), use can test them like this:
+
+```sh
+cargo run -F lambdas -- repl
+
+> fun makeCounter() {
+    var cnt = 0;
+    return fun () {
+      cnt = cnt + 1;
+      print cnt;
+    };
+}
+> var printCnt = makeCounter();
+> printCnt();
+1
+> printCnt();
+2
+> printCnt();
+3
+>
+```
+
 ## Teaser
 
 ![Demo](./docs/demo.svg)
