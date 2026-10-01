@@ -54,12 +54,9 @@ Note: This section is for stages 2 and beyond.
 
 ## Teaser
 
-<!-- agg --speed 4.0 --idle-time-limit=1 --line-height=1.3 --cols=80 --rows=30 demo.cast demo.gif -->
-
-<img width="790" height="645" alt="demo" src="https://github.com/user-attachments/assets/bdb45e42-a404-4dbd-8aa8-faa1f1713ee7" /><!-- markdownlint-disable-line -->
+![Demo](./docs/demo.svg)
 
 ## Play with it
 
 This Lox interpreter supports true interactive REPL: run `cargo run -- repl` and
 type in some Lox constructs and expressions.
-
