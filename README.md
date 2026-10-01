@@ -57,7 +57,7 @@ Note: This section is for stages 2 and beyond.
 This Lox interpreter supports true interactive REPL: run `cargo run -- repl` and
 type in some Lox constructs and expressions.
 
-:info: Use `rustup` to install Rust, see instructions
+ℹ️ Use `rustup` to install Rust, see instructions
 [at Rust website](https://rust-lang.org/learn/get-started/)
 
 ## Extras
